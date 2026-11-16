@@ -1,0 +1,27 @@
+Bible desktop distribution notices
+
+Chinese scripture: Chinese Union Version (1919), simplified text from the
+CrossWire ChiUns 3.1 module, whose publisher identifies its text as Public Domain.
+Source: https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=ChiUns
+Text provenance: http://bible.fhl.net
+Only scripture text is included; optional Strong/morphology/footnote resources
+are not included. Source configuration is in licenses/scripture-ChiUns-source.conf;
+pinned data hashes are also recorded in the package build manifest.
+
+English scripture: World English Bible, Protestant edition (WEBP / engwebp).
+Source: https://ebible.org/bible/details.php?id=engwebp
+Publisher designation: Public Domain. Preserve the translation name only for
+unaltered scripture text. The source publisher's notice is in
+licenses/scripture-WEBP-source.html.
+
+Font: Noto Sans CJK SC, subset of the upstream regular font, licensed under the
+SIL Open Font License 1.1. Full copyright/license text is in
+licenses/font-Noto-CJK.txt. Subsetting uses fontTools 4.60.1; scripture wording
+is not modified. Font provenance and output checksum are in data/font.json.
+
+This application uses Wails (MIT), React (MIT), Ant Design (MIT), modernc SQLite
+and their linked dependencies. Individual copyright and license texts are in
+licenses/. Framework names here are legal notices, not application branding.
+
+Public repository access does not itself grant a license to the application's
+original source code. No original-source open-source license has been selected.

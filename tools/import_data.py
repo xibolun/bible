@@ -1,0 +1,176 @@
+"""Rebuild immutable text from pinned publisher archives and a plain SWORD export.
+
+SWORD export (no optional annotation filters):
+diatheke -b ChiUns -f plain -k 'Genesis 1:1-Revelation 22:21'
+Only verse text is retained; morphology/Strong/footnote payloads are not distributed.
+"""
+import argparse
+import gzip
+import hashlib
+import json
+import re
+import zipfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+METADATA = '''GEN|创世记|创|Genesis|50
+EXO|出埃及记|出|Exodus|40
+LEV|利未记|利|Leviticus|27
+NUM|民数记|民|Numbers|36
+DEU|申命记|申|Deuteronomy|34
+JOS|约书亚记|书|Joshua|24
+JDG|士师记|士|Judges|21
+RUT|路得记|得|Ruth|4
+1SA|撒母耳记上|撒上|I Samuel|31
+2SA|撒母耳记下|撒下|II Samuel|24
+1KI|列王纪上|王上|I Kings|22
+2KI|列王纪下|王下|II Kings|25
+1CH|历代志上|代上|I Chronicles|29
+2CH|历代志下|代下|II Chronicles|36
+EZR|以斯拉记|拉|Ezra|10
+NEH|尼希米记|尼|Nehemiah|13
+EST|以斯帖记|斯|Esther|10
+JOB|约伯记|伯|Job|42
+PSA|诗篇|诗|Psalms|150
+PRO|箴言|箴|Proverbs|31
+ECC|传道书|传|Ecclesiastes|12
+SNG|雅歌|歌|Song of Solomon|8
+ISA|以赛亚书|赛|Isaiah|66
+JER|耶利米书|耶|Jeremiah|52
+LAM|耶利米哀歌|哀|Lamentations|5
+EZK|以西结书|结|Ezekiel|48
+DAN|但以理书|但|Daniel|12
+HOS|何西阿书|何|Hosea|14
+JOL|约珥书|珥|Joel|3
+AMO|阿摩司书|摩|Amos|9
+OBA|俄巴底亚书|俄|Obadiah|1
+JON|约拿书|拿|Jonah|4
+MIC|弥迦书|弥|Micah|7
+NAM|那鸿书|鸿|Nahum|3
+HAB|哈巴谷书|哈|Habakkuk|3
+ZEP|西番雅书|番|Zephaniah|3
+HAG|哈该书|该|Haggai|2
+ZEC|撒迦利亚书|亚|Zechariah|14
+MAL|玛拉基书|玛|Malachi|4
+MAT|马太福音|太|Matthew|28
+MRK|马可福音|可|Mark|16
+LUK|路加福音|路|Luke|24
+JHN|约翰福音|约|John|21
+ACT|使徒行传|徒|Acts|28
+ROM|罗马书|罗|Romans|16
+1CO|哥林多前书|林前|I Corinthians|16
+2CO|哥林多后书|林后|II Corinthians|13
+GAL|加拉太书|加|Galatians|6
+EPH|以弗所书|弗|Ephesians|6
+PHP|腓立比书|腓|Philippians|4
+COL|歌罗西书|西|Colossians|4
+1TH|帖撒罗尼迦前书|帖前|I Thessalonians|5
+2TH|帖撒罗尼迦后书|帖后|II Thessalonians|3
+1TI|提摩太前书|提前|I Timothy|6
+2TI|提摩太后书|提后|II Timothy|4
+TIT|提多书|多|Titus|3
+PHM|腓利门书|门|Philemon|1
+HEB|希伯来书|来|Hebrews|13
+JAS|雅各书|雅|James|5
+1PE|彼得前书|彼前|I Peter|5
+2PE|彼得后书|彼后|II Peter|3
+1JN|约翰一书|约一|I John|5
+2JN|约翰二书|约二|II John|1
+3JN|约翰三书|约三|III John|1
+JUD|犹大书|犹|Jude|1
+REV|启示录|启|Revelation of John|22'''
+
+
+def books():
+    result = []
+    for i, line in enumerate(METADATA.splitlines()):
+        ident, name, short, english, chapters = line.split('|')
+        result.append(dict(id=ident, name=name, abbreviation=short, englishName=english,
+                           testament='OT' if i < 39 else 'NT', chapters=int(chapters)))
+    return result
+
+
+def digest(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--chinese-archive', type=Path, required=True)
+    p.add_argument('--chinese-export', type=Path, required=True)
+    p.add_argument('--english-archive', type=Path, required=True)
+    args = p.parse_args()
+    catalog = books()
+    names = {b['englishName']: b['id'] for b in catalog}
+    chapters = {}
+    seen = set()
+    def add(translation, book, chapter, verse, text):
+        text = text.strip()
+        if not text:
+            # The source exports empty entries for omitted verses; retain a hole.
+            return
+        key = f'{translation}/{book}/{chapter}'
+        identity = f'{key}/{verse}'
+        if identity in seen:
+            raise ValueError(f'duplicate source reference {identity}')
+        seen.add(identity)
+        chapters.setdefault(key, []).append({'label': verse, 'text': text})
+
+    for line in args.chinese_export.read_text().splitlines():
+        m = re.fullmatch(r'(.+?) (\d+):(\d+[a-z]?): ?(.*)', line)
+        if m:
+            name, ch, verse, text = m.groups()
+            add('cuv', names[name], int(ch), verse, text)
+        elif line.strip() and line.strip() != '(ChiUns)':
+            raise ValueError(f'unrecognized SWORD export line: {line[:80]}')
+    with zipfile.ZipFile(args.english_archive) as z:
+        for line in z.read('engwebp_vpl.txt').decode('utf-8-sig').splitlines():
+            m = re.fullmatch(r'([A-Z0-9]{3}) (\d+):(\d+[a-z]?) (.*)', line)
+            if not m:
+                if line.strip(): raise ValueError(f'unrecognized WEBP source line: {line[:80]}')
+                continue
+            book, ch, verse, text = m.groups()
+            book = {'SOL': 'SNG', 'EZE': 'EZK', 'JOE': 'JOL', 'NAH': 'NAM', 'MAR': 'MRK',
+                    'JOH': 'JHN', 'PHI': 'PHP', 'JAM': 'JAS', '1JO': '1JN',
+                    '2JO': '2JN', '3JO': '3JN'}.get(book, book)
+            if book == 'PS2': continue  # Outside the explicitly selected 66-book canon.
+            assert book in {b['id'] for b in catalog}, book
+            add('webp', book, int(ch), verse, text)
+    translations = [
+        dict(id='cuv', language='zh-Hans', name='和合本（简体）', abbreviation='CUV',
+             dataVersion='ChiUns-3.1-'+digest(args.chinese_archive)[:12],
+             sourceUrl='https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=ChiUns', license='Public Domain'),
+        dict(id='webp', language='en', name='World English Bible', abbreviation='WEBP',
+             dataVersion='engwebp-2026-11-13-'+digest(args.english_archive)[:12],
+             sourceUrl='https://ebible.org/bible/details.php?id=engwebp', license='Public Domain')]
+    for t in translations:
+        for b in catalog:
+            for chapter in range(1, b['chapters']+1):
+                assert chapters.get(f"{t['id']}/{b['id']}/{chapter}"), (t['id'], b['id'], chapter)
+    data = dict(books=catalog, translations=translations, chapters=chapters)
+    raw = json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode()
+    output = ROOT/'internal/bible/dataset.json.gz'
+    output.write_bytes(gzip.compress(raw, mtime=0))
+    public = ROOT/'frontend/public'; public.mkdir(parents=True, exist_ok=True)
+    (public/'dataset.json').write_bytes(raw)
+    sources = [
+        dict(id='cuv', url='https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/ChiUns.zip',
+             sha256=digest(args.chinese_archive), version='3.1',
+             exportSha256=digest(args.chinese_export), conversion='diatheke 4.8 / SWORD 1.9.0 plain, optional filters disabled'),
+        dict(id='webp', url='https://ebible.org/Scriptures/engwebp_vpl.zip',
+             sha256=digest(args.english_archive), version='2026-11-13', conversion='publisher VPL plain text')]
+    manifest=dict(retrieved='2026-11-16', sources=sources, datasetSha256=digest(output),
+                  plainSha256=hashlib.sha256(raw).hexdigest(),
+                  books=len(catalog), chapters=len(chapters),
+                  verses={t['id']:sum(len(v) for k,v in chapters.items() if k.startswith(t['id']+'/')) for t in translations})
+    target=ROOT/'data';target.mkdir(exist_ok=True)
+    (target/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
+    with zipfile.ZipFile(args.chinese_archive) as z:
+        (target/'ChiUns-source.conf').write_bytes(z.read('mods.d/chiuns.conf'))
+    with zipfile.ZipFile(args.english_archive) as z:
+        (target/'WEBP-source.html').write_bytes(z.read('engwebp_about.htm'))
+    print(json.dumps(manifest, indent=2))
+
+
+if __name__ == '__main__':
+    main()

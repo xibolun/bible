@@ -1,0 +1,10 @@
+{
+  "family": "Noto Sans CJK SC",
+  "version": "2.004",
+  "source": "https://github.com/notofonts/noto-cjk",
+  "sourceFile": "NotoSansCJK-Regular.ttc",
+  "sourceSha256": "b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a",
+  "license": "SIL Open Font License 1.1",
+  "conversion": "fontTools 4.60.1, TTC face 2, WOFF2, U+0000-024F,U+2000-206F,U+2E80-9FFF,U+FF00-FFEF",
+  "sha256": "2678db3f3236dfd592d91d7f58c88ef411df0d3137664456d577b79eb5b647d3"
+}
