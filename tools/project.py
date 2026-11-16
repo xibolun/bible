@@ -98,8 +98,9 @@ def doctor(args):
 def check():
     files=[ROOT/'main.go',*list((ROOT/'internal').rglob('*.go'))]
     formatted=output(['gofmt','-l',*files]);assert not formatted,'Run gofmt on: '+formatted
-    run(['go','vet','./...']);run(['go','test','./...'])
+    # Native main.go embeds the built frontend, so assets must exist before Go checks.
     npm('ci');npm('run','lint');npm('run','typecheck');npm('run','test','--','--run');npm('run','build')
+    run(['go','vet','./...']);run(['go','test','./...'])
     verify_data();verify_branding()
 
 def paths(args):
