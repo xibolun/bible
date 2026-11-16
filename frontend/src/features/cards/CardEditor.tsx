@@ -92,6 +92,7 @@ export function CardEditor({
   async function save() {
     if (!canvas.current || !content || !ready) return;
     setSaving(true);
+    setError("");
     try {
       const result = await api.SaveCard(
         canvas.current.toDataURL("image/png").split(",")[1],
@@ -128,7 +129,7 @@ export function CardEditor({
             type="primary"
             onClick={save}
             loading={saving}
-            disabled={!ready || !!error}
+            disabled={!ready}
           >
             导出 PNG
           </Button>

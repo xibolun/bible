@@ -96,3 +96,26 @@ test("invalid cross-column selection and explicit service error", async ({
     page.getByRole("alert").filter({ hasText: "模拟 data 操作失败" }),
   ).toBeVisible();
 });
+
+test("card export errors preserve the editor and allow a direct retry", async ({
+  page,
+}) => {
+  await page.goto("/?mockError=export");
+  await page
+    .getByRole("button", { name: "选择中文第1节", exact: true })
+    .click();
+  await page.getByRole("button", { name: "制作卡片", exact: true }).click();
+  const exportButton = page.getByRole("button", { name: "导出 PNG" });
+  await expect(exportButton).toBeEnabled();
+  await exportButton.click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "模拟 export 操作失败" }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(exportButton).toBeEnabled();
+  await page.evaluate(() => history.replaceState({}, "", "/"));
+  const download = page.waitForEvent("download");
+  await exportButton.click();
+  expect((await download).suggestedFilename()).toContain("1080x1080");
+  await expect(page.getByRole("dialog")).toBeVisible();
+});

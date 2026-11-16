@@ -9,7 +9,8 @@ Browser end-to-end tests use a production build of the explicit Mock adapter.
 They exercise book/chapter navigation, Chinese/English comparison, offline
 operations after loading bundled assets, highlight persistence across reload,
 clipboard content, exact PNG dimensions, focus-mode exit, cross-column
-selection rejection and visible data errors. Screenshots and an actual exported
+selection rejection, visible data errors and direct export retry after a save
+failure without losing editor state. Screenshots and an actual exported
 PNG are uploaded with the browser report. These tests do not substitute for a
 native first-launch/offline check.
 
