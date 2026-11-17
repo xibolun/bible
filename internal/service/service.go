@@ -40,23 +40,25 @@ func failure[T any](code string) Result[T] {
 }
 
 type Preferences struct {
-	BookID        string   `json:"bookId"`
-	Chapter       int      `json:"chapter"`
-	TopVerse      string   `json:"topVerse"`
-	ScrollOffset  float64  `json:"scrollOffset"`
-	Translations  []string `json:"translations"`
-	Parallel      bool     `json:"parallel"`
-	FontSize      int      `json:"fontSize"`
-	WindowX       int      `json:"windowX"`
-	WindowY       int      `json:"windowY"`
-	WindowWidth   int      `json:"windowWidth"`
-	WindowHeight  int      `json:"windowHeight"`
-	Maximized     bool     `json:"maximized"`
-	SchemaVersion int      `json:"schemaVersion"`
+	BookID            string   `json:"bookId"`
+	Chapter           int      `json:"chapter"`
+	TopVerse          string   `json:"topVerse"`
+	ScrollOffset      float64  `json:"scrollOffset"`
+	Translations      []string `json:"translations"`
+	Parallel          bool     `json:"parallel"`
+	FontSize          int      `json:"fontSize"`
+	ReferencePosition string   `json:"referencePosition"`
+	UILanguage        string   `json:"uiLanguage"`
+	WindowX           int      `json:"windowX"`
+	WindowY           int      `json:"windowY"`
+	WindowWidth       int      `json:"windowWidth"`
+	WindowHeight      int      `json:"windowHeight"`
+	Maximized         bool     `json:"maximized"`
+	SchemaVersion     int      `json:"schemaVersion"`
 }
 
 func Defaults() Preferences {
-	return Preferences{BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
+	return Preferences{BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, ReferencePosition: "after", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
 }
 
 type Desktop interface {
@@ -101,7 +103,7 @@ func (s *Service) GetPreferences() Result[Preferences] {
 }
 func (s *Service) validPreferences(p Preferences) bool {
 	_, err := s.Data.Align(p.Translations, p.BookID, p.Chapter)
-	return err == nil && p.FontSize >= 14 && p.FontSize <= 32 && p.WindowWidth >= 1024 && p.WindowWidth <= 16384 && p.WindowHeight >= 640 && p.WindowHeight <= 16384 && p.ScrollOffset >= 0 && p.ScrollOffset < 100000 && p.SchemaVersion == 1
+	return err == nil && slices.Contains([]string{"before", "after"}, p.ReferencePosition) && slices.Contains([]string{"zh-CN", "en"}, p.UILanguage) && p.FontSize >= 14 && p.FontSize <= 32 && p.WindowWidth >= 1024 && p.WindowWidth <= 16384 && p.WindowHeight >= 640 && p.WindowHeight <= 16384 && p.ScrollOffset >= 0 && p.ScrollOffset < 100000 && p.SchemaVersion == 1
 }
 func (s *Service) SavePreferences(p Preferences) Result[bool] {
 	if !s.validPreferences(p) {
@@ -231,36 +233,70 @@ func (s *Service) reference(sel Selection) string {
 	return r
 }
 
-func (s *Service) CopySelection(sel Selection, mode string, ids []string) Result[bool] {
+type CopyOptions struct {
+	ReferencePosition string `json:"referencePosition"`
+	UILanguage        string `json:"uiLanguage"`
+}
+
+func (s *Service) CopySelection(sel Selection, mode string, ids []string, options CopyOptions) Result[bool] {
+	if options.ReferencePosition == "" {
+		options.ReferencePosition = "after"
+	}
+	if options.UILanguage == "" {
+		options.UILanguage = "zh-CN"
+	}
+	if !slices.Contains([]string{"before", "after"}, options.ReferencePosition) || !slices.Contains([]string{"zh-CN", "en"}, options.UILanguage) {
+		return failure[bool]("INVALID_SETTINGS")
+	}
 	text, e := s.selectedText(sel)
 	if e != nil {
 		return failure[bool](e.Error())
 	}
 	t, _ := s.Data.Translation(sel.TranslationID)
+	reference := s.reference(sel)
+	if options.UILanguage == "en" {
+		book, _ := s.Data.Book(sel.BookID)
+		reference = strings.Replace(reference, book.Name, book.EnglishName, 1)
+	}
+	edition := t.Abbreviation
 	switch mode {
-	case "textOnly":
 	case "textWithReference":
-		text += "\n— " + s.reference(sel) + " · " + t.Abbreviation
 	case "parallelVerse":
-		if len(sel.Spans) != 1 || len(ids) != 2 || !slices.Contains(ids, sel.TranslationID) {
+		if len(ids) < 2 || !slices.Contains(ids, sel.TranslationID) {
 			return failure[bool]("INVALID_SELECTION")
 		}
 		if _, e := s.Data.Align(ids, sel.BookID, sel.Chapter); e != nil {
 			return failure[bool](e.Error())
 		}
 		lines := []string{}
+		editions := []string{}
 		for _, id := range ids {
-			v, ok := s.Data.Verse(id, sel.BookID, sel.Chapter, sel.Spans[0].VerseKey)
 			tr, _ := s.Data.Translation(id)
-			part := "本译本无此节"
-			if ok {
-				part = v.Text
+			parts := []string{}
+			for _, span := range sel.Spans {
+				v, ok := s.Data.Verse(id, sel.BookID, sel.Chapter, span.VerseKey)
+				part := "本译本无此节"
+				if options.UILanguage == "en" {
+					part = "Verse not present in this translation"
+				}
+				if ok {
+					part = v.Text
+				}
+				parts = append(parts, part)
 			}
-			lines = append(lines, tr.Abbreviation+"\n"+part)
+			lines = append(lines, tr.Abbreviation+"\n"+strings.Join(parts, "\n"))
+			editions = append(editions, tr.Abbreviation)
 		}
-		text = strings.Join(lines, "\n\n") + "\n— " + s.reference(sel)
+		text = strings.Join(lines, "\n\n")
+		edition = strings.Join(editions, " + ")
 	default:
 		return failure[bool]("INVALID_SELECTION")
+	}
+	reference += " · " + edition
+	if options.ReferencePosition == "before" {
+		text = reference + "\n" + text
+	} else {
+		text += "\n— " + reference
 	}
 	if s.Desktop == nil || s.Desktop.Copy(text) != nil {
 		return failure[bool]("CLIPBOARD_ERROR")

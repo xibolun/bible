@@ -18,6 +18,7 @@ import type {
   Translation,
 } from "../../shared/types";
 import { drawCard, type CardStyle } from "./layout";
+import { translator, errorText, type Language } from "../../shared/locale";
 
 const templates = [
   { name: "素白", background: "#f7f5ef", color: "#263747" },
@@ -29,15 +30,18 @@ export function CardEditor({
   selection,
   translations,
   comparison,
+  language,
   onClose,
 }: {
   api: API;
   selection: Selection;
   translations: Translation[];
   comparison: string[];
+  language: Language;
   onClose: () => void;
 }) {
   const { message } = App.useApp();
+  const t = translator(language);
   const [mode, setMode] = useState(selection.translationId),
     [full, setFull] = useState(false),
     [content, setContent] = useState<CardContent>(),
@@ -111,9 +115,12 @@ export function CardEditor({
         `${content.fileName}-1080x${style.height}`,
         selection,
       );
-      if (result.saved) message.success(`已保存 ${result.fileName}`);
+      if (result.saved)
+        message.success(
+          t(`已保存 ${result.fileName}`, `Saved ${result.fileName}`),
+        );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存失败，请重试");
+      setError(errorText(e, language));
     } finally {
       setSaving(false);
     }
@@ -121,7 +128,7 @@ export function CardEditor({
   return (
     <Modal
       open
-      title="制作经文卡片"
+      title={t("制作经文卡片", "Create scripture card")}
       width={920}
       onCancel={() => {
         if (!saving) onClose();
@@ -129,11 +136,11 @@ export function CardEditor({
       footer={
         <>
           <Button
-            aria-label="关闭卡片编辑器"
+            aria-label={t("关闭卡片编辑器", "Close card editor")}
             onClick={onClose}
             disabled={saving}
           >
-            关闭
+            {t("关闭", "Close")}
           </Button>
           <Button
             type="primary"
@@ -141,7 +148,7 @@ export function CardEditor({
             loading={saving}
             disabled={!ready}
           >
-            导出 PNG
+            {t("导出 PNG", "Export PNG")}
           </Button>
         </>
       }
@@ -150,9 +157,9 @@ export function CardEditor({
       <div className="card-editor">
         <div className="card-controls">
           <label>
-            经文语言
+            {t("经文译本", "Scripture translation")}
             <Select
-              aria-label="卡片语言"
+              aria-label={t("卡片语言", "Card translation")}
               value={mode}
               onChange={(value) => {
                 setReady(false);
@@ -163,15 +170,19 @@ export function CardEditor({
                   value: translation.id,
                   label: `${translation.abbreviation} · ${translation.name}`,
                 })),
-                {
-                  value: "both",
-                  label: `当前对照 · ${comparison.map((id) => translations.find((translation) => translation.id === id)?.abbreviation).join(" + ")}`,
-                },
+                ...(comparison.length > 1
+                  ? [
+                      {
+                        value: "both",
+                        label: `${t("当前对照", "Current comparison")} · ${comparison.map((id) => translations.find((translation) => translation.id === id)?.abbreviation).join(" + ")}`,
+                      },
+                    ]
+                  : []),
               ]}
             />
           </label>
           <label className="switch-label">
-            使用完整经节
+            {t("使用完整经节", "Use full verses")}
             <Switch
               checked={full || mode !== selection.translationId}
               disabled={mode !== selection.translationId}
@@ -179,43 +190,48 @@ export function CardEditor({
             />
           </label>
           {mode !== selection.translationId && (
-            <p className="muted">切换译本或对照卡片将采用完整经节。</p>
+            <p className="muted">
+              {t(
+                "切换译本或对照卡片将采用完整经节。",
+                "Changing translations or creating a comparison card uses full verses.",
+              )}
+            </p>
           )}
           <label>
-            图片尺寸
+            {t("图片尺寸", "Image size")}
             <Segmented
               block
-              aria-label="图片尺寸"
+              aria-label={t("图片尺寸", "Image size")}
               value={style.height}
               onChange={(v) => setStyle({ ...style, height: Number(v) })}
               options={[
-                { label: "方图 1:1", value: 1080 },
-                { label: "竖图 9:16", value: 1920 },
+                { label: t("方图 1:1", "Square 1:1"), value: 1080 },
+                { label: t("竖图 9:16", "Portrait 9:16"), value: 1920 },
               ]}
             />
           </label>
           <label>
-            模板
+            {t("模板", "Template")}
             <div className="template-choices">
-              {templates.map((t) => (
+              {templates.map((template, index) => (
                 <Button
-                  key={t.name}
+                  key={template.name}
                   onClick={() =>
                     setStyle({
                       ...style,
-                      background: t.background,
-                      color: t.color,
+                      background: template.background,
+                      color: template.color,
                     })
                   }
                 >
-                  {t.name}
+                  {t(template.name, ["Paper", "Night", "Warm"][index])}
                 </Button>
               ))}
             </div>
           </label>
           <div className="color-controls">
             <label>
-              底色
+              {t("底色", "Background")}
               <ColorPicker
                 value={style.background}
                 onChangeComplete={(v) =>
@@ -224,7 +240,7 @@ export function CardEditor({
               />
             </label>
             <label>
-              字色
+              {t("字色", "Text color")}
               <ColorPicker
                 value={style.color}
                 onChangeComplete={(v) =>
@@ -234,9 +250,9 @@ export function CardEditor({
             </label>
           </div>
           <label>
-            字号上限 · {style.fontSize}px
+            {t("字号上限", "Maximum font size")} · {style.fontSize}px
             <Slider
-              aria-label="卡片字号"
+              aria-label={t("卡片字号", "Card font size")}
               min={28}
               max={72}
               step={2}
@@ -245,7 +261,7 @@ export function CardEditor({
             />
           </label>
           <label>
-            文字对齐
+            {t("文字对齐", "Text alignment")}
             <Segmented
               block
               value={style.align}
@@ -253,25 +269,30 @@ export function CardEditor({
                 setStyle({ ...style, align: v as "left" | "center" })
               }
               options={[
-                { label: "左对齐", value: "left" },
-                { label: "居中", value: "center" },
+                { label: t("左对齐", "Left"), value: "left" },
+                { label: t("居中", "Center"), value: "center" },
               ]}
             />
           </label>
           <p className="muted">
-            出处与译本将保留在图片中。预览与导出采用同一排版，文字不会被静默裁切。
+            {t(
+              "出处与译本将保留在图片中。预览与导出采用同一排版，文字不会被静默裁切。",
+              "References and editions remain in the image. Preview and export share the same layout; text is never silently cropped.",
+            )}
           </p>
         </div>
         <div className="card-preview">
           <Spin spinning={loading}>
             <canvas
               ref={canvas}
-              aria-label="经文卡片预览"
+              aria-label={t("经文卡片预览", "Scripture card preview")}
               style={{ opacity: ready ? 1 : 0.25 }}
             />
             <div className="preview-caption">
               1080 × {style.height} · PNG
-              {content ? ` · ${content.codepoints} 字符` : ""}
+              {content
+                ? ` · ${content.codepoints} ${t("字符", "characters")}`
+                : ""}
             </div>
           </Spin>
         </div>

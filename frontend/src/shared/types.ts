@@ -65,6 +65,8 @@ export interface Preferences {
   translations: string[];
   parallel: boolean;
   fontSize: number;
+  referencePosition: "before" | "after";
+  uiLanguage: "zh-CN" | "en";
   windowX: number;
   windowY: number;
   windowWidth: number;
@@ -101,6 +103,8 @@ export const defaults: Preferences = {
   translations: ["cuv", "webp"],
   parallel: false,
   fontSize: 18,
+  referencePosition: "after",
+  uiLanguage: "zh-CN",
   windowX: 0,
   windowY: 0,
   windowWidth: 1280,
@@ -136,7 +140,12 @@ export interface API {
     sel: Selection,
     color: string,
   ): Promise<Highlight[]>;
-  CopySelection(sel: Selection, mode: string, ids: string[]): Promise<boolean>;
+  CopySelection(
+    sel: Selection,
+    mode: string,
+    ids: string[],
+    options: Pick<Preferences, "referencePosition" | "uiLanguage">,
+  ): Promise<boolean>;
   GetCard(sel: Selection, ids: string[], full: boolean): Promise<CardContent>;
   SaveCard(
     encoded: string,

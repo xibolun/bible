@@ -44,11 +44,22 @@ export function captureSelection(
   if (!start || !end) return null;
   const translationId = start.dataset.translation!;
   if (translationId !== end.dataset.translation)
-    throw new Error("请选择同一个译本内的经文，不能跨列选择。");
+    throw new Error("MIXED_TRANSLATION");
+  if (
+    [
+      ...range
+        .cloneContents()
+        .querySelectorAll<HTMLElement>("[data-verse-text]"),
+    ].some(
+      (element) =>
+        element.dataset.translation !== translationId &&
+        element.textContent?.length,
+    )
+  )
+    throw new Error("MIXED_TRANSLATION");
   const first = chapter.rows.findIndex((r) => r.label === start.dataset.verse),
     last = chapter.rows.findIndex((r) => r.label === end.dataset.verse);
-  if (first < 0 || last < first)
-    throw new Error("请选择当前章节内的连续经文。");
+  if (first < 0 || last < first) throw new Error("INVALID_SELECTION");
   const spans: Span[] = [];
   for (let i = first; i <= last; i++) {
     const row = chapter.rows[i],
