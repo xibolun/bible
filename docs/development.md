@@ -121,8 +121,9 @@ Three complete translations (CUV, WEBP and SWORD KJV 3.1) and a CJK font are bun
 and conversion details are in `data/manifest.json` and `data/font.json`.
 `tools/import_data.py` rebuilds text from the pinned publisher archives and a
 CUV plain export and KJV raw per-verse OSIS export; it rejects unknown lines and duplicate references. Run
-`make verify-data` after regeneration. `tools/create_icons.py` and
-`wails3 generate icons` regenerate the owned icon assets. The font subset was
+`make verify-data` after regeneration. `tools/create_icons.py` regenerates all
+owned PNG/ICO/ICNS icons and Windows installer artwork from `frontend/public/bible.svg`
+(optional asset-only tooling: CairoSVG 2.8.2 and Pillow 12.x). The font subset was
 produced with fontTools 4.60.1 using the ranges recorded in its manifest.
 
 Choose a primary translation and any of the other installed translations for
@@ -132,7 +133,8 @@ Chapter buttons wrap, including all 150 Psalms. Click a verse number
 to select a passage, Shift-click for a range, or select text directly. Actions
 appear near the selection endpoint and stay within the window.
 
-Settings include reading font size (14–32), Chinese/English interface language,
+Settings include Light, Warm paper, Soft sage and Quiet night reading palettes,
+reading font size (14–32), Chinese/English interface language,
 copy reference position, seven reference presets and About. Toolbar and keyboard
 copying always retain book/chapter/verse references; full/abbreviated names,
 edition labels and per-verse prefixes follow the selected preset.
@@ -149,6 +151,14 @@ Desktop annotations and preferences are stored in the platform user-config
 directory, under `Bible/user.db`; the installed scripture remains read-only.
 Migration failures preserve the database. Uninstallation retains user data.
 Cards are saved to a path chosen through the native PNG save dialog.
+
+The toolbar Dictionary action and selected-passage Word study action open the
+offline Chinese dictionary. Lookup accepts Strong’s H/G numbers; verse links
+use KJV word groups explicitly, including when reading CUV alone. Chinese
+definitions preserve the source Traditional Chinese and English definitions
+are expandable. Immutable word study and Chinese dictionaries have independent
+manifests and native/Mock copies; `make verify-data` checks both. Rebuild inputs
+and license locations are documented in [scripture sources](scripture-sources.md).
 
 Windows requires the Microsoft WebView2 Runtime. The installer detects a missing
 runtime and offers the Microsoft download page with explicit user interaction.

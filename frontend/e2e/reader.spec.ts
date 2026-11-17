@@ -554,6 +554,10 @@ test("chapter edge arrows fade in, support keyboard and respect boundaries", asy
   await expect(next).toBeEnabled();
   await page.mouse.move(100, 50);
   await expect(next).toHaveCSS("opacity", "0");
+  await page.locator(".verses").hover();
+  await expect(next).toHaveCSS("opacity", "0");
+  const icon = await next.locator("svg").boundingBox();
+  expect(icon!.width).toBeGreaterThanOrEqual(44);
   await next.hover();
   await expect(next).toHaveCSS("opacity", "1");
   await page.screenshot({
@@ -575,4 +579,70 @@ test("chapter edge arrows fade in, support keyboard and respect boundaries", asy
   await page.locator('[data-book="PSA"]').click();
   await page.getByRole("button", { name: "第150章", exact: true }).click();
   await expect(next).toBeDisabled();
+});
+
+test("licensed Chinese original-language notes work offline from selected verses", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "选择中文第1节", exact: true })
+    .click();
+  await page.getByRole("button", { name: "原文注解", exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "原文字典注解" });
+  await expect(drawer.getByText("H7225 · 希伯来文")).toBeVisible();
+  await drawer.getByRole("button", { name: "God H430", exact: true }).click();
+  const definition = drawer.getByRole("article", { name: "词典释义" });
+  await expect(definition).toContainText("אֱלֹהִים");
+  await expect(definition).toContainText("獨一的 (真) 神");
+  await expect(definition).toContainText("信望愛資訊中心");
+  await expect(drawer).toContainText("KJV 3.1 Strong’s");
+  await context.setOffline(true);
+  const query = drawer.getByRole("searchbox", { name: "Strong’s 编号" });
+  await query.fill("g03056");
+  await query.press("Enter");
+  await expect(definition).toContainText("λόγος");
+  await expect(definition).toContainText("話語");
+  await page.screenshot({
+    path: test.info().outputPath("chinese-dictionary.png"),
+  });
+  await query.fill("bad");
+  await query.press("Enter");
+  await expect(drawer.getByRole("alert")).toContainText("请输入 Strong’s 编号");
+  await query.fill("G99999");
+  await query.press("Enter");
+  await expect(drawer.getByRole("alert")).toContainText("内置词典没有此");
+  await page.keyboard.press("Escape");
+  await page.locator('[data-book="JHN"]').click();
+  await page.getByRole("button", { name: "原文字典", exact: true }).click();
+  await drawer
+    .getByRole("button", { name: "the Word G3056", exact: true })
+    .first()
+    .click();
+  await expect(definition).toContainText("話語");
+  await page.keyboard.press("Escape");
+  await context.setOffline(false);
+  await page.getByRole("button", { name: "下一章", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "约翰福音第 2 章" }),
+  ).toBeVisible();
+});
+
+test("dictionary data failure is visible and can be retried", async ({
+  page,
+}) => {
+  let fail = true;
+  await page.route("**/chinese-dictionary.json", (route) =>
+    fail ? route.abort() : route.continue(),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "原文字典", exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "原文字典注解" });
+  await expect(drawer.getByRole("alert")).toContainText("内置资料不可用");
+  fail = false;
+  await drawer.getByRole("button", { name: "重试", exact: true }).click();
+  await expect(drawer.getByRole("article", { name: "词典释义" })).toContainText(
+    "H7225",
+  );
 });

@@ -6,13 +6,13 @@
 }
 :root {
   font-family: "Bible Sans", sans-serif;
-  color: #273945;
-  background: #fff;
+  color: var(--reading-text, #273945);
+  background: var(--reading-page, #fff);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --border: #e1e7eb;
-  --blue: #315f78;
-  --muted: #87939d;
+  --border: var(--reading-border, #e1e7eb);
+  --blue: var(--reading-primary, #315f78);
+  --muted: var(--reading-secondary, #617786);
 }
 * {
   box-sizing: border-box;
@@ -40,7 +40,7 @@ button {
   color: inherit;
 }
 mark {
-  color: inherit;
+  color: #273945;
   border-radius: 2px;
   padding: 1px 0;
 }
@@ -514,8 +514,8 @@ mark {
 }
 .reading-content .verse-scroll {
   height: 100%;
-  padding-left: 42px;
-  padding-right: 42px;
+  padding-left: 64px;
+  padding-right: 64px;
 }
 .is-focused .reading-content .verse-scroll {
   padding-left: 6vw;
@@ -525,8 +525,8 @@ mark {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 32px;
-  height: 120px;
+  width: 56px;
+  height: 88px;
   border: 0;
   background: transparent;
   display: flex;
@@ -539,12 +539,10 @@ mark {
 }
 .chapter-edge-previous {
   left: 0;
-  background: linear-gradient(to right, #dce8f0dd, transparent);
   border-radius: 0 5px 5px 0;
 }
 .chapter-edge-next {
   right: 0;
-  background: linear-gradient(to left, #dce8f0dd, transparent);
   border-radius: 5px 0 0 5px;
 }
 .chapter-edge:enabled:hover,
@@ -553,6 +551,86 @@ mark {
 }
 .chapter-edge:disabled {
   pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chapter-edge {
+    transition: none;
+  }
+}
+.word-study {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.study-source {
+  color: #617786;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+}
+.study-verse-label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.study-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 28vh;
+  overflow-y: auto;
+  padding: 2px;
+}
+.study-word {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 5px;
+  padding: 6px 9px;
+  text-align: left;
+}
+.study-word small {
+  display: block;
+  color: #617786;
+  font-size: 11px;
+}
+.study-word[aria-pressed="true"] {
+  border-color: var(--blue);
+  background: #edf4f8;
+}
+.study-word:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.dictionary-entry {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.dictionary-entry h2 {
+  font-family: "Times New Roman", serif;
+  font-size: 36px;
+  line-height: 1.5;
+  margin: 12px 0;
+  text-align: start;
+}
+.entry-code {
+  font-weight: 600;
+  color: var(--blue);
+}
+.entry-pronunciation {
+  color: #617786;
+}
+.entry-definition {
+  white-space: pre-wrap;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.english-definition {
+  margin-top: 20px;
+}
+.english-definition summary {
+  cursor: pointer;
+  color: var(--blue);
 }
 .settings-about {
   font-size: 13px;
@@ -597,4 +675,111 @@ mark {
   .version-headings {
     column-gap: 16px;
   }
+}
+
+/* Reading palettes also cover floating controls and dictionary/settings drawers. */
+:root[data-reading-theme] .reader-shell {
+  background: var(--reading-page);
+  color: var(--reading-text);
+}
+:root[data-reading-theme]
+  :is(
+    .sidebar,
+    .chapter-nav,
+    .version-headings,
+    .reader-footer,
+    .card-preview,
+    .format-preview
+  ) {
+  background: var(--reading-surface);
+}
+:root[data-reading-theme] :is(.selection-toolbar, .study-word) {
+  background: var(--reading-raised);
+  border-color: var(--border);
+}
+:root[data-reading-theme]
+  :is(
+    .book-button,
+    .chapter-button,
+    .verse-select,
+    .selection-label,
+    .entry-code
+  ) {
+  color: var(--reading-primary);
+}
+:root[data-reading-theme]
+  :is(
+    .book-list h2,
+    .book-list h2 span,
+    .book-abbreviation,
+    .chapter-title h1 span,
+    .version-headings,
+    .version-headings span,
+    .missing-verse,
+    .reader-footer,
+    .study-source,
+    .study-word small,
+    .entry-pronunciation,
+    .settings-about small,
+    .card-controls > label,
+    .color-controls label,
+    .preview-caption
+  ) {
+  color: var(--reading-secondary);
+}
+:root[data-reading-theme]
+  :is(.book-button:hover, .chapter-button:hover, .verse-cell.is-selected) {
+  background: var(--reading-hover);
+}
+:root[data-reading-theme]
+  :is(
+    .book-button[aria-current],
+    .chapter-button[aria-current],
+    .study-word[aria-pressed="true"]
+  ) {
+  background: var(--reading-selected);
+  color: var(--reading-primary);
+}
+:root[data-reading-theme] .verse-row {
+  border-color: var(--border);
+}
+:root[data-reading-theme] ::selection {
+  background: var(--reading-selection);
+}
+.theme-picker {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.theme-picker legend {
+  margin-bottom: 10px;
+}
+.theme-picker > div {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.theme-picker button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  font-size: 12px;
+}
+.theme-picker button[aria-pressed="true"] {
+  border-color: var(--blue);
+  outline: 1px solid var(--blue);
+}
+.theme-swatch {
+  width: 100%;
+  padding: 12px 0;
+  border: 1px solid;
+  border-radius: 3px;
+  font-family: Georgia, serif;
+  font-size: 21px;
 }

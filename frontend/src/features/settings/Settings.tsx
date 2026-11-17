@@ -12,6 +12,7 @@ import { GithubOutlined } from "@ant-design/icons";
 import type { API, Preferences, Translation } from "../../shared/types";
 import { translator, errorText } from "../../shared/locale";
 import { appVersion } from "../../shared/build";
+import { palettes, readingThemes } from "../../shared/themes";
 import {
   referenceStyles,
   inlineReferences,
@@ -69,6 +70,30 @@ export function Settings({
             label: t("阅读与复制", "Reading & copying"),
             children: (
               <div className="settings-fields">
+                <fieldset className="theme-picker">
+                  <legend>{t("阅读主题", "Reading theme")}</legend>
+                  <div role="group" aria-label={t("阅读主题", "Reading theme")}>
+                    {readingThemes.map((choice) => (
+                      <button
+                        key={choice.value}
+                        aria-pressed={preferences.readingTheme === choice.value}
+                        onClick={() => onChange({ readingTheme: choice.value })}
+                      >
+                        <span
+                          className="theme-swatch"
+                          style={{
+                            background: palettes[choice.value].page,
+                            color: palettes[choice.value].text,
+                            borderColor: palettes[choice.value].border,
+                          }}
+                        >
+                          Aa
+                        </span>
+                        <span>{t(choice.zh, choice.en)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
                 <label>
                   {t("复制样式", "Copy style")}
                   <Select

@@ -15,8 +15,9 @@ The module declares DistributionLicense=GPL. Its source notice grants use of
 CrossWire's work for any purpose and identifies the Crown of England's rights
 to the base text. The complete upstream notice is preserved in
 licenses/scripture-KJV-source.conf; do not describe it as globally Public Domain.
-Only scripture text is included. Strong/morphology/footnotes and unnumbered
-titles are excluded; scripture wording and divine-name capitalization remain.
+Scripture wording and divine-name capitalization remain unchanged. Separate
+word-study data retains the KJV Strong's word-group associations; morphology,
+footnotes and unnumbered titles are excluded from the displayed scripture.
 Normalized source text and the reproducible import tool are available from
 https://github.com/xibolun/bible. This text-module notice does not select or
 change the license of the application's original code.
@@ -26,6 +27,27 @@ Source: https://ebible.org/bible/details.php?id=engwebp
 Publisher designation: Public Domain. Preserve the translation name only for
 unaltered scripture text. The source publisher's notice is in
 licenses/scripture-WEBP-source.html.
+
+Chinese dictionary: FHL Information Center / CBOL contributors, Old and New
+Testament original-language dictionaries. GNU Free Documentation License 1.1
+or any later version. The independent Bible Chinese Dictionary Edition retains
+Traditional Chinese wording and indexes canonical Strong's numbers. Verbatim
+transparent source dumps, author identifiers, the complete license, publisher
+copyright notice and normalization history ship in licenses/word-study-fhl/.
+Source: https://bible.fhl.net/public/
+
+Hebrew/Aramaic dictionary metadata and English definitions: Open Scriptures
+Hebrew Bible Project, HebrewLexicon/HebrewStrong.xml. Structured data is
+CC BY 4.0; original Strong's dictionary text is Public Domain. Changes: extract
+original script, transliteration, pronunciation and plain-text definitions.
+Attribution and full license: licenses/word-study-HebrewLexicon-readme.md and
+licenses/word-study-CC-BY-4.0.txt. Pinned commit and hash are recorded in
+data/word-study-manifest.json.
+
+Greek dictionary: CrossWire StrongsGreek 2.0, Public Domain, based on James
+Strong (1890). Changes: extract original script, transliteration, pronunciation
+and plain-text definitions. Upstream notice: licenses/word-study-StrongsGreek.conf.
+Source: https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=StrongsGreek
 
 Font: Noto Sans CJK SC, subset of the upstream regular font, licensed under the
 SIL Open Font License 1.1. Full copyright/license text is in

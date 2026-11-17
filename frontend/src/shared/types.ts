@@ -1,3 +1,5 @@
+import type { ReadingTheme } from "./themes";
+
 export interface Translation {
   id: string;
   name: string;
@@ -18,6 +20,33 @@ export interface Book {
 export interface Verse {
   label: string;
   text: string;
+}
+export interface DictionaryEntry {
+  id: string;
+  lemma: string;
+  language: string;
+  transliteration: string;
+  pronunciation: string;
+  definition: string;
+  source: string;
+  chineseDefinition?: string;
+  chineseSource?: string;
+}
+export interface OriginalWord {
+  text: string;
+  strongs: string[];
+}
+export interface VerseStudy {
+  words: OriginalWord[];
+  entries: DictionaryEntry[];
+}
+export interface WordStudy {
+  entries: Record<string, DictionaryEntry>;
+  verses: Record<string, OriginalWord[]>;
+  chinese: Record<
+    string,
+    { definition: string; lemma: string; source: string }
+  >;
 }
 export interface Cell {
   translationId: string;
@@ -58,6 +87,7 @@ export interface Highlight {
   color: string;
 }
 export interface Preferences {
+  readingTheme: ReadingTheme;
   bookId: string;
   chapter: number;
   topVerse: string;
@@ -110,6 +140,7 @@ export interface Dataset {
   chapters: Record<string, Verse[]>;
 }
 export const defaults: Preferences = {
+  readingTheme: "light",
   bookId: "GEN",
   chapter: 1,
   topVerse: "",
@@ -135,6 +166,12 @@ export const colors: Record<string, { name: string; value: string }> = {
   purple: { name: "紫色", value: "#e8d9ff" },
 };
 export interface API {
+  LookupWord(code: string): Promise<DictionaryEntry>;
+  GetVerseWords(
+    book: string,
+    chapter: number,
+    verse: string,
+  ): Promise<VerseStudy>;
   ListTranslations(): Promise<Translation[]>;
   ListBooks(ids: string[]): Promise<Book[]>;
   GetChapter(

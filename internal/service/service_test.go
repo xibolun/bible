@@ -154,18 +154,19 @@ func TestLegacyPreferencesAndNewSettingsPersistWithoutLosingAnnotations(t *testi
 		t.Fatal(err)
 	}
 	result := s.GetPreferences()
-	if !result.OK || result.Data.ReferencePosition != "after" || result.Data.UILanguage != "zh-CN" || result.Data.FontSize != 24 || result.Data.TopVerse != "2" || result.Data.Translations[0] != "webp" {
+	if !result.OK || result.Data.ReadingTheme != "light" || result.Data.ReferencePosition != "after" || result.Data.UILanguage != "zh-CN" || result.Data.FontSize != 24 || result.Data.TopVerse != "2" || result.Data.Translations[0] != "webp" {
 		t.Fatalf("legacy preferences reset: %+v", result)
 	}
 	p := *result.Data
 	p.ReferencePosition = "before"
 	p.UILanguage = "en"
 	p.FontSize = 32
+	p.ReadingTheme = "sage"
 	if !s.SavePreferences(p).OK {
 		t.Fatal("new settings rejected")
 	}
 	read := s.GetPreferences()
-	if !read.OK || read.Data.ReferencePosition != "before" || read.Data.UILanguage != "en" || read.Data.TopVerse != "2" || read.Data.FontSize != 32 {
+	if !read.OK || read.Data.ReadingTheme != "sage" || read.Data.ReferencePosition != "before" || read.Data.UILanguage != "en" || read.Data.TopVerse != "2" || read.Data.FontSize != 32 {
 		t.Fatal("settings not persisted")
 	}
 	marks := s.ListHighlights([]string{"cuv"}, "GEN", 1)
@@ -178,6 +179,10 @@ func TestLegacyPreferencesAndNewSettingsPersistWithoutLosingAnnotations(t *testi
 		if s.SavePreferences(invalid).OK {
 			t.Fatal("invalid settings accepted")
 		}
+	}
+	p.ReadingTheme = "unknown"
+	if s.SavePreferences(p).OK {
+		t.Fatal("invalid theme accepted")
 	}
 }
 

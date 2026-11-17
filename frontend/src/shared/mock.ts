@@ -80,6 +80,14 @@ async function formatted(
   );
 }
 export const mock: API = {
+  async LookupWord(code) {
+    const { loadWordStudy, lookupWord } = await import("./word-study");
+    return lookupWord(await loadWordStudy(), code);
+  },
+  async GetVerseWords(book, chapter, verse) {
+    const { loadWordStudy, verseWords } = await import("./word-study");
+    return verseWords(await loadWordStudy(), `${book}/${chapter}/${verse}`);
+  },
   async ListTranslations() {
     return (await data()).translations;
   },

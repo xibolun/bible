@@ -5,6 +5,8 @@ export const translator = (language: Language) => (zh: string, en: string) =>
   language === "en" ? en : zh;
 
 const errors: Record<string, string> = {
+  INVALID_WORD: "Enter a Strong’s number such as H430 or G3056.",
+  WORD_NOT_FOUND: "This Strong’s entry is not in the bundled dictionary.",
   INVALID_REFERENCE: "This book or chapter is unavailable.",
   INVALID_TRANSLATION: "Choose distinct installed translations.",
   DATA_UNAVAILABLE:
@@ -29,6 +31,14 @@ const errors: Record<string, string> = {
 export function errorText(error: unknown, language: Language) {
   const value = error as { code?: string; message?: string };
   const code = value?.code ?? value?.message ?? "";
+  if (language !== "en" && code === "INVALID_WORD")
+    return "请输入 Strong’s 编号，例如 H430 或 G3056。";
+  if (language !== "en" && code === "WORD_NOT_FOUND")
+    return "内置词典没有此 Strong’s 词条。";
+  if (language !== "en" && code === "DATA_UNAVAILABLE")
+    return "内置资料不可用，请重试或重新安装完整应用。";
+  if (language !== "en" && code === "INVALID_REFERENCE")
+    return "此书卷、章节或经节没有可用资料。";
   if (code === "MIXED_TRANSLATION" && language !== "en")
     return "请选择同一个译本内的经文，不能混合译本选择；连续多节可使用 Shift 点击。";
   if (code === "INVALID_SELECTION" && language !== "en")

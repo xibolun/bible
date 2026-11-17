@@ -1,0 +1,20 @@
+{
+  "retrieved": "2026-11-17",
+  "inputs": {
+    "hebrew": "a628f4f89f8bdaf2483fd3faf1abc8653cc6717758dfc9f24beb7571d9bdd0c4",
+    "greek_archive": "38f7d29db912d7c6a416cf19bfdefd9bdb9882193634229210a0d10b5cccc434",
+    "greek": "1d066cb16e2f56d6d80bd2434e15e3928aeb390321cf4fbd8c6468754d228ead",
+    "kjv": "0530658ddc2f0ea6a570ce8df1a45d7e690759f1d22492093e6838385e02a257"
+  },
+  "hebrewCommit": "21c9add13bc727d3a951361778e97e3ff7afd1ce",
+  "sources": [
+    "https://raw.githubusercontent.com/openscriptures/HebrewLexicon/21c9add13bc727d3a951361778e97e3ff7afd1ce/HebrewStrong.xml",
+    "https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/StrongsGreek.zip",
+    "https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/KJV.zip"
+  ],
+  "conversion": "Strong\u2019s definitions to plain text; KJV OSIS lemma/savlm groups, source verse labels; no translated-text alignment",
+  "entries": 14341,
+  "verses": 31102,
+  "plainSha256": "0809e3c871d79f19570378c64ec60c2d48be6b455362651d2182b3684230e1d2",
+  "datasetSha256": "b10aaf557b777b8d897bfdc42ace5937dca4a8a18eda427c08472d08a77b9929"
+}

@@ -3,7 +3,8 @@
 SWORD export (no optional annotation filters):
 diatheke -b ChiUns -f plain -k 'Genesis 1:1-Revelation 22:21'
 mod2vpl KJV 1  # raw OSIS records; this importer removes annotations structurally
-Only verse text is retained; morphology/Strong/footnote payloads are not distributed.
+This importer retains verse text only. Separate word-study importers preserve
+Strong's associations without changing this dataset or its annotation offsets.
 """
 import argparse
 import gzip

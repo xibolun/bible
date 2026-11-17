@@ -34,12 +34,16 @@ func success[T any](v T) Result[T] { return Result[T]{OK: true, Data: &v} }
 func failure[T any](code string) Result[T] {
 	msg := map[string]string{"INVALID_REFERENCE": "书卷或章节不存在", "INVALID_TRANSLATION": "请选择不同且已安装的译本", "DATA_UNAVAILABLE": "内置经文不可用，请重新安装完整应用", "INVALID_SELECTION": "请选择同章同译本的连续经文", "STALE_DATA": "经文版本已变化，请重新选择", "STORAGE_ERROR": "无法读取或保存本地数据，请检查磁盘权限后重试", "CLIPBOARD_ERROR": "复制失败，请保留选区后重试", "INVALID_IMAGE": "卡片图像或尺寸无效", "EXPORT_ERROR": "保存失败，请检查目标文件夹和磁盘空间", "INVALID_SETTINGS": "显示设置或阅读位置无效", "CARD_LIMIT": "卡片最多20节、4000个字符", "BRIDGE_UNAVAILABLE": "桌面服务未连接，请重启应用"}[code]
 	if msg == "" {
-		msg = "操作未完成，请重试"
+		msg = map[string]string{"INVALID_WORD": "请输入 Strong’s 编号，例如 H430 或 G3056", "WORD_NOT_FOUND": "内置词典没有此 Strong’s 词条"}[code]
+		if msg == "" {
+			msg = "操作未完成，请重试"
+		}
 	}
 	return Result[T]{Error: &Problem{Code: code, Message: msg, Retryable: code == "STORAGE_ERROR" || code == "CLIPBOARD_ERROR" || code == "EXPORT_ERROR", OperationID: rand.Text()}}
 }
 
 type Preferences struct {
+	ReadingTheme      string   `json:"readingTheme"`
 	BookID            string   `json:"bookId"`
 	Chapter           int      `json:"chapter"`
 	TopVerse          string   `json:"topVerse"`
@@ -59,7 +63,7 @@ type Preferences struct {
 }
 
 func Defaults() Preferences {
-	return Preferences{BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
+	return Preferences{ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
 }
 
 type Desktop interface {
@@ -78,6 +82,20 @@ func New(data *bible.Dataset, store *storage.Store, desktop Desktop) *Service {
 }
 
 func (s *Service) ListTranslations() Result[[]bible.Translation] { return success(s.Data.Translations) }
+func (s *Service) LookupWord(code string) Result[bible.DictionaryEntry] {
+	entry, err := bible.LookupWord(code)
+	if err != nil {
+		return failure[bible.DictionaryEntry](err.Error())
+	}
+	return success(entry)
+}
+func (s *Service) GetVerseWords(book string, chapter int, verse string) Result[bible.VerseStudy] {
+	study, err := s.Data.VerseWords(book, chapter, verse)
+	if err != nil {
+		return failure[bible.VerseStudy](err.Error())
+	}
+	return success(study)
+}
 func (s *Service) ListBooks(ids []string) Result[[]bible.Book] {
 	if _, err := s.Data.Align(ids, "GEN", 1); err != nil {
 		return failure[[]bible.Book](err.Error())
@@ -103,6 +121,9 @@ func (s *Service) GetPreferences() Result[Preferences] {
 	return success(p)
 }
 func (s *Service) validPreferences(p Preferences) bool {
+	if !slices.Contains([]string{"light", "paper", "sage", "night"}, p.ReadingTheme) {
+		return false
+	}
 	_, err := s.Data.Align(p.Translations, p.BookID, p.Chapter)
 	return err == nil && slices.Contains(referenceStyles, p.ReferenceStyle) && slices.Contains([]string{"before", "after"}, p.ReferencePosition) && slices.Contains([]string{"zh-CN", "en"}, p.UILanguage) && p.FontSize >= 14 && p.FontSize <= 32 && p.WindowWidth >= 1024 && p.WindowWidth <= 16384 && p.WindowHeight >= 640 && p.WindowHeight <= 16384 && p.ScrollOffset >= 0 && p.ScrollOffset < 100000 && p.SchemaVersion == 1
 }

@@ -1,5 +1,15 @@
 # Verification boundaries
 
+Word-study regressions check real offline Hebrew/Greek lookups and KJV verse
+associations, Chinese definitions, invalid references and dictionary numbers,
+source importer escapes, duplicate records and preservation of source script.
+Browser cases cover opening from a CUV selection, Chinese definitions, offline
+lookup, visible data errors and retry. Native smoke traverses the Go bridge for
+Hebrew, Greek and verse links. Reading palette checks measure text contrast;
+browser cases change soft palettes and preserve theme, reading position and
+highlights across reload. NSIS input checks require owned welcome/header art
+and DisplayIcon; installer appearance remains a platform manual check.
+
 `make check` runs packaging-preflight and SWORD text-conversion regressions, Go formatting, vet and behavior
 tests, frontend lint/typecheck, selection/layout unit cases, a production
 build, data integrity and owned
