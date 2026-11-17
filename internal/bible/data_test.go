@@ -10,7 +10,7 @@ func TestBundledCanonAndSourceSamples(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(d.Books) != 66 || len(d.Chapters) != 2378 {
+	if len(d.Books) != 66 || len(d.Translations) != 3 || len(d.Chapters) != 1189*len(d.Translations) {
 		t.Fatal("incomplete canon")
 	}
 	for _, tr := range d.Translations {
@@ -34,11 +34,43 @@ func TestBundledCanonAndSourceSamples(t *testing.T) {
 		tr, book    string
 		ch          int
 		verse, want string
-	}{{"cuv", "GEN", 1, "1", "起初"}, {"webp", "GEN", 1, "1", "In the beginning"}, {"cuv", "PSA", 23, "1", "耶和华"}, {"webp", "JHN", 3, "16", "God so loved"}, {"cuv", "REV", 22, "21", "主耶稣"}} {
+	}{{"cuv", "GEN", 1, "1", "起初"}, {"webp", "GEN", 1, "1", "In the beginning"}, {"cuv", "PSA", 23, "1", "耶和华"}, {"webp", "JHN", 3, "16", "God so loved"}, {"cuv", "REV", 22, "21", "主耶稣"}, {"kjv", "GEN", 1, "1", "In the beginning God created the heaven and the earth."}, {"kjv", "JHN", 3, "16", "only begotten Son"}, {"kjv", "REV", 22, "21", "Amen."}} {
 		v, ok := d.Verse(sample.tr, sample.book, sample.ch, sample.verse)
 		if !ok || !strings.Contains(v.Text, sample.want) {
 			t.Fatalf("source sample mismatch: %+v %q", sample, v.Text)
 		}
+	}
+}
+
+func TestKJVAndWEBPKeepActualMissingVerseGap(t *testing.T) {
+	d, e := Load()
+	if e != nil {
+		t.Fatal(e)
+	}
+	chapter, e := d.Align([]string{"kjv", "webp"}, "ACT", 8)
+	if e != nil {
+		t.Fatal(e)
+	}
+	checked := 0
+	for _, row := range chapter.Rows {
+		if row.Label == "37" {
+			if row.Cells[0].Missing || !row.Cells[1].Missing || !strings.Contains(row.Cells[0].Text, "believest") {
+				t.Fatalf("source gap lost: %+v", row)
+			}
+			checked++
+		}
+		if row.Label == "38" {
+			for index, id := range []string{"kjv", "webp"} {
+				verse, ok := d.Verse(id, "ACT", 8, "38")
+				if !ok || row.Cells[index].Text != verse.Text {
+					t.Fatalf("verse shifted for %s", id)
+				}
+			}
+			checked++
+		}
+	}
+	if checked != 2 {
+		t.Fatal("missing source comparison rows")
 	}
 }
 

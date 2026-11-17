@@ -65,6 +65,9 @@ export interface Preferences {
   translations: string[];
   parallel: boolean;
   fontSize: number;
+  referencePosition: "before" | "after";
+  referenceStyle: ReferenceStyle;
+  uiLanguage: "zh-CN" | "en";
   windowX: number;
   windowY: number;
   windowWidth: number;
@@ -77,7 +80,20 @@ export interface CardLine {
   reference: string;
   translationId: string;
   version: string;
+  referenceBefore?: boolean;
 }
+export type ReferenceStyle =
+  | "full-version"
+  | "short-version"
+  | "full"
+  | "short"
+  | "inline"
+  | "verses-short"
+  | "verses-full";
+export type FormatOptions = Pick<
+  Preferences,
+  "referencePosition" | "referenceStyle" | "uiLanguage"
+>;
 export interface CardContent {
   lines: CardLine[];
   fileName: string;
@@ -101,6 +117,9 @@ export const defaults: Preferences = {
   translations: ["cuv", "webp"],
   parallel: false,
   fontSize: 18,
+  referencePosition: "after",
+  referenceStyle: "full-version",
+  uiLanguage: "zh-CN",
   windowX: 0,
   windowY: 0,
   windowWidth: 1280,
@@ -136,8 +155,19 @@ export interface API {
     sel: Selection,
     color: string,
   ): Promise<Highlight[]>;
-  CopySelection(sel: Selection, mode: string): Promise<boolean>;
-  GetCard(sel: Selection, ids: string[], full: boolean): Promise<CardContent>;
+  CopySelection(
+    sel: Selection,
+    mode: string,
+    ids: string[],
+    options: FormatOptions,
+  ): Promise<boolean>;
+  GetCard(
+    sel: Selection,
+    ids: string[],
+    full: boolean,
+    options: FormatOptions,
+  ): Promise<CardContent>;
+  OpenSource(): Promise<boolean>;
   SaveCard(
     encoded: string,
     width: number,

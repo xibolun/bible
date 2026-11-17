@@ -13,7 +13,7 @@ export interface PositionedLine {
   font: string;
   align: CanvasTextAlign;
 }
-export function wrap(
+function wrapLine(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
@@ -27,6 +27,27 @@ export function wrap(
     if (ctx.measureText(line + word).width <= maxWidth) {
       line += word;
       continue;
+    }
+    if (line && /^[，。！？；：、）》」』】,.!?;:)]/u.test(word)) {
+      let carry =
+        [
+          ...new Intl.Segmenter(undefined, { granularity: "word" }).segment(
+            line,
+          ),
+        ].at(-1)?.segment ?? "";
+      if (!carry.trim() || ctx.measureText(carry + word).width > maxWidth)
+        carry =
+          [
+            ...new Intl.Segmenter(undefined, {
+              granularity: "grapheme",
+            }).segment(line),
+          ].at(-1)?.segment ?? "";
+      const head = line.slice(0, line.length - carry.length).trimEnd();
+      if (head && ctx.measureText(carry + word).width <= maxWidth) {
+        lines.push(head);
+        line = carry + word;
+        continue;
+      }
     }
     if (line.trim()) lines.push(line.trim());
     line = "";
@@ -46,6 +67,17 @@ export function wrap(
   }
   if (line.trim()) lines.push(line.trim());
   return lines;
+}
+export function wrap(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string[] {
+  return text
+    .split(/\r?\n/)
+    .flatMap((paragraph) =>
+      paragraph ? wrapLine(ctx, paragraph, maxWidth) : [""],
+    );
 }
 export async function drawCard(
   canvas: HTMLCanvasElement,
@@ -68,32 +100,24 @@ export async function drawCard(
     layout = [];
     let y = 0;
     for (const entry of content.lines) {
-      ctx.font = `${size}px "Bible Sans"`;
-      const lines = wrap(ctx, entry.text, width);
-      for (const text of lines) {
-        layout.push({
-          text,
-          x: style.align === "center" ? 540 : margin,
-          y,
-          font: ctx.font,
-          align: style.align,
-        });
-        y += size * 1.65;
-      }
-      ctx.font = `${Math.max(23, size * 0.54)}px "Bible Sans"`;
-      for (const text of wrap(
-        ctx,
-        `${entry.reference} · ${entry.version}`,
-        width,
-      )) {
-        layout.push({
-          text,
-          x: style.align === "center" ? 540 : margin,
-          y: y + 10,
-          font: ctx.font,
-          align: style.align,
-        });
-        y += Math.max(23, size * 0.54) * 1.65;
+      const body = { text: entry.text, size },
+        reference = { text: entry.reference, size: Math.max(23, size * 0.54) };
+      for (const block of entry.referenceBefore
+        ? [reference, body]
+        : [body, reference]) {
+        if (!block.text) continue;
+        ctx.font = `${block.size}px "Bible Sans"`;
+        for (const text of wrap(ctx, block.text, width)) {
+          layout.push({
+            text,
+            x: style.align === "center" ? 540 : margin,
+            y,
+            font: ctx.font,
+            align: style.align,
+          });
+          y += block.size * 1.6;
+        }
+        y += 10;
       }
       y += size * 0.8;
     }

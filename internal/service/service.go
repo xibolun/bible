@@ -40,30 +40,33 @@ func failure[T any](code string) Result[T] {
 }
 
 type Preferences struct {
-	BookID        string   `json:"bookId"`
-	Chapter       int      `json:"chapter"`
-	TopVerse      string   `json:"topVerse"`
-	ScrollOffset  float64  `json:"scrollOffset"`
-	Translations  []string `json:"translations"`
-	Parallel      bool     `json:"parallel"`
-	FontSize      int      `json:"fontSize"`
-	WindowX       int      `json:"windowX"`
-	WindowY       int      `json:"windowY"`
-	WindowWidth   int      `json:"windowWidth"`
-	WindowHeight  int      `json:"windowHeight"`
-	Maximized     bool     `json:"maximized"`
-	SchemaVersion int      `json:"schemaVersion"`
+	BookID            string   `json:"bookId"`
+	Chapter           int      `json:"chapter"`
+	TopVerse          string   `json:"topVerse"`
+	ScrollOffset      float64  `json:"scrollOffset"`
+	Translations      []string `json:"translations"`
+	Parallel          bool     `json:"parallel"`
+	FontSize          int      `json:"fontSize"`
+	ReferencePosition string   `json:"referencePosition"`
+	ReferenceStyle    string   `json:"referenceStyle"`
+	UILanguage        string   `json:"uiLanguage"`
+	WindowX           int      `json:"windowX"`
+	WindowY           int      `json:"windowY"`
+	WindowWidth       int      `json:"windowWidth"`
+	WindowHeight      int      `json:"windowHeight"`
+	Maximized         bool     `json:"maximized"`
+	SchemaVersion     int      `json:"schemaVersion"`
 }
 
 func Defaults() Preferences {
-	return Preferences{BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
+	return Preferences{BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
 }
 
 type Desktop interface {
 	Copy(string) error
 	Save([]byte, string) (string, error)
 }
-type smokeReporter interface{ FinishSmoke(bool) error }
+type smokeReporter interface{ FinishSmoke(bool, string) error }
 type Service struct {
 	Data    *bible.Dataset
 	Store   *storage.Store
@@ -101,7 +104,7 @@ func (s *Service) GetPreferences() Result[Preferences] {
 }
 func (s *Service) validPreferences(p Preferences) bool {
 	_, err := s.Data.Align(p.Translations, p.BookID, p.Chapter)
-	return err == nil && p.FontSize >= 14 && p.FontSize <= 32 && p.WindowWidth >= 1024 && p.WindowWidth <= 16384 && p.WindowHeight >= 640 && p.WindowHeight <= 16384 && p.ScrollOffset >= 0 && p.ScrollOffset < 100000 && p.SchemaVersion == 1
+	return err == nil && slices.Contains(referenceStyles, p.ReferenceStyle) && slices.Contains([]string{"before", "after"}, p.ReferencePosition) && slices.Contains([]string{"zh-CN", "en"}, p.UILanguage) && p.FontSize >= 14 && p.FontSize <= 32 && p.WindowWidth >= 1024 && p.WindowWidth <= 16384 && p.WindowHeight >= 640 && p.WindowHeight <= 16384 && p.ScrollOffset >= 0 && p.ScrollOffset < 100000 && p.SchemaVersion == 1
 }
 func (s *Service) SavePreferences(p Preferences) Result[bool] {
 	if !s.validPreferences(p) {
@@ -209,67 +212,51 @@ func (s *Service) ApplyHighlight(request string, sel Selection, color string) Re
 	return s.ListHighlights([]string{sel.TranslationID}, sel.BookID, sel.Chapter)
 }
 
-func (s *Service) selectedText(sel Selection) (string, error) {
-	if _, e := s.validate(sel); e != nil {
-		return "", e
-	}
-	parts := []string{}
-	for _, p := range sel.Spans {
-		v, _ := s.Data.Verse(sel.TranslationID, sel.BookID, sel.Chapter, p.VerseKey)
-		parts = append(parts, string([]rune(v.Text)[p.Start:p.End]))
-	}
-	return strings.Join(parts, "\n"), nil
-}
-func (s *Service) reference(sel Selection) string {
-	b, _ := s.Data.Book(sel.BookID)
-	last := sel.Spans[len(sel.Spans)-1].VerseKey
-	first := sel.Spans[0].VerseKey
-	r := fmt.Sprintf("%s %d:%s", b.Name, sel.Chapter, first)
-	if first != last {
-		r += "–" + last
-	}
-	return r
+type CopyOptions struct {
+	ReferenceStyle    string `json:"referenceStyle"`
+	ReferencePosition string `json:"referencePosition"`
+	UILanguage        string `json:"uiLanguage"`
 }
 
-func (s *Service) CopySelection(sel Selection, mode string) Result[bool] {
-	text, e := s.selectedText(sel)
-	if e != nil {
-		return failure[bool](e.Error())
+func (s *Service) CopySelection(sel Selection, mode string, ids []string, options CopyOptions) Result[bool] {
+	options, err := options.normalized()
+	if err != nil {
+		return failure[bool](err.Error())
 	}
-	t, _ := s.Data.Translation(sel.TranslationID)
+	if _, err = s.validate(sel); err != nil {
+		return failure[bool](err.Error())
+	}
+	full := false
 	switch mode {
-	case "textOnly":
 	case "textWithReference":
-		text += "\n— " + s.reference(sel) + " · " + t.Abbreviation
+		ids = []string{sel.TranslationID}
 	case "parallelVerse":
-		if len(sel.Spans) != 1 {
+		if len(ids) < 2 || !slices.Contains(ids, sel.TranslationID) {
 			return failure[bool]("INVALID_SELECTION")
 		}
-		lines := []string{}
-		for _, id := range []string{"cuv", "webp"} {
-			v, ok := s.Data.Verse(id, sel.BookID, sel.Chapter, sel.Spans[0].VerseKey)
-			tr, _ := s.Data.Translation(id)
-			part := "本译本无此节"
-			if ok {
-				part = v.Text
-			}
-			lines = append(lines, tr.Abbreviation+"\n"+part)
+		if _, err = s.Data.Align(ids, sel.BookID, sel.Chapter); err != nil {
+			return failure[bool](err.Error())
 		}
-		text = strings.Join(lines, "\n\n") + "\n— " + s.reference(sel)
+		full = true
 	default:
 		return failure[bool]("INVALID_SELECTION")
 	}
-	if s.Desktop == nil || s.Desktop.Copy(text) != nil {
+	blocks := make([]string, 0, len(ids))
+	for _, id := range ids {
+		blocks = append(blocks, passageText(s.passage(sel, id, full, options)))
+	}
+	if s.Desktop == nil || s.Desktop.Copy(strings.Join(blocks, "\n\n")) != nil {
 		return failure[bool]("CLIPBOARD_ERROR")
 	}
 	return success(true)
 }
 
 type CardLine struct {
-	Text          string `json:"text"`
-	Reference     string `json:"reference"`
-	TranslationID string `json:"translationId"`
-	Version       string `json:"version"`
+	ReferenceBefore bool   `json:"referenceBefore"`
+	Text            string `json:"text"`
+	Reference       string `json:"reference"`
+	TranslationID   string `json:"translationId"`
+	Version         string `json:"version"`
 }
 type CardContent struct {
 	Lines      []CardLine `json:"lines"`
@@ -277,34 +264,28 @@ type CardContent struct {
 	Codepoints int        `json:"codepoints"`
 }
 
-func (s *Service) GetCard(sel Selection, ids []string, full bool) Result[CardContent] {
-	if _, e := s.validate(sel); e != nil {
-		return failure[CardContent](e.Error())
+func (s *Service) GetCard(sel Selection, ids []string, full bool, options CopyOptions) Result[CardContent] {
+	options, err := options.normalized()
+	if err != nil {
+		return failure[CardContent](err.Error())
+	}
+	if _, err = s.validate(sel); err != nil {
+		return failure[CardContent](err.Error())
 	}
 	if len(sel.Spans) > 20 {
 		return failure[CardContent]("CARD_LIMIT")
 	}
-	if _, e := s.Data.Align(ids, sel.BookID, sel.Chapter); e != nil {
-		return failure[CardContent](e.Error())
+	if _, err = s.Data.Align(ids, sel.BookID, sel.Chapter); err != nil {
+		return failure[CardContent](err.Error())
 	}
 	if !full && (len(ids) != 1 || ids[0] != sel.TranslationID) {
 		return failure[CardContent]("INVALID_SELECTION")
 	}
 	out := CardContent{Lines: []CardLine{}, FileName: fmt.Sprintf("bible-%s-%d-%s", sel.BookID, sel.Chapter, sel.Spans[0].VerseKey)}
-	for _, p := range sel.Spans {
-		for _, id := range ids {
-			v, ok := s.Data.Verse(id, sel.BookID, sel.Chapter, p.VerseKey)
-			if !ok {
-				continue
-			}
-			if !full {
-				v.Text = string([]rune(v.Text)[p.Start:p.End])
-			}
-			t, _ := s.Data.Translation(id)
-			b, _ := s.Data.Book(sel.BookID)
-			out.Lines = append(out.Lines, CardLine{Text: v.Text, Reference: fmt.Sprintf("%s %d:%s", b.Name, sel.Chapter, p.VerseKey), TranslationID: id, Version: t.Abbreviation})
-			out.Codepoints += utf8.RuneCountInString(v.Text)
-		}
+	for _, id := range ids {
+		line := s.passage(sel, id, full, options)
+		out.Lines = append(out.Lines, line)
+		out.Codepoints += utf8.RuneCountInString(line.Text) + utf8.RuneCountInString(line.Reference)
 	}
 	if out.Codepoints == 0 || out.Codepoints > 4000 {
 		return failure[CardContent]("CARD_LIMIT")
@@ -358,9 +339,9 @@ func (s *Service) SaveCard(encoded string, width, height int, name string, sel S
 	return success(Saved{Saved: true, FileName: filepath.Base(path)})
 }
 
-func (s *Service) ReportSmoke(passed bool) Result[bool] {
+func (s *Service) ReportSmoke(passed bool, frontendVersion string) Result[bool] {
 	r, ok := s.Desktop.(smokeReporter)
-	if !ok || r.FinishSmoke(passed) != nil {
+	if !ok || r.FinishSmoke(passed, frontendVersion) != nil {
 		return failure[bool]("EXPORT_ERROR")
 	}
 	return success(true)

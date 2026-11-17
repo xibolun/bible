@@ -75,13 +75,13 @@ func (d *desktop) Save(b []byte, name string) (string, error) {
 	return path, nil
 }
 
-func (d *desktop) FinishSmoke(passed bool) error {
+func (d *desktop) FinishSmoke(passed bool, frontendVersion string) error {
 	if d.smokeDir == "" {
 		return fmt.Errorf("smoke mode not enabled")
 	}
 	clipboard, clipboardOK := d.app.Clipboard.Text()
-	passed = passed && clipboardOK && strings.Contains(clipboard, "起初")
-	report := map[string]any{"passed": passed, "os": runtime.GOOS, "arch": runtime.GOARCH, "version": version, "nativeWebview": true, "clipboardRoundTrip": strings.Contains(clipboard, "起初"), "fileDialogAutomation": false}
+	passed = passed && clipboardOK && strings.Contains(clipboard, "起初") && frontendVersion == version
+	report := map[string]any{"passed": passed, "os": runtime.GOOS, "arch": runtime.GOARCH, "version": version, "frontendVersion": frontendVersion, "nativeWebview": true, "clipboardRoundTrip": strings.Contains(clipboard, "起初"), "fileDialogAutomation": false}
 	b, e := json.MarshalIndent(report, "", "  ")
 	if e != nil {
 		return e

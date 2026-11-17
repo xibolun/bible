@@ -1,4 +1,6 @@
 import * as bridge from "../../bindings/github.com/xibolun/bible/internal/service/service";
+import { Browser } from "@wailsio/runtime";
+import { sourceRepository } from "./build";
 import type {
   API,
   Book,
@@ -22,10 +24,9 @@ async function invoke<T>(request: PromiseLike<Result>): Promise<T> {
     throw new Error("桌面服务未连接，请重启应用。");
   }
   if (!r.ok || r.data === undefined || r.data === null)
-    throw new Error(
-      r.error
-        ? r.error.message
-        : "桌面服务返回了无效结果",
+    throw Object.assign(
+      new Error(r.error ? r.error.message : "桌面服务返回了无效结果"),
+      { code: r.error?.code },
     );
   return r.data as T;
 }
@@ -40,12 +41,16 @@ export const native: API = {
     invoke<Highlight[]>(bridge.ListHighlights(ids, book, ch)),
   ApplyHighlight: (request, sel, color) =>
     invoke<Highlight[]>(bridge.ApplyHighlight(request, sel, color)),
-  CopySelection: (sel, mode) =>
-    invoke<boolean>(bridge.CopySelection(sel, mode)),
-  GetCard: (sel, ids, full) =>
-    invoke<CardContent>(bridge.GetCard(sel, ids, full)),
+  CopySelection: (sel, mode, ids, options) =>
+    invoke<boolean>(bridge.CopySelection(sel, mode, ids, options)),
+  GetCard: (sel, ids, full, options) =>
+    invoke<CardContent>(bridge.GetCard(sel, ids, full, options)),
+  OpenSource: async () => {
+    await Browser.OpenURL(sourceRepository);
+    return true;
+  },
   SaveCard: (png, w, h, name, sel) =>
     invoke<Saved>(bridge.SaveCard(png, w, h, name, sel)),
 };
-export const reportSmoke = (passed: boolean) =>
-  invoke<boolean>(bridge.ReportSmoke(passed));
+export const reportSmoke = (passed: boolean, version: string) =>
+  invoke<boolean>(bridge.ReportSmoke(passed, version));

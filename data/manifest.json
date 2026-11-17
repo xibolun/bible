@@ -1,5 +1,5 @@
 {
-  "retrieved": "2026-11-16",
+  "retrieved": "2026-11-17",
   "sources": [
     {
       "id": "cuv",
@@ -15,14 +15,23 @@
       "sha256": "7ebe6b7dc416ce63691d1a3889a06f841ccb7f414ada69be82da891f4b9be44f",
       "version": "2026-11-13",
       "conversion": "publisher VPL plain text"
+    },
+    {
+      "id": "kjv",
+      "url": "https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/KJV.zip",
+      "sha256": "873815aa4b4123025616d1f41eae75f412111275f4c3884e36f92d4f46dcba1d",
+      "version": "3.1",
+      "exportSha256": "0530658ddc2f0ea6a570ce8df1a45d7e690759f1d22492093e6838385e02a257",
+      "conversion": "SWORD 1.9.0 mod2vpl raw OSIS; strip notes/titles/attributes, preserve divine-name capitals, normalize layout whitespace"
     }
   ],
-  "datasetSha256": "3d6afeb3378bb871c199ad25f0bdd428b49236dec09ffcfd22d00612cb7e5843",
-  "plainSha256": "88796147db770a6d0dc35c88545738975b68f60e2fd9bc3afb1ac6bac65d985f",
+  "datasetSha256": "273fd5421dc310e6c2a8740066a852f86953d9cab4fb83a0ccf482ea0a474606",
+  "plainSha256": "d467f26eda3d7ece090ff2c8282d049b70b76d182d32cf1a0e10a3cab380a83c",
   "books": 66,
-  "chapters": 2378,
+  "chapters": 3567,
   "verses": {
     "cuv": 31103,
-    "webp": 31098
+    "webp": 31098,
+    "kjv": 31102
   }
 }

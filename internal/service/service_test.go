@@ -60,14 +60,14 @@ func TestUnicodeSelectionPersistenceAndCopy(t *testing.T) {
 	if !r.OK || len(*r.Data) != 1 {
 		t.Fatalf("%+v", r.Error)
 	}
-	if !s.CopySelection(sel, "textWithReference").OK || !strings.Contains(desk.text, "😀é中\n— 创世记 1:1 · CUV") {
+	if !s.CopySelection(sel, "textWithReference", nil, CopyOptions{}).OK || !strings.Contains(desk.text, "😀é中\n— 创世记1:1·CUV") {
 		t.Fatal(desk.text)
 	}
-	if !s.CopySelection(sel, "parallelVerse").OK || !strings.Contains(desk.text, "An English verse.") {
+	if !s.CopySelection(sel, "parallelVerse", []string{"cuv", "webp"}, CopyOptions{}).OK || !strings.Contains(desk.text, "An English verse.") {
 		t.Fatal(desk.text)
 	}
 	desk.fail = true
-	fail := s.CopySelection(sel, "textOnly")
+	fail := s.CopySelection(sel, "textWithReference", nil, CopyOptions{})
 	if fail.OK || fail.Error.Code != "CLIPBOARD_ERROR" || strings.Contains(fail.Error.Message, "private") {
 		t.Fatal("clipboard failure leaked or reported success")
 	}
@@ -88,14 +88,36 @@ func TestUnicodeSelectionPersistenceAndCopy(t *testing.T) {
 	}
 }
 
+func TestCopyAndCardUseOnlySelectedTranslationPair(t *testing.T) {
+	s, desktop := fixture(t)
+	s.Data.Translations = append(s.Data.Translations, bible.Translation{ID: "kjv", DataVersion: "v1", Abbreviation: "KJV"})
+	s.Data.Chapters["kjv/GEN/1"] = []bible.Verse{{Label: "1", Text: "King James wording."}}
+	sel := selected()
+	if result := s.CopySelection(sel, "parallelVerse", []string{"cuv", "kjv"}, CopyOptions{}); !result.OK || !strings.Contains(desktop.text, "King James wording.\n— 创世记1:1·KJV") || strings.Contains(desktop.text, "WEBP") || strings.Contains(desktop.text, "An English verse.") {
+		t.Fatalf("wrong pair copied: %s", desktop.text)
+	}
+	card := s.GetCard(sel, []string{"cuv", "kjv"}, true, CopyOptions{})
+	if !card.OK || len(card.Data.Lines) != 2 || card.Data.Lines[1].Version != "KJV" || card.Data.Lines[1].Text != "King James wording." {
+		t.Fatalf("wrong pair in card: %+v", card)
+	}
+	if !s.CopySelection(sel, "parallelVerse", []string{"cuv", "webp", "kjv"}, CopyOptions{ReferencePosition: "before"}).OK || !strings.HasPrefix(desktop.text, "创世记1:1·CUV\n") || !strings.Contains(desktop.text, "An English verse.") {
+		t.Fatalf("three-version reference copy failed: %s", desktop.text)
+	}
+	for _, ids := range [][]string{{"cuv", "webp", "kjv", "cuv"}, {"cuv", "cuv"}, {"cuv", "missing"}, {"webp", "kjv"}} {
+		if s.CopySelection(sel, "parallelVerse", ids, CopyOptions{}).OK {
+			t.Fatalf("invalid pair accepted: %v", ids)
+		}
+	}
+}
+
 func TestCardValidationAndCancellation(t *testing.T) {
 	s, desk := fixture(t)
 	sel := selected()
-	c := s.GetCard(sel, []string{"cuv", "webp"}, true)
+	c := s.GetCard(sel, []string{"cuv", "webp"}, true, CopyOptions{})
 	if !c.OK || len(c.Data.Lines) != 2 {
 		t.Fatal(c.Error)
 	}
-	if s.GetCard(sel, []string{"webp"}, false).OK {
+	if s.GetCard(sel, []string{"webp"}, false, CopyOptions{}).OK {
 		t.Fatal("partial selection wrongly transferred to other language")
 	}
 	var b bytes.Buffer
@@ -119,5 +141,63 @@ func TestCardValidationAndCancellation(t *testing.T) {
 	desk.fail = true
 	if r = s.SaveCard(encoded, 1080, 1080, "test", sel); r.OK || r.Error.Code != "EXPORT_ERROR" {
 		t.Fatal("failed save reported success")
+	}
+}
+
+func TestLegacyPreferencesAndNewSettingsPersistWithoutLosingAnnotations(t *testing.T) {
+	s, _ := fixture(t)
+	if !s.ApplyHighlight("settings-highlight", selected(), "green").OK {
+		t.Fatal("highlight setup failed")
+	}
+	legacy := map[string]any{"bookId": "GEN", "chapter": 1, "translations": []string{"webp", "cuv"}, "parallel": true, "fontSize": 24, "topVerse": "2", "scrollOffset": 12}
+	if err := s.Store.SavePreferences(legacy); err != nil {
+		t.Fatal(err)
+	}
+	result := s.GetPreferences()
+	if !result.OK || result.Data.ReferencePosition != "after" || result.Data.UILanguage != "zh-CN" || result.Data.FontSize != 24 || result.Data.TopVerse != "2" || result.Data.Translations[0] != "webp" {
+		t.Fatalf("legacy preferences reset: %+v", result)
+	}
+	p := *result.Data
+	p.ReferencePosition = "before"
+	p.UILanguage = "en"
+	p.FontSize = 32
+	if !s.SavePreferences(p).OK {
+		t.Fatal("new settings rejected")
+	}
+	read := s.GetPreferences()
+	if !read.OK || read.Data.ReferencePosition != "before" || read.Data.UILanguage != "en" || read.Data.TopVerse != "2" || read.Data.FontSize != 32 {
+		t.Fatal("settings not persisted")
+	}
+	marks := s.ListHighlights([]string{"cuv"}, "GEN", 1)
+	if !marks.OK || len(*marks.Data) != 1 || (*marks.Data)[0].Color != "green" {
+		t.Fatal("settings changed annotations")
+	}
+	for _, change := range []func(*Preferences){func(p *Preferences) { p.ReferencePosition = "middle" }, func(p *Preferences) { p.UILanguage = "unknown" }, func(p *Preferences) { p.FontSize = 33 }, func(p *Preferences) { p.Translations = []string{"cuv", "cuv"} }} {
+		invalid := p
+		change(&invalid)
+		if s.SavePreferences(invalid).OK {
+			t.Fatal("invalid settings accepted")
+		}
+	}
+}
+
+func TestCopyAlwaysIncludesReferenceAndHonorsPositionAndLanguage(t *testing.T) {
+	s, desktop := fixture(t)
+	s.Data.Books[0].EnglishName = "Genesis"
+	sel := selected()
+	sel.Spans = []Span{{VerseKey: "1", Start: 0, End: 6}, {VerseKey: "2", Start: 0, End: 3}}
+	options := CopyOptions{ReferencePosition: "before", UILanguage: "en"}
+	if !s.CopySelection(sel, "textWithReference", nil, options).OK || !strings.HasPrefix(desktop.text, "Genesis 1:1–2·CUV\nA😀é中B\n第二节") {
+		t.Fatal(desktop.text)
+	}
+	options.ReferencePosition = "after"
+	if !s.CopySelection(sel, "parallelVerse", []string{"cuv", "webp"}, options).OK || !strings.HasSuffix(desktop.text, "\n— Genesis 1:1–2·WEBP") || !strings.Contains(desktop.text, "An English verse.\nSecond verse.") {
+		t.Fatal(desktop.text)
+	}
+	if s.CopySelection(sel, "textOnly", nil, CopyOptions{}).OK {
+		t.Fatal("reference-free copy remained available")
+	}
+	if s.CopySelection(sel, "textWithReference", nil, CopyOptions{ReferencePosition: "middle"}).OK {
+		t.Fatal("invalid reference position accepted")
 	}
 }

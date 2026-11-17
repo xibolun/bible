@@ -9,6 +9,7 @@ export {
 export type {
     CardContent,
     CardLine,
+    CopyOptions,
     Preferences,
     Problem,
     Result,

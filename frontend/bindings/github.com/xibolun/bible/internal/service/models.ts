@@ -8,10 +8,17 @@ export interface CardContent {
 }
 
 export interface CardLine {
+    "referenceBefore": boolean;
     "text": string;
     "reference": string;
     "translationId": string;
     "version": string;
+}
+
+export interface CopyOptions {
+    "referenceStyle": string;
+    "referencePosition": string;
+    "uiLanguage": string;
 }
 
 export interface Preferences {
@@ -22,6 +29,9 @@ export interface Preferences {
     "translations": string[] | null;
     "parallel": boolean;
     "fontSize": number;
+    "referencePosition": string;
+    "referenceStyle": string;
+    "uiLanguage": string;
     "windowX": number;
     "windowY": number;
     "windowWidth": number;

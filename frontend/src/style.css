@@ -174,8 +174,7 @@ mark {
 .chapter-nav {
   display: flex;
   align-items: center;
-  height: 43px;
-  padding: 0 10px;
+  padding: 7px 16px;
   background: #f3f7fa;
   border-bottom: 1px solid var(--border);
   gap: 5px;
@@ -183,12 +182,10 @@ mark {
 }
 .chapter-strip {
   display: flex;
+  flex-wrap: wrap;
   gap: 3px;
-  overflow-x: auto;
-  scrollbar-width: thin;
   flex: 1;
   align-items: center;
-  height: 42px;
 }
 .chapter-button {
   border: 0;
@@ -210,8 +207,9 @@ mark {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 21px 30px 19px;
+  gap: 12px;
+  padding: 14px 24px;
+  flex-wrap: wrap;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -241,7 +239,7 @@ mark {
 .reader-actions {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -261,28 +259,22 @@ mark {
   padding: 0 8px;
 }
 .version-headings {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 0 32px;
-  min-height: 40px;
+  padding: 7px 24px;
+  min-height: 32px;
   background: #fafbfc;
   border-bottom: 1px solid var(--border);
   font-size: 11px;
   color: #708594;
   flex-shrink: 0;
-  column-gap: 24px;
+  gap: 6px 20px;
 }
-.columns-1 {
-  grid-template-columns: 42px minmax(0, 1fr);
-}
-.columns-2 {
-  grid-template-columns: 42px minmax(0, 1fr) minmax(0, 1fr);
-}
-.version-headings > div:not(:first-child) {
+.version-headings > div {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-left: 16px;
+  gap: 8px;
 }
 .version-headings strong {
   font-weight: 500;
@@ -302,29 +294,26 @@ mark {
   overflow-y: auto;
   position: relative;
   scrollbar-width: thin;
-  padding: 0 32px;
+  padding: 0 24px;
 }
 .verses {
-  padding: 3px 0 95px;
+  padding: 4px 0 24px;
   min-height: 100px;
 }
 .verse-row {
-  display: grid;
-  column-gap: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 0;
   border-bottom: 1px solid #e9edf0;
-  min-height: 69px;
   align-items: stretch;
 }
-.reference {
-  padding-top: 23px;
-  color: #8ca0ad;
-  font-size: 10px;
-  user-select: none;
-  white-space: nowrap;
-}
 .verse-cell {
-  line-height: 1.9;
-  padding: 17px 12px 19px 15px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  line-height: 1.55;
+  padding: 2px 6px;
   position: relative;
   letter-spacing: 0.3px;
   overflow-wrap: anywhere;
@@ -332,24 +321,29 @@ mark {
 }
 .verse-cell.english {
   letter-spacing: 0.08px;
-  line-height: 1.85;
+  line-height: 1.55;
+}
+.verse-cell [data-verse-text] {
+  flex: 1;
+  min-width: 0;
 }
 .verse-cell.is-selected {
   background: #f1f6f9;
 }
-.verse-number {
+.verse-select {
   border: 0;
   background: transparent;
-  font-size: 9px;
-  color: #91a3af;
-  padding: 0 4px 0 0;
-  position: absolute;
-  left: -1px;
-  top: 18px;
-  line-height: 26px;
+  font-size: 10px;
+  color: #728b9b;
+  padding: 3px 2px;
+  width: 38px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  line-height: 20px;
+  text-align: left;
   user-select: none;
 }
-.verse-number:hover {
+.verse-select:hover {
   color: #315f78;
 }
 .missing-verse {
@@ -375,20 +369,19 @@ mark {
 }
 .selection-toolbar {
   position: fixed;
+  width: max-content;
   z-index: 100;
-  bottom: 59px;
-  left: calc(50% + 110px);
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 9px 10px;
   background: #fff;
   border: 1px solid #dbe4e9;
   border-radius: 7px;
   box-shadow: 0 6px 24px #24405720;
   white-space: nowrap;
-  max-width: calc(100vw - 250px);
+  max-width: calc(100vw - 16px);
 }
 .selection-label {
   font-size: 11px;
@@ -409,9 +402,6 @@ mark {
 .color-swatch:hover {
   outline: 2px solid #57788b;
   outline-offset: 2px;
-}
-.is-focused .selection-toolbar {
-  left: 50%;
 }
 .is-focused .reader-toolbar {
   padding: 15px 32px;
@@ -491,36 +481,93 @@ mark {
   color: #85949f;
   font-size: 10px;
 }
-.about-panel {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 370px;
-  z-index: 150;
-  background: white;
+.settings-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 12px;
+}
+.settings-fields > label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings-fields .muted {
+  margin: 0;
+}
+.format-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 12px;
+  background: #f5f8fa;
   border: 1px solid var(--border);
-  box-shadow: 0 10px 60px #173a4c33;
-  border-radius: 8px;
-  padding: 32px;
-  text-align: center;
-  font-size: 12px;
-  line-height: 1.8;
+  border-radius: 5px;
+  font: inherit;
+  line-height: 1.65;
 }
-.about-panel img {
-  width: 45px;
+.reading-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
-.about-panel h2 {
-  font-size: 21px;
+.reading-content .verse-scroll {
+  height: 100%;
+  padding-left: 42px;
+  padding-right: 42px;
 }
-.about-panel small {
-  font-size: 9px;
-  color: #82919a;
+.is-focused .reading-content .verse-scroll {
+  padding-left: 6vw;
+  padding-right: 6vw;
 }
-.about-close {
+.chapter-edge {
   position: absolute;
-  right: 8px;
-  top: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 120px;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--blue);
+  opacity: 0;
+  z-index: 2;
+  transition: opacity 0.2s ease;
+}
+.chapter-edge-previous {
+  left: 0;
+  background: linear-gradient(to right, #dce8f0dd, transparent);
+  border-radius: 0 5px 5px 0;
+}
+.chapter-edge-next {
+  right: 0;
+  background: linear-gradient(to left, #dce8f0dd, transparent);
+  border-radius: 5px 0 0 5px;
+}
+.chapter-edge:enabled:hover,
+.chapter-edge:focus-visible {
+  opacity: 1;
+}
+.chapter-edge:disabled {
+  pointer-events: none;
+}
+.settings-about {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.about-edition {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.about-edition p {
+  margin: 5px 0;
+}
+.about-edition small {
+  color: #728b9b;
 }
 ::selection {
   background: #92b9d980;
@@ -549,9 +596,5 @@ mark {
   .verse-row,
   .version-headings {
     column-gap: 16px;
-  }
-  .selection-toolbar {
-    left: calc(50% + 96px);
-    gap: 8px;
   }
 }
