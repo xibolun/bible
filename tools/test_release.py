@@ -68,7 +68,7 @@ class ReleaseTests(unittest.TestCase):
         client = release.GitHub()
         with patch.object(release, 'source') as source, patch.object(release.subprocess, 'run') as run:
             client.publish(TAG, COMMIT)
-            source.assert_called_once_with(TAG, expected=COMMIT)
+            source.assert_called_once_with(TAG, expected=COMMIT, refresh=True)
             run.assert_called_once_with(['gh', 'release', 'edit', TAG, '--repo', release.REPOSITORY,
                                          '--draft=false', '--verify-tag'], check=True)
         with patch.object(release, 'source', side_effect=ValueError('tag moved')), patch.object(release.subprocess, 'run') as run:
@@ -146,7 +146,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_tag_must_be_versioned_merged_and_unchanged(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder) / 'work'; root.mkdir()
             def git(*args):
                 return subprocess.check_output(['git', '-c', 'user.name=xibolun', '-c',
                     'user.email=14323159+xibolun@users.noreply.github.com', *args], cwd=root, text=True).strip()
@@ -155,11 +155,20 @@ class ReleaseTests(unittest.TestCase):
             commit = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', commit)
             git('tag', '-a', TAG, '-m', TAG)
             self.assertEqual(release.source(TAG, root), commit)
+            remote = Path(folder) / 'remote.git'
+            git('init', '-q', '--bare', str(remote)); git('remote', 'add', 'origin', str(remote))
+            git('push', '-q', 'origin', 'main', TAG)
+            self.assertEqual(release.source(TAG, root, commit, refresh=True), commit)
             with self.assertRaisesRegex(ValueError, 'moved'): release.source(TAG, root, 'b' * 40)
             with self.assertRaisesRegex(ValueError, 'vX.Y.Z'): release.source('main', root)
             git('switch', '-qc', 'unmerged'); (root / 'README').write_text('new'); git('commit', '-qam', 'unmerged')
             git('tag', 'v2.0.0')
             with self.assertRaisesRegex(ValueError, 'merged into main'): release.source('v2.0.0', root)
+            git('push', '-q', 'origin', 'unmerged')
+            git('--git-dir', str(remote), 'update-ref', 'refs/tags/' + TAG, git('rev-parse', 'HEAD'))
+            with self.assertRaisesRegex(ValueError, 'moved'):
+                release.source(TAG, root, commit, refresh=True)
+            self.assertEqual(git('rev-parse', TAG + '^{commit}'), commit)
 
 
 if __name__ == '__main__':
