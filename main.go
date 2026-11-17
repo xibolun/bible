@@ -1,4 +1,4 @@
-//go:build windows || darwin || bindings
+//go:build windows || darwin || linux || bindings
 
 package main
 
@@ -23,6 +23,9 @@ import (
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+//go:embed build/appicon.png
+var appIcon []byte
 
 var version = "dev"
 
@@ -125,7 +128,7 @@ func main() {
 		}
 	}
 	svc := service.New(data, store, desk)
-	app := application.New(application.Options{Name: "Bible", Description: "离线圣经阅读与经文卡片", Services: []application.Service{application.NewService(svc)}, Assets: application.AssetOptions{Handler: application.AssetFileServerFS(assets)}, Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true}})
+	app := application.New(application.Options{Name: "Bible", Description: "离线圣经阅读与经文卡片", Icon: appIcon, Services: []application.Service{application.NewService(svc)}, Assets: application.AssetOptions{Handler: application.AssetFileServerFS(assets)}, Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true}, Linux: application.LinuxOptions{ApplicationID: "io.github.xibolun.bible", ProgramName: "io.github.xibolun.bible"}})
 	desk.app = app
 	p := service.Defaults()
 	if r := svc.GetPreferences(); r.OK {
@@ -139,7 +142,7 @@ func main() {
 	if desk.smokeDir != "" {
 		url = "/?nativeSmoke=1"
 	}
-	win := app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "reader", Title: "圣经 · Bible", Width: p.WindowWidth, Height: p.WindowHeight, MinWidth: 1024, MinHeight: 640, URL: url, StartState: state, BackgroundColour: application.NewRGB(255, 255, 255)})
+	win := app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "reader", Title: "圣经 · Bible", Width: p.WindowWidth, Height: p.WindowHeight, MinWidth: 1024, MinHeight: 640, URL: url, StartState: state, BackgroundColour: application.NewRGB(255, 255, 255), Linux: application.LinuxWindow{Icon: appIcon}})
 	desk.window = win
 	normal := application.Rect{X: p.WindowX, Y: p.WindowY, Width: p.WindowWidth, Height: p.WindowHeight}
 	// Clamp saved normal bounds to a currently connected work area.

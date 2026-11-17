@@ -56,6 +56,12 @@ jobs:
           - runner: windows-2025
             os: windows
             arch: amd64
+          - runner: ubuntu-24.04
+            os: linux
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64
     runs-on: ${{ matrix.runner }}
     env:
       PYTHONUTF8: '1'
@@ -87,12 +93,27 @@ jobs:
           choco install make nsis --no-progress --yes
           "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
           "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+      - name: Install declared Linux build and smoke dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev dpkg-dev desktop-file-utils xvfb xauth dbus-x11
+          desktop-file-validate build/linux/io.github.xibolun.bible.desktop
       - name: Install pinned CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
       - name: Check and package
         run: make package GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} VERSION="$VERSION"
       - name: Exercise native WebView and Go bridge twice
+        if: runner.os != 'Linux'
         run: make smoke GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} VERSION="$VERSION"
+      - name: Exercise Linux WebView and Go bridge twice
+        if: runner.os == 'Linux'
+        env:
+          GDK_BACKEND: x11
+          GSK_RENDERER: cairo
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' make smoke GOOS=linux GOARCH=${{ matrix.arch }} VERSION="$VERSION"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() && steps.version.outcome == 'success' }}
         with:
