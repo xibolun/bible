@@ -160,6 +160,7 @@ jobs:
       - name: Resolve packaged Linux desktop icons through GTK4
         if: runner.os == 'Linux'
         run: |
+          mkdir -p .cache/desktop-install
           dpkg-deb --extract "dist/$VERSION/bible-$VERSION-linux-${{ matrix.arch }}.deb" .cache/desktop-install
           GDK_BACKEND=x11 xvfb-run -a /usr/bin/python3 tools/verify_linux_desktop.py --share .cache/desktop-install/usr/share
       - name: Permit WebKit sandbox namespaces for the CI application
