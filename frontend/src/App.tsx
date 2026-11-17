@@ -211,7 +211,7 @@ function Reader() {
   async function copy(mode: string) {
     if (!api || !selection) return;
     try {
-      await api.CopySelection(selection, mode);
+      await api.CopySelection(selection, mode, prefs.translations);
       message.success("已复制经文");
     } catch (e) {
       message.error(e instanceof Error ? e.message : "复制失败，请重试");
@@ -275,8 +275,26 @@ function Reader() {
         const hs = await api!.ListHighlights(["cuv"], "GEN", 1);
         if (!hs.some((h) => h.verseKey === "1" && h.color === "green"))
           throw new Error("highlight");
-        await api!.CopySelection(s, "textWithReference");
-        const content = await api!.GetCard(s, ["cuv", "webp"], true);
+        const kjvChapter = await api!.GetChapter(
+          ["cuv", "kjv"],
+          "GEN",
+          1,
+          "native-kjv-smoke",
+        );
+        if (
+          !kjvChapter.rows
+            .find((row) => row.label === "1")
+            ?.cells.some(
+              (cell) =>
+                cell.translationId === "kjv" &&
+                cell.text.includes("the heaven and the earth"),
+            )
+        )
+          throw new Error("KJV chapter");
+        await api!.CopySelection(s, "parallelVerse", ["cuv", "kjv"]);
+        const content = await api!.GetCard(s, ["cuv", "kjv"], true);
+        if (!content.lines.some((line) => line.version === "KJV"))
+          throw new Error("KJV card");
         const image = document.createElement("canvas");
         await drawCard(image, content, {
           height: 1080,
@@ -467,7 +485,7 @@ function Reader() {
             </h1>
             <p>
               {books.find((b) => b.id === prefs.bookId)?.englishName}{" "}
-              <span>·</span> {prefs.parallel ? "中英对照" : "经文阅读"}
+              <span>·</span> {prefs.parallel ? "双译本对照" : "经文阅读"}
             </p>
           </div>
           <div className="reader-actions">
@@ -481,18 +499,39 @@ function Reader() {
                       ...p,
                       translations: [
                         id,
-                        ...p.translations.filter((x) => x !== id),
+                        p.translations[1] === id
+                          ? p.translations[0]
+                          : p.translations[1],
                       ],
                     }))
                   }
                   options={translations.map((t) => ({
                     value: t.id,
-                    label: t.id === "cuv" ? "和合本 · 简体" : "WEBP · English",
+                    label: `${t.abbreviation} · ${t.language.startsWith("zh") ? "简体中文" : "English"}`,
                   }))}
                   style={{ width: 160 }}
                 />
+                {prefs.parallel && (
+                  <Select
+                    aria-label="对照译本"
+                    value={prefs.translations[1]}
+                    onChange={(id) =>
+                      setPrefs((p) => ({
+                        ...p,
+                        translations: [p.translations[0], id],
+                      }))
+                    }
+                    options={translations
+                      .filter((t) => t.id !== prefs.translations[0])
+                      .map((t) => ({
+                        value: t.id,
+                        label: `${t.abbreviation} · ${t.language.startsWith("zh") ? "简体中文" : "English"}`,
+                      }))}
+                    style={{ width: 160 }}
+                  />
+                )}
                 <label className="parallel-toggle">
-                  中英对照
+                  双译本对照
                   <Switch
                     checked={prefs.parallel}
                     onChange={(v) => setPrefs((p) => ({ ...p, parallel: v }))}
@@ -606,12 +645,12 @@ function Reader() {
                   {row.cells.map((cell) => (
                     <div
                       key={cell.translationId}
-                      className={`verse-cell ${cell.translationId === "webp" ? "english" : ""} ${selection?.translationId === cell.translationId && selection.spans.some((p) => p.verseKey === row.label) ? "is-selected" : ""}`}
+                      className={`verse-cell ${translations.find((t) => t.id === cell.translationId)?.language.startsWith("en") ? "english" : ""} ${selection?.translationId === cell.translationId && selection.spans.some((p) => p.verseKey === row.label) ? "is-selected" : ""}`}
                     >
                       <button
                         className="verse-number"
                         title="点击选择整节；Shift 选择连续多节"
-                        aria-label={`选择${cell.translationId === "cuv" ? "中文" : "英文"}第${row.label}节`}
+                        aria-label={`选择${cell.translationId === "cuv" ? "中文" : translations.find((t) => t.id === cell.translationId)?.abbreviation}第${row.label}节`}
                         disabled={cell.missing || busy}
                         onClick={(e) =>
                           selectVerse(cell.translationId, row.label, e.shiftKey)
@@ -649,7 +688,7 @@ function Reader() {
         <footer className="reader-footer">
           <span>
             {chapter
-              ? `${chapter.rows.length} 节 · ${prefs.parallel ? "中英对照" : "单译本"}`
+              ? `${chapter.rows.length} 节 · ${prefs.parallel ? "双译本对照" : "单译本"}`
               : "经文阅读"}
           </span>
           <span>拖动选择文字，或点击节号进行标记</span>
@@ -711,7 +750,7 @@ function Reader() {
                 { key: "textOnly", label: "仅复制经文" },
                 {
                   key: "parallelVerse",
-                  label: "复制本节双语",
+                  label: "复制本节对照",
                   disabled: selection.spans.length !== 1,
                 },
               ],
@@ -738,7 +777,13 @@ function Reader() {
         </div>
       )}
       {card && (
-        <CardEditor api={api} selection={card} onClose={() => setCard(null)} />
+        <CardEditor
+          api={api}
+          selection={card}
+          translations={translations}
+          comparison={prefs.translations}
+          onClose={() => setCard(null)}
+        />
       )}
       {about && (
         <div className="about-panel" role="dialog" aria-label="关于圣经">

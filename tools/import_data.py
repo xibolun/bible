@@ -2,6 +2,7 @@
 
 SWORD export (no optional annotation filters):
 diatheke -b ChiUns -f plain -k 'Genesis 1:1-Revelation 22:21'
+mod2vpl KJV 1  # raw OSIS records; this importer removes annotations structurally
 Only verse text is retained; morphology/Strong/footnote payloads are not distributed.
 """
 import argparse
@@ -10,6 +11,7 @@ import hashlib
 import json
 import re
 import zipfile
+from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,12 +96,45 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+class ScripturePlain(HTMLParser):
+    """Keep verse words, divine-name capitalization, and no OSIS annotations."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts=[];self.excluded=0;self.divine=0
+
+    def handle_starttag(self,tag,attrs):
+        if tag in ('note','title'):self.excluded+=1
+        if tag=='divinename':self.divine+=1
+        if tag in ('lb','p','div','l') and not self.excluded:self.parts.append(' ')
+
+    def handle_endtag(self,tag):
+        if tag in ('note','title'):self.excluded=max(0,self.excluded-1)
+        if tag=='divinename':self.divine=max(0,self.divine-1)
+        if tag in ('p','div','l') and not self.excluded:self.parts.append(' ')
+
+    def handle_data(self,text):
+        if not self.excluded:self.parts.append(text.upper() if self.divine else text)
+
+
+def osis_plain(text):
+    parser=ScripturePlain();parser.feed(text);parser.close()
+    if parser.excluded:raise ValueError('Unclosed note/title in SWORD verse')
+    return re.sub(r'\s+',' ',''.join(parser.parts)).strip()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--chinese-archive', type=Path, required=True)
     p.add_argument('--chinese-export', type=Path, required=True)
     p.add_argument('--english-archive', type=Path, required=True)
+    p.add_argument('--kjv-archive', type=Path, required=True)
+    p.add_argument('--kjv-export', type=Path, required=True)
     args = p.parse_args()
+    pinned = [(args.chinese_archive,'37fcef08bd3b5f42f5d7b8e0a9326075f9f41e6aa39906711b092f105ae4857e'),
+              (args.chinese_export,'6d6b67c46231adba2e516ad8277e08b2f08c2f86a54c96e0e6ddc477dd974dcf'),
+              (args.english_archive,'7ebe6b7dc416ce63691d1a3889a06f841ccb7f414ada69be82da891f4b9be44f')]
+    if any(digest(path)!=expected for path,expected in pinned):
+        raise ValueError('Use the pinned CUV and WEBP inputs to preserve existing annotation data versions')
     catalog = books()
     names = {b['englishName']: b['id'] for b in catalog}
     chapters = {}
@@ -116,13 +151,26 @@ def main():
         seen.add(identity)
         chapters.setdefault(key, []).append({'label': verse, 'text': text})
 
-    for line in args.chinese_export.read_text().splitlines():
-        m = re.fullmatch(r'(.+?) (\d+):(\d+[a-z]?): ?(.*)', line)
-        if m:
-            name, ch, verse, text = m.groups()
-            add('cuv', names[name], int(ch), verse, text)
-        elif line.strip() and line.strip() != '(ChiUns)':
-            raise ValueError(f'unrecognized SWORD export line: {line[:80]}')
+    def sword_export(path, module, translation):
+        for line in path.read_text(encoding='utf-8').splitlines():
+            m = re.fullmatch(r'(.+?) (\d+):(\d+[a-z]?): ?(.*)', line)
+            if m:
+                name, ch, verse, text = m.groups()
+                if int(re.match(r'\d+',verse).group())==0:continue
+                add(translation, names[name], int(ch), verse, text)
+            elif line.strip() and line.strip() != f'({module})':
+                raise ValueError(f'unrecognized {module} SWORD export line: {line[:80]}')
+    sword_export(args.chinese_export,'ChiUns','cuv')
+    if digest(args.kjv_archive)!='873815aa4b4123025616d1f41eae75f412111275f4c3884e36f92d4f46dcba1d':
+        raise ValueError('Use the pinned CrossWire KJV 3.1 archive')
+    for line in args.kjv_export.read_text(encoding='utf-8').splitlines():
+        match=re.fullmatch(r'(.+?) (\d+):(\d+[a-z]?) (.*)',line)
+        if not match:
+            if not line.strip() or re.match(r'^\[ Testament [12] Heading \] ',line):continue
+            raise ValueError(f'unrecognized KJV raw VPL line: {line[:80]}')
+        name,chapter,verse,markup=match.groups()
+        if int(chapter)==0 or int(re.match(r'\d+',verse).group())==0:continue
+        add('kjv',names[name],int(chapter),verse,osis_plain(markup))
     with zipfile.ZipFile(args.english_archive) as z:
         for line in z.read('engwebp_vpl.txt').decode('utf-8-sig').splitlines():
             m = re.fullmatch(r'([A-Z0-9]{3}) (\d+):(\d+[a-z]?) (.*)', line)
@@ -142,7 +190,10 @@ def main():
              sourceUrl='https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=ChiUns', license='Public Domain'),
         dict(id='webp', language='en', name='World English Bible', abbreviation='WEBP',
              dataVersion='engwebp-2026-11-13-'+digest(args.english_archive)[:12],
-             sourceUrl='https://ebible.org/bible/details.php?id=engwebp', license='Public Domain')]
+             sourceUrl='https://ebible.org/bible/details.php?id=engwebp', license='Public Domain'),
+        dict(id='kjv', language='en', name='King James Version (1769)', abbreviation='KJV',
+             dataVersion='KJV-3.1-'+digest(args.kjv_archive)[:12]+'-'+hashlib.sha256(json.dumps({key:value for key,value in chapters.items() if key.startswith('kjv/')},ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:12],
+             sourceUrl='https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=KJV', license='GPL (CrossWire module; see source notice)')]
     for t in translations:
         for b in catalog:
             for chapter in range(1, b['chapters']+1):
@@ -158,8 +209,11 @@ def main():
              sha256=digest(args.chinese_archive), version='3.1',
              exportSha256=digest(args.chinese_export), conversion='diatheke 4.8 / SWORD 1.9.0 plain, optional filters disabled'),
         dict(id='webp', url='https://ebible.org/Scriptures/engwebp_vpl.zip',
-             sha256=digest(args.english_archive), version='2026-11-13', conversion='publisher VPL plain text')]
-    manifest=dict(retrieved='2026-11-16', sources=sources, datasetSha256=digest(output),
+             sha256=digest(args.english_archive), version='2026-11-13', conversion='publisher VPL plain text'),
+        dict(id='kjv', url='https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/KJV.zip',
+             sha256=digest(args.kjv_archive), version='3.1', exportSha256=digest(args.kjv_export),
+             conversion='SWORD 1.9.0 mod2vpl raw OSIS; strip notes/titles/attributes, preserve divine-name capitals, normalize layout whitespace')]
+    manifest=dict(retrieved='2026-11-17', sources=sources, datasetSha256=digest(output),
                   plainSha256=hashlib.sha256(raw).hexdigest(),
                   books=len(catalog), chapters=len(chapters),
                   verses={t['id']:sum(len(v) for k,v in chapters.items() if k.startswith(t['id']+'/')) for t in translations})
@@ -169,6 +223,8 @@ def main():
         (target/'ChiUns-source.conf').write_bytes(z.read('mods.d/chiuns.conf'))
     with zipfile.ZipFile(args.english_archive) as z:
         (target/'WEBP-source.html').write_bytes(z.read('engwebp_about.htm'))
+    with zipfile.ZipFile(args.kjv_archive) as z:
+        (target/'KJV-source.conf').write_bytes(z.read('mods.d/kjv.conf'))
     print(json.dumps(manifest, indent=2))
 
 

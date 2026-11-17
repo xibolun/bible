@@ -60,14 +60,14 @@ func TestUnicodeSelectionPersistenceAndCopy(t *testing.T) {
 	if !r.OK || len(*r.Data) != 1 {
 		t.Fatalf("%+v", r.Error)
 	}
-	if !s.CopySelection(sel, "textWithReference").OK || !strings.Contains(desk.text, "😀é中\n— 创世记 1:1 · CUV") {
+	if !s.CopySelection(sel, "textWithReference", nil).OK || !strings.Contains(desk.text, "😀é中\n— 创世记 1:1 · CUV") {
 		t.Fatal(desk.text)
 	}
-	if !s.CopySelection(sel, "parallelVerse").OK || !strings.Contains(desk.text, "An English verse.") {
+	if !s.CopySelection(sel, "parallelVerse", []string{"cuv", "webp"}).OK || !strings.Contains(desk.text, "An English verse.") {
 		t.Fatal(desk.text)
 	}
 	desk.fail = true
-	fail := s.CopySelection(sel, "textOnly")
+	fail := s.CopySelection(sel, "textOnly", nil)
 	if fail.OK || fail.Error.Code != "CLIPBOARD_ERROR" || strings.Contains(fail.Error.Message, "private") {
 		t.Fatal("clipboard failure leaked or reported success")
 	}
@@ -85,6 +85,25 @@ func TestUnicodeSelectionPersistenceAndCopy(t *testing.T) {
 	duplicate.Spans = append(duplicate.Spans, duplicate.Spans[0])
 	if s.ApplyHighlight("duplicate-verse", duplicate, "yellow").OK {
 		t.Fatal("duplicate verse accepted")
+	}
+}
+
+func TestCopyAndCardUseOnlySelectedTranslationPair(t *testing.T) {
+	s, desktop := fixture(t)
+	s.Data.Translations = append(s.Data.Translations, bible.Translation{ID: "kjv", DataVersion: "v1", Abbreviation: "KJV"})
+	s.Data.Chapters["kjv/GEN/1"] = []bible.Verse{{Label: "1", Text: "King James wording."}}
+	sel := selected()
+	if result := s.CopySelection(sel, "parallelVerse", []string{"cuv", "kjv"}); !result.OK || !strings.Contains(desktop.text, "KJV\nKing James wording.") || strings.Contains(desktop.text, "WEBP") || strings.Contains(desktop.text, "An English verse.") {
+		t.Fatalf("wrong pair copied: %s", desktop.text)
+	}
+	card := s.GetCard(sel, []string{"cuv", "kjv"}, true)
+	if !card.OK || len(card.Data.Lines) != 2 || card.Data.Lines[1].Version != "KJV" || card.Data.Lines[1].Text != "King James wording." {
+		t.Fatalf("wrong pair in card: %+v", card)
+	}
+	for _, ids := range [][]string{{"cuv", "webp", "kjv"}, {"cuv", "cuv"}, {"cuv", "missing"}, {"webp", "kjv"}} {
+		if s.CopySelection(sel, "parallelVerse", ids).OK {
+			t.Fatalf("invalid pair accepted: %v", ids)
+		}
 	}
 }
 

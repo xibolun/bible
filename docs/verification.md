@@ -1,6 +1,6 @@
 # Verification boundaries
 
-`make check` runs packaging-preflight regressions, Go formatting, vet and behavior
+`make check` runs packaging-preflight and SWORD text-conversion regressions, Go formatting, vet and behavior
 tests, frontend lint/typecheck, six selection/layout unit cases, a production
 build, data integrity and owned
 branding-input checks. The interval suite includes a per-character fuzz model;
@@ -9,15 +9,23 @@ The packaging regressions verify that unsupported targets, foreign native
 hosts, unconfigured Linux cross-architecture CGO and missing Linux libraries
 fail before build checks/output writes, including under Python `-O`, while all
 six native targets and Windows binary cross-compilation remain allowed.
+SWORD conversion cases preserve verse wording, divine-name capitalization and
+layout boundaries while removing notes/titles. Data checks require complete
+CUV/WEBP/KJV catalogs; KJV source samples and selected-pair copy/card service
+cases guard against silently using WEBP or including an unselected translation.
 
 Browser end-to-end tests use a production build of the explicit Mock adapter.
-They exercise book/chapter navigation, Chinese/English comparison, offline
+They exercise book/chapter navigation, Chinese/English and KJV/WEBP comparison, offline
 operations after loading bundled assets, highlight persistence across reload,
 clipboard content, exact PNG dimensions, focus-mode exit, cross-column
 selection rejection, visible data errors and direct export retry after a save
 failure without losing editor state. Screenshots and an actual exported
 PNG are uploaded with the browser report. These tests do not substitute for a
 native first-launch/offline check.
+The KJV flow checks distinct pair selection, KJV highlight persistence after
+reload, comparison clipboard content without WEBP contamination and an actual
+KJV comparison-card PNG download. It also checks that translation selectors
+and reading controls remain visible at the minimum 1024×640 window size.
 
 The native matrix builds on macOS arm64/Intel, Windows arm64/amd64 and Ubuntu
 24.04 arm64/amd64 runners, inspects Mach-O/PE/ELF headers and produces all six
@@ -30,6 +38,8 @@ with the same test directory. Reports record the actual OS/architecture. macOS
 DMGs and ad-hoc signatures are checked by system tools. Windows NSIS source
 compilation is part of packaging. A Windows Server runner is not evidence of
 manual Windows 11 desktop acceptance.
+Native smoke also reads the real SWORD KJV text through the Go bridge and uses
+CUV+KJV for the clipboard/card path, verifying the returned KJV edition label.
 
 Linux native smoke runs in a private D-Bus session with Xvfb and software
 rendering. It exercises the real GTK4/WebKitGTK frontend and Go services, not

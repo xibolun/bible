@@ -78,7 +78,7 @@ func Load() (*Dataset, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(d.Books) != 66 || len(d.Translations) != 2 {
+	if len(d.Books) != 66 || len(d.Translations) < 2 {
 		return nil, fmt.Errorf("invalid bundled canon")
 	}
 	return d, nil

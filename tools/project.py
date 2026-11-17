@@ -79,7 +79,8 @@ def verify_data():
     raw=gzip.decompress((ROOT/'internal/bible/dataset.json.gz').read_bytes())
     assert hashlib.sha256(raw).hexdigest()==manifest['plainSha256']
     assert (ROOT/'frontend/public/dataset.json').read_bytes()==raw,'Mock/native data diverged'
-    d=json.loads(raw);assert len(d['books'])==66 and len(d['translations'])==2
+    d=json.loads(raw);assert len(d['books'])==66 and {tr['id'] for tr in d['translations']}=={'cuv','webp','kjv'}
+    assert {source['id'] for source in manifest['sources']}=={tr['id'] for tr in d['translations']}
     for tr in d['translations']:
         count=0
         for book in d['books']:
@@ -92,7 +93,8 @@ def verify_data():
     font=json.loads((ROOT/'data/font.json').read_text(encoding='utf-8'))
     assert sha(ROOT/'frontend/public/fonts/bible-sans.woff2')==font['sha256']
     assert (ROOT/'licenses/font-Noto-CJK.txt').is_file()
-    print('Verified complete bilingual data, source manifests and bundled font.')
+    assert (ROOT/'licenses/scripture-KJV-source.conf').read_bytes()==(ROOT/'data/KJV-source.conf').read_bytes()
+    print('Verified complete CUV/WEBP/KJV data, source manifests and bundled font.')
 
 def verify_branding():
     bad=re.compile(r'(Wails\s*(?:logo|\+|version)|Built\s+(?:with|using)\s+Wails|My Company|My Product|wails\.png|GreetService|Welcome to Wails)',re.I)

@@ -136,7 +136,7 @@ export interface API {
     sel: Selection,
     color: string,
   ): Promise<Highlight[]>;
-  CopySelection(sel: Selection, mode: string): Promise<boolean>;
+  CopySelection(sel: Selection, mode: string, ids: string[]): Promise<boolean>;
   GetCard(sel: Selection, ids: string[], full: boolean): Promise<CardContent>;
   SaveCard(
     encoded: string,

@@ -11,7 +11,12 @@ import {
   Spin,
   Switch,
 } from "antd";
-import type { API, CardContent, Selection } from "../../shared/types";
+import type {
+  API,
+  CardContent,
+  Selection,
+  Translation,
+} from "../../shared/types";
 import { drawCard, type CardStyle } from "./layout";
 
 const templates = [
@@ -22,10 +27,14 @@ const templates = [
 export function CardEditor({
   api,
   selection,
+  translations,
+  comparison,
   onClose,
 }: {
   api: API;
   selection: Selection;
+  translations: Translation[];
+  comparison: string[];
   onClose: () => void;
 }) {
   const { message } = App.useApp();
@@ -44,12 +53,13 @@ export function CardEditor({
     align: "left",
   });
   const canvas = useRef<HTMLCanvasElement>(null);
+  const idsKey = (mode === "both" ? comparison : [mode]).join(",");
   useEffect(() => {
     let cancel = false;
     setLoading(true);
     setReady(false);
     setError("");
-    const ids = mode === "both" ? ["cuv", "webp"] : [mode];
+    const ids = idsKey.split(",");
     api
       .GetCard(selection, ids, full || mode !== selection.translationId)
       .then((v) => {
@@ -67,7 +77,7 @@ export function CardEditor({
     return () => {
       cancel = true;
     };
-  }, [api, selection, mode, full]);
+  }, [api, selection, mode, full, idsKey]);
   useEffect(() => {
     if (!content) return;
     let cancel = false;
@@ -144,11 +154,19 @@ export function CardEditor({
             <Select
               aria-label="卡片语言"
               value={mode}
-              onChange={setMode}
+              onChange={(value) => {
+                setReady(false);
+                setMode(value);
+              }}
               options={[
-                { value: "cuv", label: "中文 · 和合本" },
-                { value: "webp", label: "English · WEBP" },
-                { value: "both", label: "中英双语" },
+                ...translations.map((translation) => ({
+                  value: translation.id,
+                  label: `${translation.abbreviation} · ${translation.name}`,
+                })),
+                {
+                  value: "both",
+                  label: `当前对照 · ${comparison.map((id) => translations.find((translation) => translation.id === id)?.abbreviation).join(" + ")}`,
+                },
               ]}
             />
           </label>
@@ -161,7 +179,7 @@ export function CardEditor({
             />
           </label>
           {mode !== selection.translationId && (
-            <p className="muted">切换语言或双语卡片将采用完整经节。</p>
+            <p className="muted">切换译本或对照卡片将采用完整经节。</p>
           )}
           <label>
             图片尺寸
