@@ -30,6 +30,7 @@ import {
 import { captureSelection, wholeVerses } from "./shared/selection";
 import { CardEditor } from "./features/cards/CardEditor";
 import { drawCard } from "./features/cards/layout";
+import { appVersion } from "./shared/build";
 import { Settings } from "./features/settings/Settings";
 import {
   SelectionToolbar,
@@ -283,6 +284,7 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
       try {
         await api.CopySelection(value, mode, idsKey.split(","), {
           referencePosition: prefs.referencePosition,
+          referenceStyle: prefs.referenceStyle,
           uiLanguage: prefs.uiLanguage,
         });
         message.success(
@@ -297,6 +299,7 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
       selection,
       idsKey,
       prefs.referencePosition,
+      prefs.referenceStyle,
       prefs.uiLanguage,
       message,
     ],
@@ -424,9 +427,14 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
         await api!.SavePreferences(previous);
         await api!.CopySelection(s, "parallelVerse", ["cuv", "kjv", "webp"], {
           referencePosition: "before",
+          referenceStyle: "verses-short",
           uiLanguage: "en",
         });
-        const content = await api!.GetCard(s, ["cuv", "kjv", "webp"], true);
+        const content = await api!.GetCard(s, ["cuv", "kjv", "webp"], true, {
+          referencePosition: "after",
+          referenceStyle: "short",
+          uiLanguage: "zh-CN",
+        });
         if (
           content.lines.length !== 3 ||
           !content.lines.some((line) => line.version === "KJV")
@@ -454,7 +462,7 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
       } finally {
         const native = await import("./shared/native");
         try {
-          await native.reportSmoke(passed);
+          await native.reportSmoke(passed, appVersion);
         } finally {
           smokeActive.current = false;
         }
@@ -763,86 +771,129 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
             </div>
           ))}
         </div>
-        <div
-          className="verse-scroll"
-          ref={scroll}
-          onScroll={onScroll}
-          aria-busy={busy}
-        >
-          <Spin spinning={busy}>
-            <div
-              className="verses"
-              style={{ fontSize: prefs.fontSize }}
-              onMouseUp={selectText}
-              onKeyUp={(e) => {
-                if (e.key === "Shift" || e.shiftKey) selectText();
-              }}
-            >
-              {chapter?.rows.map((row) => (
-                <div key={row.label} className="verse-row" data-row={row.label}>
-                  {row.cells.map((cell) => (
-                    <div
-                      key={cell.translationId}
-                      className={`verse-cell ${translations.find((t) => t.id === cell.translationId)?.language.startsWith("en") ? "english" : ""} ${selection?.translationId === cell.translationId && selection.spans.some((p) => p.verseKey === row.label) ? "is-selected" : ""}`}
-                    >
-                      <button
-                        className="verse-select"
-                        title={t(
-                          "选择整段；Shift 选择连续经文",
-                          "Select this passage; Shift-click for a range",
-                        )}
-                        aria-label={t(
-                          `选择${cell.translationId === "cuv" ? "中文" : translations.find((t) => t.id === cell.translationId)?.abbreviation}第${row.label}节`,
-                          `Select ${translations.find((t) => t.id === cell.translationId)?.abbreviation} verse ${row.label}`,
-                        )}
-                        disabled={cell.missing || busy}
-                        onClick={(e) =>
-                          selectVerse(
-                            cell.translationId,
-                            row.label,
-                            e.shiftKey,
-                            e.detail ? e : undefined,
-                          )
-                        }
+        <div className="reading-content">
+          <div
+            className="verse-scroll"
+            ref={scroll}
+            onScroll={onScroll}
+            aria-busy={busy}
+          >
+            <Spin spinning={busy}>
+              <div
+                className="verses"
+                style={{ fontSize: prefs.fontSize }}
+                onMouseUp={selectText}
+                onKeyUp={(e) => {
+                  if (e.key === "Shift" || e.shiftKey) selectText();
+                }}
+              >
+                {chapter?.rows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="verse-row"
+                    data-row={row.label}
+                  >
+                    {row.cells.map((cell) => (
+                      <div
+                        key={cell.translationId}
+                        className={`verse-cell ${translations.find((t) => t.id === cell.translationId)?.language.startsWith("en") ? "english" : ""} ${selection?.translationId === cell.translationId && selection.spans.some((p) => p.verseKey === row.label) ? "is-selected" : ""}`}
                       >
-                        {
-                          translations.find((t) => t.id === cell.translationId)
-                            ?.abbreviation
-                        }
-                      </button>
-                      {cell.missing ? (
-                        <span className="missing-verse">
-                          {t(
-                            "本译本无此节",
-                            "Verse not present in this translation",
+                        <button
+                          className="verse-select"
+                          title={t(
+                            "选择整段；Shift 选择连续经文",
+                            "Select this passage; Shift-click for a range",
                           )}
-                        </span>
-                      ) : (
-                        <span
-                          data-verse-text
-                          data-translation={cell.translationId}
-                          data-verse={row.label}
+                          aria-label={t(
+                            `选择${cell.translationId === "cuv" ? "中文" : translations.find((t) => t.id === cell.translationId)?.abbreviation}第${row.label}节`,
+                            `Select ${translations.find((t) => t.id === cell.translationId)?.abbreviation} verse ${row.label}`,
+                          )}
+                          disabled={cell.missing || busy}
+                          onClick={(e) =>
+                            selectVerse(
+                              cell.translationId,
+                              row.label,
+                              e.shiftKey,
+                              e.detail ? e : undefined,
+                            )
+                          }
                         >
-                          <MarkedText
-                            text={cell.text}
-                            marks={highlights.filter(
-                              (h) =>
-                                h.translationId === cell.translationId &&
-                                h.verseKey === row.label &&
-                                h.dataVersion === versions[h.translationId],
+                          {row.label}
+                        </button>
+                        {cell.missing ? (
+                          <span className="missing-verse">
+                            {t(
+                              "本译本无此节",
+                              "Verse not present in this translation",
                             )}
-                          />
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-              {!chapter && !busy && !error && (
-                <Empty description={t("暂无经文", "No scripture available")} />
-              )}
-            </div>
-          </Spin>
+                          </span>
+                        ) : (
+                          <span
+                            data-verse-text
+                            data-translation={cell.translationId}
+                            data-verse={row.label}
+                          >
+                            <MarkedText
+                              text={cell.text}
+                              marks={highlights.filter(
+                                (h) =>
+                                  h.translationId === cell.translationId &&
+                                  h.verseKey === row.label &&
+                                  h.dataVersion === versions[h.translationId],
+                              )}
+                            />
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                {!chapter && !busy && !error && (
+                  <Empty
+                    description={t("暂无经文", "No scripture available")}
+                  />
+                )}
+              </div>
+            </Spin>
+          </div>
+          <button
+            className="chapter-edge chapter-edge-previous"
+            aria-label={t("上一章", "Previous chapter")}
+            disabled={busy || prefs.chapter <= 1}
+            onClick={() => navigate(prefs.bookId, prefs.chapter - 1)}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="m15 5-7 7 7 7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            className="chapter-edge chapter-edge-next"
+            aria-label={t("下一章", "Next chapter")}
+            disabled={
+              busy ||
+              prefs.chapter >=
+                (books.find((book) => book.id === prefs.bookId)?.chapters ?? 1)
+            }
+            onClick={() => navigate(prefs.bookId, prefs.chapter + 1)}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="m9 5 7 7-7 7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         </div>
         <footer className="reader-footer">
           <span>
@@ -855,8 +906,8 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
           </span>
           <span>
             {t(
-              "拖选文字，或点击译本简称；Shift 连续选择",
-              "Select text or click an edition; Shift-click for a range",
+              "拖选文字，或点击节号；Shift 连续选择",
+              "Select text or click a verse number; Shift-click for a range",
             )}
           </span>
           <Space size={4}>
@@ -952,11 +1003,28 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
           translations={translations}
           comparison={ids}
           language={prefs.uiLanguage}
+          formatOptions={prefs}
           onClose={() => setCard(null)}
         />
       )}
       {settings && (
         <Settings
+          api={api}
+          preview={
+            chapter && {
+              book: chapter.book,
+              chapter: chapter.chapter,
+              translation: translations.find((t) => t.id === ids[0])!,
+              verses: chapter.rows.slice(0, 2).flatMap((row) => {
+                const cell = row.cells.find(
+                  (cell) => cell.translationId === ids[0],
+                );
+                return cell && !cell.missing
+                  ? [{ label: row.label, text: cell.text }]
+                  : [];
+              }),
+            }
+          }
           preferences={prefs}
           translations={translations}
           onChange={(value) => setPrefs((p) => ({ ...p, ...value }))}

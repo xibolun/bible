@@ -24,8 +24,8 @@ export function CopySelection(sel: $models.Selection, mode: string, ids: string[
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.CopySelection", sel, mode, ids, options);
 }
 
-export function GetCard(sel: $models.Selection, ids: string[] | null, full: boolean): $CancellablePromise<$models.Result<$models.CardContent>> {
-    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetCard", sel, ids, full);
+export function GetCard(sel: $models.Selection, ids: string[] | null, full: boolean, options: $models.CopyOptions): $CancellablePromise<$models.Result<$models.CardContent>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetCard", sel, ids, full, options);
 }
 
 export function GetChapter(ids: string[] | null, book: string, chapter: number, request: string): $CancellablePromise<$models.Result<bible$0.Chapter>> {
@@ -48,8 +48,8 @@ export function ListTranslations(): $CancellablePromise<$models.Result<bible$0.T
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ListTranslations");
 }
 
-export function ReportSmoke(passed: boolean): $CancellablePromise<$models.Result<boolean>> {
-    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ReportSmoke", passed);
+export function ReportSmoke(passed: boolean, frontendVersion: string): $CancellablePromise<$models.Result<boolean>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ReportSmoke", passed, frontendVersion);
 }
 
 export function SaveCard(encoded: string, width: number, height: number, name: string, sel: $models.Selection): $CancellablePromise<$models.Result<$models.Saved>> {

@@ -66,6 +66,7 @@ export interface Preferences {
   parallel: boolean;
   fontSize: number;
   referencePosition: "before" | "after";
+  referenceStyle: ReferenceStyle;
   uiLanguage: "zh-CN" | "en";
   windowX: number;
   windowY: number;
@@ -79,7 +80,20 @@ export interface CardLine {
   reference: string;
   translationId: string;
   version: string;
+  referenceBefore?: boolean;
 }
+export type ReferenceStyle =
+  | "full-version"
+  | "short-version"
+  | "full"
+  | "short"
+  | "inline"
+  | "verses-short"
+  | "verses-full";
+export type FormatOptions = Pick<
+  Preferences,
+  "referencePosition" | "referenceStyle" | "uiLanguage"
+>;
 export interface CardContent {
   lines: CardLine[];
   fileName: string;
@@ -104,6 +118,7 @@ export const defaults: Preferences = {
   parallel: false,
   fontSize: 18,
   referencePosition: "after",
+  referenceStyle: "full-version",
   uiLanguage: "zh-CN",
   windowX: 0,
   windowY: 0,
@@ -144,9 +159,15 @@ export interface API {
     sel: Selection,
     mode: string,
     ids: string[],
-    options: Pick<Preferences, "referencePosition" | "uiLanguage">,
+    options: FormatOptions,
   ): Promise<boolean>;
-  GetCard(sel: Selection, ids: string[], full: boolean): Promise<CardContent>;
+  GetCard(
+    sel: Selection,
+    ids: string[],
+    full: boolean,
+    options: FormatOptions,
+  ): Promise<CardContent>;
+  OpenSource(): Promise<boolean>;
   SaveCard(
     encoded: string,
     width: number,

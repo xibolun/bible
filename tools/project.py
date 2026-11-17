@@ -30,14 +30,16 @@ def output(args,**kw):
     kw.setdefault('cwd',ROOT)
     return subprocess.check_output(list(map(str,args)),text=True,**kw).strip()
 
-def npm(*args):
+def npm(*args,version=None):
     executable=shutil.which('npm.cmd' if HOST=='windows' else 'npm') or 'npm'
     command=[executable,*args]
     if HOST=='windows':
         script=Path(executable).parent/'node_modules/npm/bin/npm-cli.js'
         if not script.is_file():raise RuntimeError('Use a Node installation with node_modules/npm/bin/npm-cli.js beside npm.cmd')
         command=['node',script,*args]
-    return run(command,cwd=ROOT/'frontend')
+    env=os.environ.copy()
+    if version is not None:env['BIBLE_APP_VERSION']=version
+    return run(command,cwd=ROOT/'frontend',env=env)
 
 def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -125,13 +127,13 @@ def doctor(args):
         if HOST=='windows' and not nsis():raise RuntimeError('NSIS missing. Install explicitly and add makensis to PATH.')
     print(f'Doctor passed on {HOST}/{ARCH}; distribution targets are macOS, Windows and Linux.')
 
-def check():
+def check(version='v0.1.0'):
     if HOST=='linux':linux_dependencies()
     run([sys.executable,'-m','unittest','discover','-s','tools','-p','test_*.py'])
     files=[ROOT/'main.go',*list((ROOT/'internal').rglob('*.go'))]
     formatted=output(['gofmt','-l',*files]);assert not formatted,'Run gofmt on: '+formatted
     # Native main.go embeds the built frontend, so assets must exist before Go checks.
-    npm('ci');npm('run','lint');npm('run','typecheck');npm('run','test','--','--run');npm('run','build')
+    npm('ci');npm('run','lint');npm('run','typecheck');npm('run','test','--','--run');npm('run','build',version=version)
     run(['go','vet','./...']);run(['go','test','./...'])
     verify_data();verify_branding()
 
@@ -288,21 +290,21 @@ def main():
     assert re.fullmatch(r'v?\d+\.\d+\.\d+',args.version),'VERSION must be a simple semantic version'
     if args.action=='help':print('make doctor | check | dev | build | package [GOOS=darwin|windows|linux GOARCH=arm64|amd64 VERSION=v0.1.0] | smoke | dist | release-artifacts REF=main | verify-data | verify-branding | bindings | clean\nBuild/package requires a matching native macOS/Windows/Linux host and declared system dependencies. Linux CGO builds require a matching architecture. Authenticate GitHub CLI as xibolun and run make release-artifacts REF=main for all six CI targets.')
     elif args.action=='doctor':doctor(args)
-    elif args.action=='check':check()
+    elif args.action=='check':check(args.version)
     elif args.action=='verify-data':verify_data()
     elif args.action=='verify-branding':verify_branding()
     elif args.action=='compile':compile_app(args)
     elif args.action=='package-native':package_native(args)
     elif args.action in ('build','package'):
         validate_desktop_target(args,native=True)
-        doctor(args);check();run([cli(),'task',args.action,f'TARGET_OS={args.os}',f'TARGET_ARCH={args.arch}',f'VERSION={args.version}'])
+        doctor(args);check(args.version);run([cli(),'task',args.action,f'TARGET_OS={args.os}',f'TARGET_ARCH={args.arch}',f'VERSION={args.version}'])
     elif args.action=='bindings':
         if not (ROOT/'frontend/dist/index.html').is_file():
             (ROOT/'frontend/dist').mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/'frontend/index.html',ROOT/'frontend/dist/index.html')
         env=os.environ.copy();env.update(GOOS=args.os if args.os in ('windows','darwin') else 'windows',CGO_ENABLED='0' if args.os!='darwin' else '1');run([cli(),'generate','bindings','-ts','-i','-names'],env=env)
     elif args.action=='dev':
         validate_desktop_target(args,native=True)
-        doctor(args);npm('ci');npm('run','build');env=os.environ.copy();env['PATH']=str(Path(cli()).parent)+os.pathsep+env.get('PATH','');run([cli(),'dev'],env=env)
+        doctor(args);npm('ci');npm('run','build',version=args.version);env=os.environ.copy();env['BIBLE_APP_VERSION']=args.version;env['PATH']=str(Path(cli()).parent)+os.pathsep+env.get('PATH','');run([cli(),'dev'],env=env)
     elif args.action=='run-native':
         validate_desktop_target(args,native=True)
         _,binary,_,_=paths(args);run([binary])

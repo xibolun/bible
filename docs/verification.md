@@ -22,7 +22,7 @@ selection rejection, visible data errors and direct export retry after a save
 failure without losing editor state. Screenshots and an actual exported
 PNG are uploaded with the browser report. These tests do not substitute for a
 native first-launch/offline check.
-The KJV flow checks all-three vertical ordering, hidden visible verse labels,
+The KJV flow checks all-three vertical ordering, source verse numbers without repeated edition labels,
 compact line height, KJV highlight persistence after reload, three-version
 clipboard/card output, and removal of an unselected version from comparison
 copying. Minimum 1024×640 cases cover wrapping all 150 Psalm chapters, real text
@@ -31,6 +31,12 @@ window-edge avoidance, scroll anchoring and dismissal. Settings cases migrate
 legacy preferences, switch Chinese/English UI, persist font size/reference
 position and verify About and English card controls. Service regressions check
 the same copy options and settings without changing existing annotations.
+Shared user-supplied golden examples verify seven reference styles in Go and
+TypeScript, including exact punctuation, full/abbreviated book names, optional
+editions and per-verse prefixes. Browser cases check all seven copied strings,
+per-verse and edition-free PNGs, persisted style selection, external source
+navigation and edge-arrow hover/focus/boundaries. Card layout tests preserve
+explicit line breaks and prevent closing punctuation from starting a line.
 
 The native matrix builds on macOS arm64/Intel, Windows arm64/amd64 and Ubuntu
 24.04 arm64/amd64 runners, inspects Mach-O/PE/ELF headers and produces all six
@@ -46,6 +52,9 @@ manual Windows 11 desktop acceptance.
 Native smoke also reads the real SWORD KJV text through the Go bridge, round-trips
 the new font/language/reference settings, and uses CUV+KJV+WEBP for clipboard/card
 paths, verifying all three returned editions. No browser adapter is substituted.
+Smoke reports also require the rendered interface version to match the native
+binary/package version. Source-browser launch and native file dialogs remain
+manual desktop integration checks.
 
 Linux native smoke runs in a private D-Bus session with Xvfb and software
 rendering. It exercises the real GTK4/WebKitGTK frontend and Go services, not
@@ -79,3 +88,14 @@ smoke claims:
 Consult the linked CI run and PR for actual results. Failed/missing jobs are not
 passed targets, unsigned/adhoc artifacts are not signed public releases, and
 manual checks must not be silently checked off by the packaging script.
+
+The reusable matrix collector validates all six package sets, clean source
+commit, version/architecture, hashes and successful native reports through
+`tools/release.py validate`, generating a release index without publishing.
+Release unit tests use synthetic bundles and a fake provider for missing,
+corrupt, wrong-version/source, failed-runtime and interrupted-upload cases;
+published reruns retain assets and validate their original index. Tests also
+exercise version tags merged into main and reject moved/unmerged tags, including
+under Python `-O`. Workflow syntax is checked with actionlint 1.7.12. Only the
+tag/manual release workflow receives publishing permission, as confirmed by the
+user for github-actions[bot]; tests do not create real releases.

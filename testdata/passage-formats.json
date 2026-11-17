@@ -1,0 +1,60 @@
+{
+  "book": {
+    "id": "ECC",
+    "name": "传道书",
+    "abbreviation": "传",
+    "englishName": "Ecclesiastes",
+    "chapters": 12,
+    "testament": "OT"
+  },
+  "chapter": 1,
+  "translation": {
+    "id": "cuv",
+    "abbreviation": "CUV",
+    "language": "zh-Hans",
+    "name": "和合本（简体）",
+    "dataVersion": "test",
+    "sourceUrl": "https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=ChiUns",
+    "license": "Public Domain"
+  },
+  "verses": [
+    {
+      "label": "6",
+      "text": "风往南刮，又向北转，不住地旋转，而且返回转行原道。"
+    },
+    {
+      "label": "7",
+      "text": "江河都往海里流，海却不满；江河从何处流，仍归还何处。"
+    }
+  ],
+  "cases": [
+    {
+      "style": "full-version",
+      "expected": "风往南刮，又向北转，不住地旋转，而且返回转行原道。\n江河都往海里流，海却不满；江河从何处流，仍归还何处。\n— 传道书1:6–7·CUV"
+    },
+    {
+      "style": "short-version",
+      "expected": "风往南刮，又向北转，不住地旋转，而且返回转行原道。\n江河都往海里流，海却不满；江河从何处流，仍归还何处。\n— 传1:6–7·CUV"
+    },
+    {
+      "style": "full",
+      "expected": "风往南刮，又向北转，不住地旋转，而且返回转行原道。\n江河都往海里流，海却不满；江河从何处流，仍归还何处。\n— 传道书1:6–7"
+    },
+    {
+      "style": "short",
+      "expected": "风往南刮，又向北转，不住地旋转，而且返回转行原道。\n江河都往海里流，海却不满；江河从何处流，仍归还何处。\n— 传1:6–7"
+    },
+    {
+      "style": "inline",
+      "expected": "传1:6-7: 风往南刮，又向北转，不住地旋转，而且返回转行原道。\n江河都往海里流，海却不满；江河从何处流，仍归还何处。"
+    },
+    {
+      "style": "verses-short",
+      "expected": "传1:6: 风往南刮，又向北转，不住地旋转，而且返回转行原道。\n传1:7: 江河都往海里流，海却不满；江河从何处流，仍归还何处。"
+    },
+    {
+      "style": "verses-full",
+      "expected": "传道书1:6: 风往南刮，又向北转，不住地旋转，而且返回转行原道。\n传道书1:7: 江河都往海里流，海却不满；江河从何处流，仍归还何处。"
+    }
+  ]
+}

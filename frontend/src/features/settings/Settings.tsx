@@ -1,27 +1,66 @@
-import { Button, Drawer, InputNumber, Segmented, Select, Tabs } from "antd";
-import type { Preferences, Translation } from "../../shared/types";
-import { translator } from "../../shared/locale";
-import packageInfo from "../../../package.json";
+import {
+  App,
+  Button,
+  Drawer,
+  InputNumber,
+  Segmented,
+  Select,
+  Space,
+  Tabs,
+} from "antd";
+import { GithubOutlined } from "@ant-design/icons";
+import type { API, Preferences, Translation } from "../../shared/types";
+import { translator, errorText } from "../../shared/locale";
+import { appVersion } from "../../shared/build";
+import {
+  referenceStyles,
+  inlineReferences,
+  formatPassage,
+  passageText,
+  type Passage,
+} from "../../shared/formatting";
 
 export function Settings({
   preferences,
+  api,
+  preview,
   translations,
   onChange,
   onClose,
 }: {
   preferences: Preferences;
+  api: API;
+  preview?: Passage;
   translations: Translation[];
   onChange: (value: Partial<Preferences>) => void;
   onClose: () => void;
 }) {
   const t = translator(preferences.uiLanguage);
+  const { message } = App.useApp();
   return (
     <Drawer
       open
       title={t("设置", "Settings")}
       width={460}
       onClose={onClose}
-      extra={<Button onClick={onClose}>{t("完成", "Done")}</Button>}
+      extra={
+        <Space>
+          <Button
+            icon={<GithubOutlined />}
+            aria-label={t("访问源码", "View source")}
+            onClick={() =>
+              void api
+                .OpenSource()
+                .catch((error) =>
+                  message.error(errorText(error, preferences.uiLanguage)),
+                )
+            }
+          >
+            {t("源码", "Source")}
+          </Button>
+          <Button onClick={onClose}>{t("完成", "Done")}</Button>
+        </Space>
+      }
     >
       <Tabs
         items={[
@@ -31,27 +70,57 @@ export function Settings({
             children: (
               <div className="settings-fields">
                 <label>
-                  {t("复制时引用位置", "Reference position when copying")}
-                  <Segmented
-                    block
-                    aria-label={t("复制时引用位置", "Copy reference position")}
-                    value={preferences.referencePosition}
-                    options={[
-                      { value: "before", label: t("经文之前", "Before text") },
-                      { value: "after", label: t("经文之后", "After text") },
-                    ]}
-                    onChange={(value) =>
-                      onChange({
-                        referencePosition:
-                          value as Preferences["referencePosition"],
-                      })
-                    }
+                  {t("复制样式", "Copy style")}
+                  <Select
+                    aria-label={t("复制样式", "Copy style")}
+                    value={preferences.referenceStyle}
+                    options={referenceStyles.map((style) => ({
+                      value: style.value,
+                      label: t(style.zh, style.en),
+                    }))}
+                    onChange={(referenceStyle) => onChange({ referenceStyle })}
                   />
                 </label>
+                {preview && (
+                  <div>
+                    <div className="muted">
+                      {t("样式预览", "Format preview")}
+                    </div>
+                    <pre className="format-preview">
+                      {passageText(formatPassage(preview, preferences))}
+                    </pre>
+                  </div>
+                )}
+                {!inlineReferences(preferences.referenceStyle) && (
+                  <label>
+                    {t("复制时引用位置", "Reference position when copying")}
+                    <Segmented
+                      block
+                      aria-label={t(
+                        "复制时引用位置",
+                        "Copy reference position",
+                      )}
+                      value={preferences.referencePosition}
+                      options={[
+                        {
+                          value: "before",
+                          label: t("经文之前", "Before text"),
+                        },
+                        { value: "after", label: t("经文之后", "After text") },
+                      ]}
+                      onChange={(value) =>
+                        onChange({
+                          referencePosition:
+                            value as Preferences["referencePosition"],
+                        })
+                      }
+                    />
+                  </label>
+                )}
                 <p className="muted">
                   {t(
-                    "复制始终包含书卷、章、节范围与译本；快捷键复制同样生效。",
-                    "Every copy includes the book, chapter, verse range and edition, including keyboard copy.",
+                    "复制始终保留引用；译本名称与逐节格式按所选样式显示，快捷键同样生效。",
+                    "Copies always retain references. Edition labels and per-verse references follow the selected style, including keyboard copy.",
                   )}
                 </p>
                 <label>
@@ -98,7 +167,7 @@ export function Settings({
                 <img src="/bible.svg" alt="" width={40} />
                 <h2>{t("圣经", "Bible")}</h2>
                 <p>
-                  {t("应用版本", "Application version")} {packageInfo.version}
+                  {t("应用版本", "Application version")} {appVersion}
                 </p>
                 <p>
                   {t(
