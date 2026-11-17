@@ -11,6 +11,7 @@ import {
   Spin,
   Switch,
   Tooltip,
+  theme as antTheme,
 } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import enUS from "antd/locale/en_US";
@@ -32,6 +33,8 @@ import { CardEditor } from "./features/cards/CardEditor";
 import { drawCard } from "./features/cards/layout";
 import { appVersion } from "./shared/build";
 import { Settings } from "./features/settings/Settings";
+import { WordStudy } from "./features/word-study/WordStudy";
+import { palettes, type ReadingTheme } from "./shared/themes";
 import {
   SelectionToolbar,
   type SelectionAnchor,
@@ -58,7 +61,13 @@ function MarkedText({ text, marks }: { text: string; marks: Highlight[] }) {
   return <>{pieces}</>;
 }
 
-function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
+function Reader({
+  onLanguage,
+  onTheme,
+}: {
+  onLanguage: (language: Language) => void;
+  onTheme: (theme: ReadingTheme) => void;
+}) {
   const { message } = AntApp.useApp();
   const [api, setAPI] = useState<API>(),
     [books, setBooks] = useState<Book[]>([]),
@@ -75,6 +84,7 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
     [focus, setFocus] = useState(false),
     [card, setCard] = useState<Selection | null>(null),
     [settings, setSettings] = useState(false),
+    [studyVerse, setStudyVerse] = useState<string | null>(null),
     [selectionAnchor, setSelectionAnchor] = useState<SelectionAnchor>(),
     [retry, setRetry] = useState(0);
   const scroll = useRef<HTMLDivElement>(null),
@@ -91,6 +101,14 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
     onLanguage(prefs.uiLanguage);
     document.documentElement.lang = prefs.uiLanguage;
   }, [onLanguage, prefs.uiLanguage]);
+  useEffect(() => {
+    onTheme(prefs.readingTheme);
+    document.documentElement.dataset.readingTheme = prefs.readingTheme;
+    document.documentElement.style.colorScheme =
+      prefs.readingTheme === "night" ? "dark" : "light";
+    for (const [key, value] of Object.entries(palettes[prefs.readingTheme]))
+      document.documentElement.style.setProperty(`--reading-${key}`, value);
+  }, [onTheme, prefs.readingTheme]);
   const versions = useMemo(
     () => Object.fromEntries(translations.map((t) => [t.id, t.dataVersion])),
     [translations],
@@ -200,6 +218,7 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
     return () => window.removeEventListener("keydown", key);
   }, []);
   const navigate = (bookId: string, ch: number) => {
+    setStudyVerse(null);
     setPrefs((p) => ({
       ...p,
       bookId,
@@ -389,6 +408,17 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
           "native-smoke",
         );
         if (c.rows.length < 30) throw new Error("incomplete chapter");
+        const hebrew = await api!.LookupWord("H430");
+        const greek = await api!.LookupWord("G3056");
+        const study = await api!.GetVerseWords("JHN", 1, "1");
+        if (
+          !hebrew.lemma ||
+          !hebrew.chineseDefinition?.includes("神") ||
+          !greek.chineseDefinition?.includes("話語") ||
+          greek.lemma !== "λόγος" ||
+          !study.entries.some((entry) => entry.id === "G3056")
+        )
+          throw new Error("original-language dictionary");
         const s = wholeVerses(c, "cuv", versions.cuv, "1");
         await api!.ApplyHighlight("native-smoke-highlight", s, "green");
         const hs = await api!.ListHighlights(["cuv"], "GEN", 1);
@@ -416,12 +446,14 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
           referencePosition: "before",
           uiLanguage: "en",
           fontSize: 20,
+          readingTheme: "paper",
         });
         const restored = await api!.GetPreferences();
         if (
           restored.uiLanguage !== "en" ||
           restored.referencePosition !== "before" ||
-          restored.fontSize !== 20
+          restored.fontSize !== 20 ||
+          restored.readingTheme !== "paper"
         )
           throw new Error("settings persistence");
         await api!.SavePreferences(previous);
@@ -632,6 +664,19 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
             </p>
           </div>
           <div className="reader-actions">
+            <Button
+              disabled={!chapter || busy}
+              onClick={() => {
+                setStudyVerse(
+                  selection?.spans[0]?.verseKey ??
+                    chapter?.rows[0]?.label ??
+                    "1",
+                );
+                setSelection(null);
+              }}
+            >
+              {t("原文字典", "Dictionary")}
+            </Button>
             {!focus && (
               <>
                 <Select
@@ -862,7 +907,7 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
             disabled={busy || prefs.chapter <= 1}
             onClick={() => navigate(prefs.bookId, prefs.chapter - 1)}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+            <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="m15 5-7 7 7 7"
                 fill="none"
@@ -883,7 +928,7 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
             }
             onClick={() => navigate(prefs.bookId, prefs.chapter + 1)}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+            <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="m9 5 7 7-7 7"
                 fill="none"
@@ -987,6 +1032,15 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
             {t("制作卡片", "Create card")}
           </Button>
           <Button
+            size="small"
+            onClick={() => {
+              setStudyVerse(selection.spans[0].verseKey);
+              setSelection(null);
+            }}
+          >
+            {t("原文注解", "Word study")}
+          </Button>
+          <Button
             type="text"
             size="small"
             aria-label={t("关闭选区操作", "Close selection actions")}
@@ -1005,6 +1059,17 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
           language={prefs.uiLanguage}
           formatOptions={prefs}
           onClose={() => setCard(null)}
+        />
+      )}
+      {studyVerse && chapter && (
+        <WordStudy
+          api={api}
+          book={chapter.book}
+          chapter={chapter.chapter}
+          initialVerse={studyVerse}
+          verses={chapter.rows.map((row) => row.label)}
+          language={prefs.uiLanguage}
+          onClose={() => setStudyVerse(null)}
         />
       )}
       {settings && (
@@ -1036,13 +1101,25 @@ function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
 }
 export default function BibleApp() {
   const [language, setLanguage] = useState<Language>("zh-CN");
+  const [readingTheme, setReadingTheme] = useState<ReadingTheme>("light");
+  const palette = palettes[readingTheme];
   return (
     <ConfigProvider
       locale={language === "en" ? enUS : zhCN}
       button={{ autoInsertSpace: false }}
       theme={{
+        algorithm:
+          readingTheme === "night"
+            ? antTheme.darkAlgorithm
+            : antTheme.defaultAlgorithm,
         token: {
-          colorPrimary: "#315f78",
+          colorPrimary: palette.primary,
+          colorBgBase: palette.page,
+          colorBgContainer: palette.raised,
+          colorBgElevated: palette.raised,
+          colorText: palette.text,
+          colorTextSecondary: palette.secondary,
+          colorBorder: palette.border,
           borderRadius: 5,
           fontSize: 13,
           fontFamily: '"Bible Sans", sans-serif',
@@ -1051,7 +1128,7 @@ export default function BibleApp() {
       }}
     >
       <AntApp>
-        <Reader onLanguage={setLanguage} />
+        <Reader onLanguage={setLanguage} onTheme={setReadingTheme} />
       </AntApp>
     </ConfigProvider>
   );

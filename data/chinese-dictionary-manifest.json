@@ -1,0 +1,18 @@
+{
+  "retrieved": "2026-11-17",
+  "inputs": {
+    "hebrew": "e82f47aa3aa70e147323a988419c62a1661795d7d5191511af8b90705dde1846",
+    "greek": "4bf5e01643f6fe8769b4de94e20c19756ba500beb6eab73cfe0690f78b781985"
+  },
+  "entries": 14691,
+  "sources": [
+    "https://bible.fhl.net/public/dhfhl.tgz",
+    "https://bible.fhl.net/public/dgfhl.tgz"
+  ],
+  "license": "GNU FDL 1.1-or-later",
+  "copyright": "信望愛資訊中心 / FHL CBOL contributors",
+  "notice": "https://www.fhl.net/main/fhl/fhl8.html",
+  "conversion": "Separate Chinese dictionary; decode dump newline escapes, preserve Traditional Chinese wording and plain-text references; skip empty records and supplemental suffix codes",
+  "datasetSha256": "31afc05f2fd08b40f510a6e1b512672dda840b83a29afbaab921222fa3336e95",
+  "plainSha256": "9cc571cc523ac5da4bf64c03f3eb842642d38b873fe05af9a8adf735dae26573"
+}

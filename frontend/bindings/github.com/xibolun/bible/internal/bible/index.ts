@@ -5,6 +5,9 @@ export type {
     Book,
     Cell,
     Chapter,
+    DictionaryEntry,
+    OriginalWord,
     Row,
-    Translation
+    Translation,
+    VerseStudy
 } from "./models.js";

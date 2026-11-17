@@ -36,6 +36,10 @@ export function GetPreferences(): $CancellablePromise<$models.Result<$models.Pre
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetPreferences");
 }
 
+export function GetVerseWords(book: string, chapter: number, verse: string): $CancellablePromise<$models.Result<bible$0.VerseStudy>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetVerseWords", book, chapter, verse);
+}
+
 export function ListBooks(ids: string[] | null): $CancellablePromise<$models.Result<bible$0.Book[] | null>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ListBooks", ids);
 }
@@ -46,6 +50,10 @@ export function ListHighlights(ids: string[] | null, book: string, chapter: numb
 
 export function ListTranslations(): $CancellablePromise<$models.Result<bible$0.Translation[] | null>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ListTranslations");
+}
+
+export function LookupWord(code: string): $CancellablePromise<$models.Result<bible$0.DictionaryEntry>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.LookupWord", code);
 }
 
 export function ReportSmoke(passed: boolean, frontendVersion: string): $CancellablePromise<$models.Result<boolean>> {

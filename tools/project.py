@@ -96,6 +96,24 @@ def verify_data():
     assert sha(ROOT/'frontend/public/fonts/bible-sans.woff2')==font['sha256']
     assert (ROOT/'licenses/font-Noto-CJK.txt').is_file()
     assert (ROOT/'licenses/scripture-KJV-source.conf').read_bytes()==(ROOT/'data/KJV-source.conf').read_bytes()
+    study_manifest=json.loads((ROOT/'data/word-study-manifest.json').read_text(encoding='utf-8'))
+    study_compressed=(ROOT/'internal/bible/word-study.json.gz').read_bytes()
+    study_raw=gzip.decompress(study_compressed)
+    assert hashlib.sha256(study_compressed).hexdigest()==study_manifest['datasetSha256']
+    assert hashlib.sha256(study_raw).hexdigest()==study_manifest['plainSha256']
+    assert (ROOT/'frontend/public/word-study.json').read_bytes()==study_raw,'Mock/native word study diverged'
+    study=json.loads(study_raw)
+    assert len(study['entries'])==study_manifest['entries'] and len(study['verses'])==31102
+    assert study['entries']['G3056']['lemma']=='λόγος' and study['entries']['H430']['lemma']
+    chinese_manifest=json.loads((ROOT/'data/chinese-dictionary-manifest.json').read_text(encoding='utf-8'))
+    chinese_compressed=(ROOT/'internal/bible/chinese-dictionary.json.gz').read_bytes()
+    chinese_raw=gzip.decompress(chinese_compressed)
+    assert hashlib.sha256(chinese_compressed).hexdigest()==chinese_manifest['datasetSha256']
+    assert hashlib.sha256(chinese_raw).hexdigest()==chinese_manifest['plainSha256']
+    assert (ROOT/'frontend/public/chinese-dictionary.json').read_bytes()==chinese_raw
+    chinese=json.loads(chinese_raw)
+    assert len(chinese)==chinese_manifest['entries'] and '話語' in chinese['G3056']['definition'] and '神' in chinese['H430']['definition']
+    assert all((ROOT/'licenses/word-study-fhl'/name).is_file() for name in ['dhfhl.txt','dgfhl.txt','FDL-1.1.txt','NOTICE.md','publisher-copyright.txt'])
     print('Verified complete CUV/WEBP/KJV data, source manifests and bundled font.')
 
 def verify_branding():
@@ -104,6 +122,11 @@ def verify_branding():
     for path in files:assert not bad.search(path.read_text(encoding='utf-8')),f'default branding in {path.relative_to(ROOT)}'
     assert not list((ROOT/'frontend/public').glob('*wails*'))
     for path in ['build/appicon.png','build/windows/icon.ico','build/darwin/icons.icns']:assert (ROOT/path).is_file(),f'missing owned icon: {path}'
+    for name,dimensions in [('welcome.bmp',(164,314)),('header.bmp',(150,57))]:
+        bitmap=(ROOT/'build/windows'/name).read_bytes()
+        assert bitmap[:2]==b'BM' and struct.unpack_from('<ii',bitmap,18)==dimensions,'invalid installer art: '+name
+    installer=(ROOT/'build/windows/installer.nsi').read_text(encoding='utf-8')
+    assert 'MUI_WELCOMEFINISHPAGE_BITMAP "welcome.bmp"' in installer and 'MUI_HEADERIMAGE_BITMAP "header.bmp"' in installer and '"DisplayIcon"' in installer
     print('Verified owned UI/icon/installer/metadata inputs; legal dependency notices are retained.')
 
 def nsis():

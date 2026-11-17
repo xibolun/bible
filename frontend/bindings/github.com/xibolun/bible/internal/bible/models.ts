@@ -24,6 +24,23 @@ export interface Chapter {
     "clientRequestId": string;
 }
 
+export interface DictionaryEntry {
+    "id": string;
+    "lemma": string;
+    "language": string;
+    "transliteration": string;
+    "pronunciation": string;
+    "definition": string;
+    "source": string;
+    "chineseDefinition": string;
+    "chineseSource": string;
+}
+
+export interface OriginalWord {
+    "text": string;
+    "strongs": string[] | null;
+}
+
 export interface Row {
     "label": string;
     "cells": Cell[] | null;
@@ -37,4 +54,9 @@ export interface Translation {
     "dataVersion": string;
     "sourceUrl": string;
     "license": string;
+}
+
+export interface VerseStudy {
+    "words": OriginalWord[] | null;
+    "entries": DictionaryEntry[] | null;
 }

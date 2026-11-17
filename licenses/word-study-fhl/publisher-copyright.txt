@@ -1,0 +1,14 @@
+FHL publisher copyright statement for the CBOL dictionaries
+
+Publisher: 信望愛資訊中心 (FHL Information Center)
+Source: https://www.fhl.net/main/fhl/fhl8.html
+Statement author/date: fhl, 2026-10-25
+Retrieved: 2026-11-17
+
+Relevant license declaration (verbatim):
+FHL和合本聖經內文、FHL註釋、FHL-SN、FHL字典、新約聖經字彙分析parsing的著作權宣告採用 GNU Free Documentation License 1.1 或任何更新版本 (or any later version)
+
+Publisher's public data directory: https://bible.fhl.net/public/
+It labels the Old and New Testament original-language dictionary dumps as FDL
+data. The accompanying unmodified license is in FDL-1.1.txt. Separate resources
+on the publisher's website have different licenses and are not included here.

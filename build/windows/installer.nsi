@@ -7,6 +7,12 @@ RequestExecutionLevel user
 SetCompressor /SOLID lzma
 !define MUI_ICON "icon.ico"
 !define MUI_UNICON "icon.ico"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "welcome.bmp"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "welcome.bmp"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_RIGHT
+!define MUI_HEADERIMAGE_BITMAP "header.bmp"
+!define MUI_HEADERIMAGE_UNBITMAP "header.bmp"
 !define MUI_ABORTWARNING
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -49,6 +55,7 @@ Section "Bible" MainSection
   CreateShortcut "$DESKTOP\Bible.lnk" "$INSTDIR\Bible.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Bible" "DisplayName" "Bible"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Bible" "DisplayVersion" "${NUMVERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Bible" "DisplayIcon" '"$INSTDIR\Bible.exe",0'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Bible" "UninstallString" '"$INSTDIR\Uninstall.exe"'
 SectionEnd
 Section "Uninstall"

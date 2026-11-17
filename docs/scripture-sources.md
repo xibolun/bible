@@ -49,6 +49,45 @@ checked against the previous source/export hashes. KJV's `dataVersion` includes
 both the archive fingerprint and normalized verse-content fingerprint, so a
 future conversion change cannot silently reuse an annotation's text version.
 
+## Offline original-language dictionary
+
+Word study is independent of the scripture dataset and annotation offsets.
+Selected-verse links retain the pinned KJV 3.1 OSIS Strong’s word groups, with
+the source identified in the reader. They do not assert CUV/WEBP word alignment.
+No remote dictionary service is needed at runtime.
+
+- Chinese definitions: FHL Information Center / CBOL, Old and New Testament
+  original-language dictionary dumps from [the official public data page](https://bible.fhl.net/public/).
+  The publisher identifies FHL dictionaries as GNU FDL 1.1-or-later in its
+  [copyright notice](https://www.fhl.net/main/fhl/fhl8.html). The lookup index
+  preserves Traditional Chinese wording and source line structure; empty
+  records and nonstandard letter-suffix numbers are omitted. Complete verbatim
+  transparent dumps, contributor identifiers, license and transformation
+  history ship in `licenses/word-study-fhl/`. This independent dictionary
+  remains GNU FDL; original application code retains its existing status.
+- Hebrew/Aramaic script and English metadata: Open Scriptures Hebrew Bible
+  Project, `HebrewLexicon/HebrewStrong.xml`, pinned commit
+  `21c9add13bc727d3a951361778e97e3ff7afd1ce`, CC BY 4.0 structured data with
+  Public Domain Strong’s text. Original README and full license ship in
+  `licenses/word-study-*`.
+- Greek script and English definitions: CrossWire `StrongsGreek` 2.0, Public
+  Domain. Its unchanged source configuration ships in `licenses/`.
+
+Input hashes and output counts/checksums are in `data/word-study-manifest.json`
+and `data/chinese-dictionary-manifest.json`. The importer rejects unpinned
+archives; KJV text is checked against every existing verse before deriving links.
+To rebuild, use these manifest inputs outside the repository:
+
+```sh
+mod2imp StrongsGreek > StrongsGreek.imp
+python3 tools/import_word_study.py \
+  --hebrew /path/to/HebrewStrong.xml --greek-archive /path/to/StrongsGreek.zip \
+  --greek /path/to/StrongsGreek.imp --kjv /path/to/KJV-raw.vpl
+python3 tools/import_chinese_dictionary.py \
+  --hebrew /path/to/dhfhl.tgz --greek /path/to/dgfhl.tgz
+make verify-data
+```
+
 ## NIV status
 
 NIV is tracked in [Issue #6](https://github.com/xibolun/bible/issues/6). The user

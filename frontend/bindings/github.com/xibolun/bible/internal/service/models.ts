@@ -22,6 +22,7 @@ export interface CopyOptions {
 }
 
 export interface Preferences {
+    "readingTheme": string;
     "bookId": string;
     "chapter": number;
     "topVerse": string;
