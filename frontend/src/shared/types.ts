@@ -87,6 +87,7 @@ export interface Highlight {
   color: string;
 }
 export interface Preferences {
+  searchHistory: SearchHistoryEntry[];
   readingTheme: ReadingTheme;
   bookId: string;
   chapter: number;
@@ -140,6 +141,7 @@ export interface Dataset {
   chapters: Record<string, Verse[]>;
 }
 export const defaults: Preferences = {
+  searchHistory: [],
   readingTheme: "light",
   bookId: "GEN",
   chapter: 1,
@@ -232,4 +234,8 @@ export interface SearchHit {
 export interface SearchPage {
   total: number;
   results: SearchHit[];
+}
+export interface SearchHistoryEntry {
+  translationId: string;
+  pattern: string;
 }

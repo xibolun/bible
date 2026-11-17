@@ -1,4 +1,4 @@
-import type { Dataset, SearchPage } from "./types";
+import type { Dataset, SearchHistoryEntry, SearchPage } from "./types";
 type Token = { kind: "%" | "_" | "literal"; char?: string };
 const lower = (ch: string) => (ch >= "A" && ch <= "Z" ? ch.toLowerCase() : ch);
 export function likePattern(pattern: string): Token[] {
@@ -94,4 +94,40 @@ export function searchScripture(
       }
     }
   return page;
+}
+
+export function rememberSearch(
+  history: SearchHistoryEntry[],
+  entry: SearchHistoryEntry,
+) {
+  const next = { ...entry, pattern: entry.pattern.trim() };
+  likePattern(next.pattern);
+  return [
+    next,
+    ...history.filter(
+      (item) =>
+        item.translationId !== next.translationId ||
+        item.pattern !== next.pattern,
+    ),
+  ].slice(0, 20);
+}
+
+// Ranges use codepoint offsets, like saved annotations and text selection.
+export function keywordRanges(text: string, pattern: string) {
+  const words: string[][] = [];
+  let word: string[] = [];
+  for (const token of likePattern(pattern)) {
+    if (token.kind === "literal") word.push(token.char!);
+    else if (word.length) {
+      words.push(word);
+      word = [];
+    }
+  }
+  const chars = [...text].map(lower);
+  const ranges: { start: number; end: number }[] = [];
+  for (const part of words)
+    for (let start = 0; start <= chars.length - part.length; start++)
+      if (part.every((ch, i) => ch === chars[start + i]))
+        ranges.push({ start, end: start + part.length });
+  return ranges;
 }

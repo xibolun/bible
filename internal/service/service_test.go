@@ -158,15 +158,19 @@ func TestLegacyPreferencesAndNewSettingsPersistWithoutLosingAnnotations(t *testi
 		t.Fatalf("legacy preferences reset: %+v", result)
 	}
 	p := *result.Data
+	if p.SearchHistory == nil || len(p.SearchHistory) != 0 {
+		t.Fatal("legacy preferences did not default to empty history")
+	}
 	p.ReferencePosition = "before"
 	p.UILanguage = "en"
 	p.FontSize = 32
 	p.ReadingTheme = "sage"
+	p.SearchHistory = []SearchHistoryEntry{{TranslationID: "webp", Pattern: "God%world"}}
 	if !s.SavePreferences(p).OK {
 		t.Fatal("new settings rejected")
 	}
 	read := s.GetPreferences()
-	if !read.OK || read.Data.ReadingTheme != "sage" || read.Data.ReferencePosition != "before" || read.Data.UILanguage != "en" || read.Data.TopVerse != "2" || read.Data.FontSize != 32 {
+	if !read.OK || read.Data.ReadingTheme != "sage" || read.Data.ReferencePosition != "before" || read.Data.UILanguage != "en" || read.Data.TopVerse != "2" || read.Data.FontSize != 32 || len(read.Data.SearchHistory) != 1 || read.Data.SearchHistory[0] != p.SearchHistory[0] {
 		t.Fatal("settings not persisted")
 	}
 	marks := s.ListHighlights([]string{"cuv"}, "GEN", 1)
@@ -183,6 +187,30 @@ func TestLegacyPreferencesAndNewSettingsPersistWithoutLosingAnnotations(t *testi
 	p.ReadingTheme = "unknown"
 	if s.SavePreferences(p).OK {
 		t.Fatal("invalid theme accepted")
+	}
+}
+
+func TestSearchHistoryValidationAndClearing(t *testing.T) {
+	s, _ := fixture(t)
+	p := Defaults()
+	for _, history := range [][]SearchHistoryEntry{
+		{{TranslationID: "unknown", Pattern: "God"}},
+		{{TranslationID: "cuv", Pattern: "bad\\"}},
+		{{TranslationID: "cuv", Pattern: ""}},
+		make([]SearchHistoryEntry, 21),
+	} {
+		p.SearchHistory = history
+		if s.SavePreferences(p).OK {
+			t.Fatal("invalid search history accepted")
+		}
+	}
+	p.SearchHistory = []SearchHistoryEntry{{TranslationID: "cuv", Pattern: `神%\\%`}}
+	if !s.SavePreferences(p).OK {
+		t.Fatal("valid history rejected")
+	}
+	p.SearchHistory = []SearchHistoryEntry{}
+	if !s.SavePreferences(p).OK || len(s.GetPreferences().Data.SearchHistory) != 0 {
+		t.Fatal("history clear not persisted")
 	}
 }
 

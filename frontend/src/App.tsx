@@ -25,6 +25,8 @@ import {
   type Chapter,
   type Highlight,
   type Preferences,
+  type SearchHit,
+  type SearchHistoryEntry,
   type Selection,
   type Translation,
 } from "./shared/types";
@@ -36,6 +38,7 @@ import { Settings } from "./features/settings/Settings";
 import { WordStudy } from "./features/word-study/WordStudy";
 import { ScriptureSearch } from "./features/search/ScriptureSearch";
 import { adjacentChapter } from "./shared/navigation";
+import { keywordRanges, rememberSearch } from "./shared/search";
 import { palettes, type ReadingTheme } from "./shared/themes";
 import {
   SelectionToolbar,
@@ -43,23 +46,49 @@ import {
 } from "./features/selection/SelectionToolbar";
 import { translator, errorText, type Language } from "./shared/locale";
 
-function MarkedText({ text, marks }: { text: string; marks: Highlight[] }) {
+function MarkedText({
+  text,
+  marks,
+  pattern,
+}: {
+  text: string;
+  marks: Highlight[];
+  pattern?: string;
+}) {
   const points = [...text];
   const pieces: React.ReactNode[] = [];
-  let at = 0;
-  for (const mark of [...marks].sort((a, b) => a.start - b.start)) {
-    if (mark.start > at) pieces.push(points.slice(at, mark.start).join(""));
-    pieces.push(
-      <mark
-        key={`${mark.start}-${mark.end}`}
-        style={{ background: colors[mark.color]?.value }}
-      >
-        {points.slice(mark.start, mark.end).join("")}
-      </mark>,
+  const matches = pattern ? keywordRanges(text, pattern) : [];
+  const edges = [
+    ...new Set([
+      0,
+      points.length,
+      ...[...marks, ...matches].flatMap(({ start, end }) => [start, end]),
+    ]),
+  ].sort((a, b) => a - b);
+  for (let i = 0; i < edges.length - 1; i++) {
+    const start = edges[i],
+      end = edges[i + 1];
+    const saved = marks.find((mark) => mark.start <= start && mark.end >= end);
+    const found = matches.some(
+      (range) => range.start <= start && range.end >= end,
     );
-    at = mark.end;
+    const value = points.slice(start, end).join("");
+    pieces.push(
+      saved || found ? (
+        <mark
+          key={start}
+          className={found ? "search-keyword" : undefined}
+          style={
+            found ? undefined : { background: colors[saved!.color]?.value }
+          }
+        >
+          {value}
+        </mark>
+      ) : (
+        value
+      ),
+    );
   }
-  pieces.push(points.slice(at).join(""));
   return <>{pieces}</>;
 }
 
@@ -89,6 +118,10 @@ function Reader({
     [studyVerse, setStudyVerse] = useState<string | null>(null),
     [selectionAnchor, setSelectionAnchor] = useState<SelectionAnchor>(),
     [retry, setRetry] = useState(0);
+  const [searchTarget, setSearchTarget] = useState<{
+    hit: SearchHit;
+    pattern: string;
+  }>();
   const scroll = useRef<HTMLDivElement>(null),
     request = useRef(0),
     scrollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
@@ -98,6 +131,33 @@ function Reader({
   const dismissSelection = useCallback(() => setSelection(null), []);
   const currentPrefs = useRef(prefs);
   currentPrefs.current = prefs;
+  const remember = useCallback((entry: SearchHistoryEntry) => {
+    setPrefs((p) => ({
+      ...p,
+      searchHistory: rememberSearch(p.searchHistory, entry),
+    }));
+  }, []);
+  const clearSearchHistory = useCallback(() => {
+    setPrefs((p) => ({ ...p, searchHistory: [] }));
+  }, []);
+  const closeSearch = useCallback((anchor?: HTMLElement) => {
+    const viewport = scroll.current;
+    const row =
+      anchor ??
+      Array.from(
+        viewport?.querySelectorAll<HTMLElement>("[data-row]") ?? [],
+      ).find(
+        (element) =>
+          element.getBoundingClientRect().bottom >
+          (viewport?.getBoundingClientRect().top ?? 0),
+      );
+    const top = row?.getBoundingClientRect().top;
+    setSearching(false);
+    requestAnimationFrame(() => {
+      if (viewport && row && top !== undefined)
+        viewport.scrollTop += row.getBoundingClientRect().top - top;
+    });
+  }, []);
   const t = translator(prefs.uiLanguage);
   const previousChapter = adjacentChapter(
     books,
@@ -217,6 +277,7 @@ function Reader({
       ?.scrollIntoView({ block: "nearest" });
   }, [prefs.bookId, prefs.chapter]);
   const navigate = useCallback((bookId: string, ch: number) => {
+    setSearchTarget(undefined);
     setStudyVerse(null);
     setPrefs((p) => ({
       ...p,
@@ -233,7 +294,6 @@ function Reader({
       const target = event.target instanceof Element ? event.target : null;
       if (
         event.defaultPrevented ||
-        event.repeat ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
@@ -274,6 +334,17 @@ function Reader({
     card,
     navigate,
   ]);
+  useEffect(() => {
+    if (
+      !searchTarget ||
+      busy ||
+      chapter?.book.id !== searchTarget.hit.bookId ||
+      chapter.chapter !== searchTarget.hit.chapter
+    )
+      return;
+    const timer = setTimeout(() => setSearchTarget(undefined), 5000);
+    return () => clearTimeout(timer);
+  }, [searchTarget, chapter, busy]);
   function placeToolbar(
     value: Selection,
     point?: { clientX: number; clientY: number },
@@ -584,7 +655,7 @@ function Reader({
       </div>
     );
   return (
-    <div className="reader-shell">
+    <div className={`reader-shell ${searching ? "has-search" : ""}`}>
       <aside className="sidebar" aria-label={t("书卷目录", "Books")}>
         <header className="brand">
           <img src="/bible.svg" alt="" />
@@ -789,6 +860,7 @@ function Reader({
                 key={n}
                 onClick={() => navigate(prefs.bookId, n)}
                 onKeyDown={(e) => {
+                  if (busy) return;
                   if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
                     const next = adjacentChapter(
                       books,
@@ -880,6 +952,13 @@ function Reader({
                 className="verses"
                 style={{ fontSize: prefs.fontSize }}
                 onMouseUp={selectText}
+                onClick={(e) => {
+                  const cell = (e.target as Element).closest(".verse-cell");
+                  if (searching && cell)
+                    closeSearch(
+                      cell.closest<HTMLElement>("[data-row]") ?? undefined,
+                    );
+                }}
                 onKeyUp={(e) => {
                   if (e.key === "Shift" || e.shiftKey) selectText();
                 }}
@@ -887,7 +966,7 @@ function Reader({
                 {chapter?.rows.map((row) => (
                   <div
                     key={row.label}
-                    className="verse-row"
+                    className={`verse-row ${searchTarget && chapter.book.id === searchTarget.hit.bookId && chapter.chapter === searchTarget.hit.chapter && row.label === searchTarget.hit.verseKey ? "is-search-target" : ""}`}
                     data-row={row.label}
                   >
                     {row.cells.map((cell) => (
@@ -932,6 +1011,16 @@ function Reader({
                           >
                             <MarkedText
                               text={cell.text}
+                              pattern={
+                                searchTarget &&
+                                chapter.book.id === searchTarget.hit.bookId &&
+                                chapter.chapter === searchTarget.hit.chapter &&
+                                row.label === searchTarget.hit.verseKey &&
+                                cell.translationId ===
+                                  searchTarget.hit.translationId
+                                  ? searchTarget.pattern
+                                  : undefined
+                              }
                               marks={highlights.filter(
                                 (h) =>
                                   h.translationId === cell.translationId &&
@@ -1093,9 +1182,12 @@ function Reader({
           translations={translations}
           initialTranslation={prefs.translations[0]}
           language={prefs.uiLanguage}
-          onClose={() => setSearching(false)}
-          onSelect={(hit) => {
-            setSearching(false);
+          history={prefs.searchHistory}
+          onRemember={remember}
+          onClearHistory={clearSearchHistory}
+          onClose={() => closeSearch()}
+          onSelect={(hit, pattern) => {
+            setSearchTarget({ hit, pattern });
             setSelection(null);
             setStudyVerse(null);
             setPrefs((p) => ({

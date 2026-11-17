@@ -13,6 +13,7 @@ import { errorText, translator, type Language } from "../../shared/locale";
 import type {
   API,
   SearchHit,
+  SearchHistoryEntry,
   SearchPage,
   Translation,
 } from "../../shared/types";
@@ -22,6 +23,9 @@ export function ScriptureSearch({
   translations,
   initialTranslation,
   language,
+  history,
+  onRemember,
+  onClearHistory,
   onClose,
   onSelect,
 }: {
@@ -29,8 +33,11 @@ export function ScriptureSearch({
   translations: Translation[];
   initialTranslation: string;
   language: Language;
+  history: SearchHistoryEntry[];
+  onRemember: (entry: SearchHistoryEntry) => void;
+  onClearHistory: () => void;
   onClose: () => void;
-  onSelect: (hit: SearchHit) => void;
+  onSelect: (hit: SearchHit, pattern: string) => void;
 }) {
   const t = translator(language);
   const [translation, setTranslation] = useState(initialTranslation);
@@ -54,6 +61,7 @@ export function ScriptureSearch({
       .then((value) => {
         if (n !== request.current) return;
         setResult(value);
+        onRemember({ translationId: translation, pattern });
         if (list.current) list.current.scrollTop = 0;
       })
       .catch((error: unknown) => {
@@ -65,12 +73,35 @@ export function ScriptureSearch({
     return () => {
       ++request.current;
     };
-  }, [api, translation, pattern, page, retry]);
+  }, [api, translation, pattern, page, retry, onRemember]);
+  const search = (value: string, translationId = translation) => {
+    ++request.current;
+    setBusy(false);
+    setTranslation(translationId);
+    setQuery(value);
+    setPage(1);
+    setPattern(value.trim());
+    setRetry((n) => n + 1);
+    if (!value.trim()) {
+      setResult(undefined);
+      setError(new Error("INVALID_SEARCH"));
+    }
+  };
   return (
     <Drawer
       open
       title={t("经文搜索", "Scripture search")}
-      size={600}
+      size="100%"
+      getContainer={false}
+      mask={false}
+      focusable={{ trap: false, focusTriggerAfterClose: false }}
+      aria-modal={false}
+      rootClassName="search-drawer"
+      rootStyle={{
+        position: "absolute",
+        left: "auto",
+        width: "var(--search-panel-width)",
+      }}
       onClose={onClose}
     >
       <div className="scripture-search">
@@ -94,18 +125,38 @@ export function ScriptureSearch({
           onChange={(e) => setQuery(e.target.value)}
           maxLength={256}
           enterButton={t("搜索", "Search")}
-          onSearch={(value) => {
-            ++request.current;
-            setBusy(false);
-            setPage(1);
-            setPattern(value.trim());
-            setRetry((n) => n + 1);
-            if (!value.trim()) {
-              setResult(undefined);
-              setError(new Error("INVALID_SEARCH"));
-            }
-          }}
+          onSearch={(value) => search(value)}
         />
+        {history.length > 0 && (
+          <section
+            className="search-history"
+            aria-label={t("搜索历史", "Search history")}
+          >
+            <div className="search-history-heading">
+              <strong>{t("搜索历史", "Search history")}</strong>
+              <Button type="text" size="small" onClick={onClearHistory}>
+                {t("清空历史", "Clear history")}
+              </Button>
+            </div>
+            <div className="search-history-items">
+              {history.map((entry) => (
+                <Button
+                  key={`${entry.translationId}/${entry.pattern}`}
+                  size="small"
+                  title={entry.pattern}
+                  onClick={() => search(entry.pattern, entry.translationId)}
+                >
+                  {
+                    translations.find(
+                      (value) => value.id === entry.translationId,
+                    )?.abbreviation
+                  }{" "}
+                  · {entry.pattern}
+                </Button>
+              ))}
+            </div>
+          </section>
+        )}
         <p className="study-source">
           {t(
             "在整节经文中搜索。% 匹配任意长度，_ 匹配一个字；\\% 和 \\_ 搜索符号本身。例如 起%神 可找到“起初，神创造天地”。",
@@ -142,7 +193,7 @@ export function ScriptureSearch({
                   {result.results.map((hit) => (
                     <li key={`${hit.bookId}/${hit.chapter}/${hit.verseKey}`}>
                       <button
-                        onClick={() => onSelect(hit)}
+                        onClick={() => onSelect(hit, pattern)}
                         aria-label={t(
                           `前往${hit.bookName}${hit.chapter}:${hit.verseKey}`,
                           `Go to ${hit.englishName} ${hit.chapter}:${hit.verseKey}`,

@@ -56,10 +56,24 @@ mark {
   gap: 14px;
 }
 .reader-shell {
+  position: relative;
+  --search-panel-width: clamp(320px, 32vw, 420px);
   height: 100vh;
   display: flex;
   min-width: 1024px;
   overflow: hidden;
+}
+.reader-shell.has-search {
+  padding-right: var(--search-panel-width);
+}
+.verse-row.is-search-target {
+  box-shadow: inset 3px 0 #ba8428;
+  background: var(--reading-hover, #eaf0f4);
+}
+mark.search-keyword {
+  background: #ffe49a;
+  color: #332300;
+  border-radius: 2px;
 }
 .sidebar {
   width: 220px;
@@ -560,19 +574,50 @@ mark {
 .entry-selector {
   width: 100%;
 }
+.search-drawer .ant-drawer-body {
+  display: flex;
+}
 .scripture-search {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  width: 100%;
+  min-height: 0;
 }
-.scripture-search > .ant-spin-nested-loading {
-  min-height: 160px;
+.scripture-search > :not(.ant-spin) {
+  flex-shrink: 0;
+}
+.search-history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.search-history-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 88px;
+  overflow-y: auto;
+}
+.search-history-items button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.scripture-search > .ant-spin,
+.scripture-search .ant-spin-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 .search-results {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 55vh;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 .search-results button {

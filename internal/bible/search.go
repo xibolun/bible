@@ -24,6 +24,11 @@ type likeToken struct {
 	kind byte
 }
 
+func ValidateSearchPattern(pattern string) error {
+	_, err := likePattern(pattern)
+	return err
+}
+
 // Contains matching adds implicit '%' at both ends; '_' consumes one rune.
 // This matcher avoids SQL execution and regex backtracking.
 func likePattern(pattern string) ([]likeToken, error) {

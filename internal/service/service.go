@@ -45,28 +45,33 @@ func failure[T any](code string) Result[T] {
 	return Result[T]{Error: &Problem{Code: code, Message: msg, Retryable: code == "STORAGE_ERROR" || code == "CLIPBOARD_ERROR" || code == "EXPORT_ERROR", OperationID: rand.Text()}}
 }
 
+type SearchHistoryEntry struct {
+	TranslationID string `json:"translationId"`
+	Pattern       string `json:"pattern"`
+}
 type Preferences struct {
-	ReadingTheme      string   `json:"readingTheme"`
-	BookID            string   `json:"bookId"`
-	Chapter           int      `json:"chapter"`
-	TopVerse          string   `json:"topVerse"`
-	ScrollOffset      float64  `json:"scrollOffset"`
-	Translations      []string `json:"translations"`
-	Parallel          bool     `json:"parallel"`
-	FontSize          int      `json:"fontSize"`
-	ReferencePosition string   `json:"referencePosition"`
-	ReferenceStyle    string   `json:"referenceStyle"`
-	UILanguage        string   `json:"uiLanguage"`
-	WindowX           int      `json:"windowX"`
-	WindowY           int      `json:"windowY"`
-	WindowWidth       int      `json:"windowWidth"`
-	WindowHeight      int      `json:"windowHeight"`
-	Maximized         bool     `json:"maximized"`
-	SchemaVersion     int      `json:"schemaVersion"`
+	SearchHistory     []SearchHistoryEntry `json:"searchHistory"`
+	ReadingTheme      string               `json:"readingTheme"`
+	BookID            string               `json:"bookId"`
+	Chapter           int                  `json:"chapter"`
+	TopVerse          string               `json:"topVerse"`
+	ScrollOffset      float64              `json:"scrollOffset"`
+	Translations      []string             `json:"translations"`
+	Parallel          bool                 `json:"parallel"`
+	FontSize          int                  `json:"fontSize"`
+	ReferencePosition string               `json:"referencePosition"`
+	ReferenceStyle    string               `json:"referenceStyle"`
+	UILanguage        string               `json:"uiLanguage"`
+	WindowX           int                  `json:"windowX"`
+	WindowY           int                  `json:"windowY"`
+	WindowWidth       int                  `json:"windowWidth"`
+	WindowHeight      int                  `json:"windowHeight"`
+	Maximized         bool                 `json:"maximized"`
+	SchemaVersion     int                  `json:"schemaVersion"`
 }
 
 func Defaults() Preferences {
-	return Preferences{ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
+	return Preferences{SearchHistory: []SearchHistoryEntry{}, ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
 }
 
 type Desktop interface {
@@ -128,9 +133,20 @@ func (s *Service) GetPreferences() Result[Preferences] {
 	if !s.validPreferences(p) {
 		return failure[Preferences]("INVALID_SETTINGS")
 	}
+	if p.SearchHistory == nil {
+		p.SearchHistory = []SearchHistoryEntry{}
+	}
 	return success(p)
 }
 func (s *Service) validPreferences(p Preferences) bool {
+	if len(p.SearchHistory) > 20 {
+		return false
+	}
+	for _, entry := range p.SearchHistory {
+		if _, ok := s.Data.Translation(entry.TranslationID); !ok || bible.ValidateSearchPattern(entry.Pattern) != nil {
+			return false
+		}
+	}
 	if !slices.Contains([]string{"light", "paper", "sage", "night"}, p.ReadingTheme) {
 		return false
 	}

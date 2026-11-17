@@ -1,5 +1,50 @@
 import { test, expect } from "@playwright/test";
 
+test("holding arrow keys repeats across books and releasing stops navigation", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "第49章", exact: true }).click();
+  await expect(page.locator(".verse-scroll")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  await page.locator("h1").click();
+  await page.keyboard.down("ArrowRight");
+  for (const heading of [
+    "创世记第 50 章",
+    "出埃及记第 1 章",
+    "出埃及记第 2 章",
+  ]) {
+    await expect(
+      page.getByRole("heading", { name: heading, exact: true }),
+    ).toBeVisible();
+    await expect(page.locator(".verse-scroll")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    if (heading !== "出埃及记第 2 章") await page.keyboard.down("ArrowRight");
+  }
+  await page.keyboard.up("ArrowRight");
+  await page.keyboard.down("ArrowLeft");
+  await expect(
+    page.getByRole("heading", { name: "出埃及记第 1 章", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".verse-scroll")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  await page.keyboard.down("ArrowLeft");
+  await page.keyboard.up("ArrowLeft");
+  await expect(
+    page.getByRole("heading", { name: "创世记第 50 章", exact: true }),
+  ).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(
+    page.getByRole("heading", { name: "创世记第 50 章", exact: true }),
+  ).toBeVisible();
+});
+
 test("chapter buttons and shortcuts cross books and stop only at Bible ends", async ({
   page,
 }) => {

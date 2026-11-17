@@ -14,6 +14,7 @@ export type {
     Problem,
     Result,
     Saved,
+    SearchHistoryEntry,
     Selection,
     Span
 } from "./models.js";
