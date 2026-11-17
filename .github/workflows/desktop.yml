@@ -111,12 +111,17 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev dpkg-dev desktop-file-utils xvfb xauth dbus-x11 at-spi2-core apparmor
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev dpkg-dev desktop-file-utils xvfb xauth dbus-x11 at-spi2-core apparmor python3-gi gir1.2-gtk-4.0
           desktop-file-validate build/linux/io.github.xibolun.bible.desktop
       - name: Install pinned CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
       - name: Check and package
         run: make package GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} VERSION="$VERSION"
+      - name: Resolve packaged Linux desktop icons through GTK4
+        if: runner.os == 'Linux'
+        run: |
+          dpkg-deb --extract "dist/$VERSION/bible-$VERSION-linux-${{ matrix.arch }}.deb" .cache/desktop-install
+          GDK_BACKEND=x11 xvfb-run -a /usr/bin/python3 tools/verify_linux_desktop.py --share .cache/desktop-install/usr/share
       - name: Permit WebKit sandbox namespaces for the CI application
         if: runner.os == 'Linux'
         env:

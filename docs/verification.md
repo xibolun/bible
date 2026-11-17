@@ -10,6 +10,13 @@ browser cases change soft palettes and preserve theme, reading position and
 highlights across reload. NSIS input checks require owned welcome/header art
 and DisplayIcon; installer appearance remains a platform manual check.
 
+Linux icon integration additionally extracts the built deb and resolves the
+desktop entry's named icon through GTK4 at 16, 24, 32, 48, 64, 128, 256 and 512
+pixels. Every resolved file must come from the extracted package, preventing a
+host-installed icon from masking a broken bundle. The regression was reproduced
+with the old 1024-only package returning image-missing. Actual compositor/Dock
+rendering and stale user-created launcher overrides still require desktop checks.
+
 `make check` runs packaging-preflight and SWORD text-conversion regressions, Go formatting, vet and behavior
 tests, frontend lint/typecheck, selection/layout unit cases, a production
 build, data integrity and owned
