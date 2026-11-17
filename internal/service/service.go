@@ -231,7 +231,7 @@ func (s *Service) reference(sel Selection) string {
 	return r
 }
 
-func (s *Service) CopySelection(sel Selection, mode string) Result[bool] {
+func (s *Service) CopySelection(sel Selection, mode string, ids []string) Result[bool] {
 	text, e := s.selectedText(sel)
 	if e != nil {
 		return failure[bool](e.Error())
@@ -242,11 +242,14 @@ func (s *Service) CopySelection(sel Selection, mode string) Result[bool] {
 	case "textWithReference":
 		text += "\n— " + s.reference(sel) + " · " + t.Abbreviation
 	case "parallelVerse":
-		if len(sel.Spans) != 1 {
+		if len(sel.Spans) != 1 || len(ids) != 2 || !slices.Contains(ids, sel.TranslationID) {
 			return failure[bool]("INVALID_SELECTION")
 		}
+		if _, e := s.Data.Align(ids, sel.BookID, sel.Chapter); e != nil {
+			return failure[bool](e.Error())
+		}
 		lines := []string{}
-		for _, id := range []string{"cuv", "webp"} {
+		for _, id := range ids {
 			v, ok := s.Data.Verse(id, sel.BookID, sel.Chapter, sel.Spans[0].VerseKey)
 			tr, _ := s.Data.Translation(id)
 			part := "本译本无此节"

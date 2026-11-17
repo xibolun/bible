@@ -116,13 +116,22 @@ back to Mock success when the Go bridge is unavailable.
 
 ## Data, fonts and user files
 
-Both complete translations and a CJK font are bundled. Source versions, hashes
+Three complete translations (CUV, WEBP and SWORD KJV 3.1) and a CJK font are bundled. Source versions, hashes
 and conversion details are in `data/manifest.json` and `data/font.json`.
 `tools/import_data.py` rebuilds text from the pinned publisher archives and a
-plain SWORD export; it rejects unknown lines and duplicate references. Run
+CUV plain export and KJV raw per-verse OSIS export; it rejects unknown lines and duplicate references. Run
 `make verify-data` after regeneration. `tools/create_icons.py` and
 `wails3 generate icons` regenerate the owned icon assets. The font subset was
 produced with fontTools 4.60.1 using the ranges recorded in its manifest.
+
+Choose a primary translation and, in comparison mode, a distinct comparison
+translation. The current pair is also used for full-verse comparison copying
+and comparison cards; KJV/WEBP English-to-English comparison is supported.
+Existing CUV/WEBP text versions and highlights are retained. See
+[scripture sources and rebuilding](docs/scripture-sources.md) for exact module
+versions, permissions, transformation rules and rebuild commands. NIV remains
+pending authorized data in [Issue #6](https://github.com/xibolun/bible/issues/6),
+as confirmed by the user; no NIV text is currently included.
 
 Desktop annotations and preferences are stored in the platform user-config
 directory, under `Bible/user.db`; the installed scripture remains read-only.

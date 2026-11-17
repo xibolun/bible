@@ -123,7 +123,7 @@ export const mock: API = {
     persist();
     return this.ListHighlights([sel.translationId], sel.bookId, sel.chapter);
   },
-  async CopySelection(sel, mode) {
+  async CopySelection(sel, mode, ids) {
     fail("clipboard");
     const d = await data(),
       b = d.books.find((b) => b.id === sel.bookId)!,
@@ -131,7 +131,20 @@ export const mock: API = {
     let content = await text(sel);
     const ref = `${b.name} ${sel.chapter}:${sel.spans[0].verseKey}${sel.spans.length > 1 ? "–" + sel.spans.at(-1)!.verseKey : ""}`;
     if (mode === "parallelVerse") {
-      content = d.translations
+      if (
+        ids.length !== 2 ||
+        new Set(ids).size !== 2 ||
+        !ids.includes(sel.translationId) ||
+        ids.some(
+          (id) => !d.translations.some((translation) => translation.id === id),
+        ) ||
+        sel.spans.length !== 1
+      )
+        throw new Error("无效的对照译本或选区");
+      content = ids
+        .map((id) =>
+          d.translations.find((translation) => translation.id === id)!,
+        )
         .map(
           (t) =>
             `${t.abbreviation}\n${d.chapters[`${t.id}/${sel.bookId}/${sel.chapter}`].find((v) => v.label === sel.spans[0].verseKey)?.text ?? "本译本无此节"}`,

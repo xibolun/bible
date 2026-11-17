@@ -22,11 +22,7 @@ async function invoke<T>(request: PromiseLike<Result>): Promise<T> {
     throw new Error("桌面服务未连接，请重启应用。");
   }
   if (!r.ok || r.data === undefined || r.data === null)
-    throw new Error(
-      r.error
-        ? r.error.message
-        : "桌面服务返回了无效结果",
-    );
+    throw new Error(r.error ? r.error.message : "桌面服务返回了无效结果");
   return r.data as T;
 }
 export const native: API = {
@@ -40,8 +36,8 @@ export const native: API = {
     invoke<Highlight[]>(bridge.ListHighlights(ids, book, ch)),
   ApplyHighlight: (request, sel, color) =>
     invoke<Highlight[]>(bridge.ApplyHighlight(request, sel, color)),
-  CopySelection: (sel, mode) =>
-    invoke<boolean>(bridge.CopySelection(sel, mode)),
+  CopySelection: (sel, mode, ids) =>
+    invoke<boolean>(bridge.CopySelection(sel, mode, ids)),
   GetCard: (sel, ids, full) =>
     invoke<CardContent>(bridge.GetCard(sel, ids, full)),
   SaveCard: (png, w, h, name, sel) =>
