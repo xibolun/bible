@@ -1,0 +1,8 @@
+# Permit WebKit's bubblewrap sandbox namespaces for this application only.
+# Keep Ubuntu's global user-namespace restriction and WebKit sandbox enabled.
+abi <abi/4.0>,
+include <tunables/global>
+
+"/usr/bin/bible" flags=(unconfined) {
+  userns,
+}
