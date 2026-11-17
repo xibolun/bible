@@ -5,9 +5,10 @@ tests, frontend lint/typecheck, six selection/layout unit cases, a production
 build, data integrity and owned
 branding-input checks. The interval suite includes a per-character fuzz model;
 SQLite tests verify rollback, restart, idempotence and future-schema retention.
-The packaging regressions verify that unsupported targets and foreign native
-hosts fail before tools/checks/output writes, including under Python `-O`, while
-all four native targets and Windows binary cross-compilation remain allowed.
+The packaging regressions verify that unsupported targets, foreign native
+hosts, unconfigured Linux cross-architecture CGO and missing Linux libraries
+fail before build checks/output writes, including under Python `-O`, while all
+six native targets and Windows binary cross-compilation remain allowed.
 
 Browser end-to-end tests use a production build of the explicit Mock adapter.
 They exercise book/chapter navigation, Chinese/English comparison, offline
@@ -18,8 +19,10 @@ failure without losing editor state. Screenshots and an actual exported
 PNG are uploaded with the browser report. These tests do not substitute for a
 native first-launch/offline check.
 
-The native matrix builds on macOS arm64/Intel and Windows arm64/amd64 runners,
-inspects Mach-O/PE headers and produces all four package sets. Opt-in smoke mode
+The native matrix builds on macOS arm64/Intel, Windows arm64/amd64 and Ubuntu
+24.04 arm64/amd64 runners, inspects Mach-O/PE/ELF headers and produces all six
+package sets. Linux builds validate their desktop entry, compute Debian shared
+library dependencies and package the owned icon and legal notices. Opt-in smoke mode
 uses a separate database, launches the actual WebView, exercises generated Go
 bindings, reads a complete bilingual chapter, persists/reloads a highlight,
 round-trips the native clipboard, renders and writes a real PNG, then repeats
@@ -27,6 +30,13 @@ with the same test directory. Reports record the actual OS/architecture. macOS
 DMGs and ad-hoc signatures are checked by system tools. Windows NSIS source
 compilation is part of packaging. A Windows Server runner is not evidence of
 manual Windows 11 desktop acceptance.
+
+Linux native smoke runs in a private D-Bus session with Xvfb and software
+rendering. It exercises the real GTK4/WebKitGTK frontend and Go services, not
+the browser Mock adapter. It does not prove interactive portal dialogs,
+Wayland compositing, desktop integration or compatibility with every Linux
+distribution. Local Ubuntu 26.04 builds record newer runtime dependencies;
+Ubuntu 24.04 CI packages have a different minimum runtime than local builds.
 
 The following remain explicit manual release checks, rather than automated
 smoke claims:

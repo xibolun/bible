@@ -20,23 +20,32 @@ make dev
 
 Native macOS builds require Xcode Command Line Tools. Native Windows builds
 require NSIS and WebView2; add GNU Make and NSIS to PATH (Git Bash is supported).
-No command silently installs operating-system dependencies. Linux can run code
-and browser checks; desktop distribution targets are macOS and Windows.
+Native Linux builds use GTK4/WebKitGTK 6.0 and a C compiler. On Ubuntu 24.04+
+or a compatible Debian release, install the declared dependencies explicitly:
 
 ```sh
-make package                                      # On macOS/Windows: current host target
+sudo apt-get update
+sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev dpkg-dev
+```
+
+No command silently installs operating-system dependencies. Desktop targets
+are Linux, macOS and Windows on amd64 and arm64.
+
+```sh
+make package                                      # Current native OS/architecture
+make package GOOS=linux GOARCH=amd64 VERSION=v0.1.0
 make package GOOS=darwin GOARCH=arm64 VERSION=v0.1.0
 make package GOOS=windows GOARCH=amd64 VERSION=v0.1.0
 make smoke                                        # Matching native machine only
-make dist VERSION=v0.1.0                          # Require all four target packages
+make dist VERSION=v0.1.0                          # Require all six target packages
 ```
 
-Build and package each target on its matching OS. On Linux, `make build` and
-`make package` stop before dependency/build checks and explain the supported
-alternatives. Setting `GOOS=darwin` or `GOOS=windows` does not supply a native
-packaging toolchain.
+Build and package each target on its matching OS. Linux CGO builds also require
+a matching host architecture. Unsupported host/target combinations and missing
+Linux build libraries are diagnosed before the full checks. Setting `GOOS`
+does not install a foreign SDK or configure a cross-compilation toolchain.
 
-To obtain all four package sets from Linux (or another host), authenticate
+To obtain all six package sets from one host, authenticate
 GitHub CLI as `xibolun` and explicitly collect the CI artifacts:
 
 ```sh
@@ -49,11 +58,35 @@ commit. It waits for CI and downloads the packages; it can dispatch the native
 matrix when no run exists. It requires network access and GitHub CLI credentials.
 Local build/package commands never start remote builds automatically.
 
-Outputs include architecture-specific
-macOS app ZIP/DMG or Windows portable ZIP/NSIS installer, plus build manifests
+Outputs include architecture-specific Linux tar.gz/deb, macOS app ZIP/DMG and
+Windows portable ZIP/NSIS installer, plus build manifests
 and SHA-256 checksums under `dist/<version>/`. macOS packages are ad-hoc signed,
 not notarized; Windows packages are unsigned. These are internal test artifacts.
 The workflow does not publish a GitHub Release or merge a PR.
+
+On Linux, run `bin/linux-amd64/Bible` after a build (use `linux-arm64` on ARM),
+or extract the tar.gz bundle and run its `Bible` executable. Install the deb with
+`sudo apt install ./dist/v0.1.0/bible-v0.1.0-linux-amd64.deb` for a system desktop
+entry and the `bible` command. Packages retain annotations on removal.
+
+Linux binaries link to system GTK4/WebKitGTK libraries. Runtime packages on
+Ubuntu/Debian are `libgtk-4-1` and `libwebkitgtk-6.0-4`; file dialogs use
+`xdg-desktop-portal` with a suitable desktop backend. The deb records actual
+shared-library dependencies. CI builds on Ubuntu 24.04; local builds record the
+host libc/GTK/WebKit versions in their manifest and are not promised to run on
+older distributions. RPM, AppImage and universal Linux compatibility are not
+part of this build path.
+
+For headless native smoke checks, additionally install `xvfb xauth dbus-x11`
+and run:
+
+```sh
+GDK_BACKEND=x11 GSK_RENDERER=cairo LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 \
+  dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' make smoke
+```
+
+This launches the real Linux WebView twice with isolated test data. Interactive
+file dialogs and real Wayland/multi-monitor behavior still need manual checks.
 
 ## Browser prototype and checks
 

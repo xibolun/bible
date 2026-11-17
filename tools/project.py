@@ -11,6 +11,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import tarfile
 import time
 import zipfile
 from pathlib import Path
@@ -18,7 +19,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 HOST={'Darwin':'darwin','Windows':'windows','Linux':'linux'}[platform.system()]
 ARCH='arm64' if platform.machine().lower() in ('arm64','aarch64') else 'amd64'
-TARGETS=[('darwin','arm64'),('darwin','amd64'),('windows','arm64'),('windows','amd64')]
+TARGETS=[('darwin','arm64'),('darwin','amd64'),('windows','arm64'),('windows','amd64'),('linux','amd64'),('linux','arm64')]
 
 def run(args,**kw):
     print('+ '+' '.join(map(str,args)),flush=True)
@@ -26,7 +27,8 @@ def run(args,**kw):
     return subprocess.run(list(map(str,args)),check=True,**kw)
 
 def output(args,**kw):
-    return subprocess.check_output(list(map(str,args)),cwd=ROOT,text=True,**kw).strip()
+    kw.setdefault('cwd',ROOT)
+    return subprocess.check_output(list(map(str,args)),text=True,**kw).strip()
 
 def npm(*args):
     executable=shutil.which('npm.cmd' if HOST=='windows' else 'npm') or 'npm'
@@ -41,16 +43,28 @@ def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 def validate_desktop_target(args,native=False):
     target=f'{args.os}/{args.arch}';host=f'{HOST}/{ARCH}'
-    guidance=(f'Run make check for code/browser validation. To obtain all four packages from CI, '
+    guidance=(f'To obtain all six target packages from CI, '
               f'authenticate GitHub CLI as xibolun and run: make release-artifacts REF=main VERSION={args.version}. '
-              'CI builds on the matching native runners; no Linux desktop package is produced.')
+              'CI builds on the matching native runners.')
     if (args.os,args.arch) not in TARGETS:
         supported=', '.join(f'{osname}/{arch}' for osname,arch in TARGETS)
         raise RuntimeError(f'Unsupported desktop target {target} on host {host}. Supported targets: {supported}. {guidance}')
     if native and args.os!=HOST:
         raise RuntimeError(f'Native build/package for {target} requires a {args.os} host; current host is {host}. {guidance}')
+    if args.os=='linux' and (HOST!='linux' or args.arch!=ARCH):
+        raise RuntimeError(f'Linux CGO build/package for {target} requires a matching native {target} host; current host is {host}. {guidance}')
     if not native and args.os=='darwin' and HOST!='darwin':
         raise RuntimeError(f'Compiling {target} requires the native macOS toolchain; current host is {host}. {guidance}')
+
+def linux_dependencies(packaging=False):
+    command='sudo apt-get install build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev dpkg-dev'
+    if not (shutil.which('gcc') or shutil.which('clang')) or not shutil.which('pkg-config'):
+        raise RuntimeError(f'Linux desktop builds need a C compiler and pkg-config. On Ubuntu/Debian run: {command}')
+    probe=subprocess.run(['pkg-config','--exists','gtk4 >= 4.14','webkitgtk-6.0 >= 2.44','x11'],capture_output=True,text=True)
+    if probe.returncode:
+        raise RuntimeError(f'Linux desktop builds need GTK4 >= 4.14, WebKitGTK 6.0 >= 2.44 and X11 development files. On Ubuntu/Debian run: {command}')
+    if packaging and not all(shutil.which(tool) for tool in ('dpkg-deb','dpkg-shlibdeps')):
+        raise RuntimeError('Debian packaging tools missing. On Ubuntu/Debian run: sudo apt-get install dpkg-dev')
 
 def cli():
     cached=ROOT/'.cache'/('wails3.exe' if HOST=='windows' else 'wails3')
@@ -82,7 +96,7 @@ def verify_data():
 
 def verify_branding():
     bad=re.compile(r'(Wails\s*(?:logo|\+|version)|Built\s+(?:with|using)\s+Wails|My Company|My Product|wails\.png|GreetService|Welcome to Wails)',re.I)
-    files=list((ROOT/'frontend/src').rglob('*.tsx'))+list((ROOT/'build').rglob('*.nsi'))+list((ROOT/'build').rglob('*.manifest'))+[ROOT/'frontend/index.html',ROOT/'frontend/public/bible.svg']
+    files=list((ROOT/'frontend/src').rglob('*.tsx'))+list((ROOT/'build').rglob('*.nsi'))+list((ROOT/'build').rglob('*.manifest'))+list((ROOT/'build').rglob('*.desktop'))+[ROOT/'frontend/index.html',ROOT/'frontend/public/bible.svg']
     for path in files:assert not bad.search(path.read_text(encoding='utf-8')),f'default branding in {path.relative_to(ROOT)}'
     assert not list((ROOT/'frontend/public').glob('*wails*'))
     for path in ['build/appicon.png','build/windows/icon.ico','build/darwin/icons.icns']:assert (ROOT/path).is_file(),f'missing owned icon: {path}'
@@ -97,7 +111,8 @@ def nsis():
     return None
 
 def doctor(args):
-    if args.os in ('darwin','windows'):validate_desktop_target(args,native=True)
+    validate_desktop_target(args,native=True)
+    if HOST=='linux':linux_dependencies(packaging=True)
     for name in ['go','node','npm']:
         if not shutil.which(name+'.cmd' if HOST=='windows' and name=='npm' else name):raise RuntimeError(f'{name} missing')
     assert 'go1.26.10 ' in output(['go','version']),'Use pinned Go 1.26.10'
@@ -106,9 +121,10 @@ def doctor(args):
     if args.os in ('darwin','windows'):
         if HOST=='darwin':run(['xcode-select','-p']);assert shutil.which('hdiutil')
         if HOST=='windows' and not nsis():raise RuntimeError('NSIS missing. Install explicitly and add makensis to PATH.')
-    print(f'Doctor passed on {HOST}/{ARCH}; distribution targets are macOS and Windows.')
+    print(f'Doctor passed on {HOST}/{ARCH}; distribution targets are macOS, Windows and Linux.')
 
 def check():
+    if HOST=='linux':linux_dependencies()
     run([sys.executable,'-m','unittest','discover','-s','tools','-p','test_*.py'])
     files=[ROOT/'main.go',*list((ROOT/'internal').rglob('*.go'))]
     formatted=output(['gofmt','-l',*files]);assert not formatted,'Run gofmt on: '+formatted
@@ -123,7 +139,10 @@ def paths(args):
 
 def binary_arch(path,osname,arch):
     b=path.read_bytes()
-    if osname=='windows':
+    if osname=='linux':
+        if len(b)<20 or b[:6]!=b'\x7fELF\x02\x01' or struct.unpack_from('<H',b,18)[0]!={'amd64':62,'arm64':183}[arch]:
+            raise RuntimeError(f'Expected a 64-bit little-endian Linux ELF for {arch}: {path.name}')
+    elif osname=='windows':
         assert b[:2]==b'MZ';offset=struct.unpack_from('<I',b,60)[0];assert b[offset:offset+4]==b'PE\0\0'
         assert struct.unpack_from('<H',b,offset+4)[0]=={'amd64':0x8664,'arm64':0xaa64}[arch]
     else:
@@ -132,8 +151,9 @@ def binary_arch(path,osname,arch):
 
 def compile_app(args):
     validate_desktop_target(args)
+    if args.os=='linux':linux_dependencies()
     root,binary,_,_=paths(args);root.mkdir(parents=True,exist_ok=True)
-    env=os.environ.copy();env.update(GOOS=args.os,GOARCH=args.arch,CGO_ENABLED='1' if args.os=='darwin' else '0')
+    env=os.environ.copy();env.update(GOOS=args.os,GOARCH=args.arch,CGO_ENABLED='0' if args.os=='windows' else '1')
     if args.os=='darwin':env['MACOSX_DEPLOYMENT_TARGET']='12.0'
     syso=ROOT/f'bible_windows_{args.arch}.syso'
     if args.os=='windows':
@@ -147,11 +167,44 @@ def compile_app(args):
     print(f'Compiled and inspected {args.os}/{args.arch}')
 
 def manifest(args,dest,prefix,files,signing):
-    result={'version':args.version,'os':args.os,'arch':args.arch,'commit':output(['git','rev-parse','HEAD']),'go':output(['go','version']),'node':output(['node','--version']),'wails':'v3.1.0','signing':signing,'dataset':json.loads((ROOT/'data/manifest.json').read_text()),'artifacts':{p.name:sha(p) for p in files}}
+    result={'version':args.version,'os':args.os,'arch':args.arch,'commit':output(['git','rev-parse','HEAD']),'workingTreeDirty':bool(output(['git','status','--porcelain'])),'go':output(['go','version']),'node':output(['node','--version']),'wails':'v3.1.0','signing':signing,'dataset':json.loads((ROOT/'data/manifest.json').read_text()),'artifacts':{p.name:sha(p) for p in files}}
+    if args.os=='linux':result['linux']={'buildHost':platform.platform(),'libc':platform.libc_ver(),'gtk':output(['pkg-config','--modversion','gtk4']),'webkit':output(['pkg-config','--modversion','webkitgtk-6.0']),'dependencies':output(['dpkg-deb','--field',next(p for p in files if p.suffix=='.deb'),'Depends'])}
     (dest/f'{prefix}-manifest.json').write_text(json.dumps(result,indent=2)+'\n')
+
+def package_linux(args,root,binary,dest,prefix):
+    linux_dependencies(packaging=True)
+    bundle=root/prefix;shutil.rmtree(bundle,ignore_errors=True);bundle.mkdir()
+    shutil.copy2(binary,bundle/'Bible');(bundle/'Bible').chmod(0o755)
+    shutil.copy2(ROOT/'THIRD_PARTY_NOTICES.txt',bundle/'THIRD_PARTY_NOTICES.txt')
+    shutil.copytree(ROOT/'licenses',bundle/'licenses')
+    shutil.copy2(ROOT/'build/appicon.png',bundle/'icon.png')
+    (bundle/'README.txt').write_text('Bible desktop reader\nRun ./Bible in a graphical Linux session.\nRequires compatible glibc, GTK4 and WebKitGTK 6.0 system libraries.\nOn Ubuntu/Debian: sudo apt-get install libgtk-4-1 libwebkitgtk-6.0-4\nFile dialogs use the desktop xdg-desktop-portal service and a suitable backend.\nBuild-host and library versions are recorded in the accompanying manifest.\nAnnotations remain in your user configuration directory.\n',encoding='utf-8')
+    archive=dest/f'{prefix}.tar.gz'
+    with tarfile.open(archive,'w:gz') as target:target.add(bundle,arcname=prefix)
+    stage=root/'debian/bible-desktop';shutil.rmtree(stage,ignore_errors=True)
+    for folder in ('DEBIAN','usr/bin','usr/share/applications','usr/share/icons/hicolor/1024x1024/apps','usr/share/doc/bible-desktop'):(stage/folder).mkdir(parents=True,exist_ok=True)
+    shutil.copy2(binary,stage/'usr/bin/bible');(stage/'usr/bin/bible').chmod(0o755)
+    shutil.copy2(ROOT/'build/linux/io.github.xibolun.bible.desktop',stage/'usr/share/applications/io.github.xibolun.bible.desktop')
+    shutil.copy2(ROOT/'build/appicon.png',stage/'usr/share/icons/hicolor/1024x1024/apps/io.github.xibolun.bible.png')
+    shutil.copy2(ROOT/'THIRD_PARTY_NOTICES.txt',stage/'usr/share/doc/bible-desktop/copyright')
+    shutil.copytree(ROOT/'licenses',stage/'usr/share/doc/bible-desktop/licenses')
+    for path in stage.rglob('*'):
+        path.chmod(0o755 if path.is_dir() or path==stage/'usr/bin/bible' else 0o644)
+    # dpkg-shlibdeps requires a Debian source control file even with -O output.
+    (root/'debian').mkdir(exist_ok=True)
+    (root/'debian/control').write_text('Source: bible-desktop\nSection: education\nPriority: optional\nMaintainer: xibolun <14323159+xibolun@users.noreply.github.com>\n\nPackage: bible-desktop\nArchitecture: any\nDescription: Offline bilingual Bible reader\n')
+    dependencies=output(['dpkg-shlibdeps','-O',str(stage/'usr/bin/bible')],cwd=root)
+    dependencies=next(line.removeprefix('shlibs:Depends=') for line in dependencies.splitlines() if line.startswith('shlibs:Depends='))
+    control=(f'Package: bible-desktop\nVersion: {args.version.lstrip("v")}\nArchitecture: {args.arch}\nMaintainer: xibolun <14323159+xibolun@users.noreply.github.com>\nSection: education\nPriority: optional\nDepends: {dependencies}\nRecommends: xdg-desktop-portal, xdg-desktop-portal-gtk\nDescription: Offline Chinese and English Bible reader\n Verse comparison, persistent highlights, copying and scripture-card PNG export.\n')
+    (stage/'DEBIAN/control').write_text(control,encoding='utf-8')
+    package=dest/f'{prefix}.deb';run(['dpkg-deb','--root-owner-group','--build',stage,package])
+    if output(['dpkg-deb','--field',package,'Architecture'])!=args.arch:raise RuntimeError('Debian package architecture mismatch')
+    manifest(args,dest,prefix,[archive,package],'unsigned; system GTK4/WebKitGTK libraries required')
+    (dest/f'{prefix}-SHA256SUMS').write_text(''.join(f'{sha(path)}  {path.name}\n' for path in (archive,package,dest/f'{prefix}-manifest.json')))
 
 def package_native(args):
     validate_desktop_target(args,native=True)
+    if args.os=='linux':linux_dependencies(packaging=True)
     compile_app(args)
     root,binary,dest,prefix=paths(args);dest.mkdir(parents=True,exist_ok=True)
     if args.os=='darwin':
@@ -165,7 +218,7 @@ def package_native(args):
         stage=root/'dmg-stage';shutil.rmtree(stage,ignore_errors=True);stage.mkdir();shutil.copytree(app,stage/'Bible.app');(stage/'Applications').symlink_to('/Applications')
         dmg=dest/f'{prefix}.dmg';run(['hdiutil','create','-volname','Bible','-srcfolder',stage,'-ov','-format','UDZO',dmg]);run(['hdiutil','verify',dmg])
         manifest(args,dest,prefix,[zipped,dmg],'adhoc; not notarized')
-    else:
+    elif args.os=='windows':
         executable=nsis()
         if not executable:raise RuntimeError('NSIS missing; run make doctor')
         zipped=dest/f'{prefix}.zip'
@@ -176,6 +229,7 @@ def package_native(args):
         installer=dest/f'{prefix}-installer.exe'
         run([executable,f'/DOUTPUT={installer}',f'/DBINARY={binary}',f'/DNUMVERSION={args.version.lstrip("v")}',ROOT/'build/windows/installer.nsi'])
         manifest(args,dest,prefix,[zipped,installer],'unsigned')
+    else:package_linux(args,root,binary,dest,prefix)
     print(f'Packaged {prefix}; no public release created.')
 
 def dist(args):
@@ -184,13 +238,14 @@ def dist(args):
         prefix=f'bible-{args.version}-{osname}-{arch}';mf=dest/f'{prefix}-manifest.json'
         assert mf.is_file(),f'missing target manifest: {mf.name}'
         info=json.loads(mf.read_text());assert info['os']==osname and info['arch']==arch and info['version']==args.version;commits.add(info['commit'])
-        names=[f'{prefix}.zip',f'{prefix}.dmg' if osname=='darwin' else f'{prefix}-installer.exe'];assert set(info['artifacts'])==set(names)
+        assert not info.get('workingTreeDirty',False),'dirty working-tree artifacts cannot be combined as a source-identified distribution'
+        names=[f'{prefix}.tar.gz',f'{prefix}.deb'] if osname=='linux' else [f'{prefix}.zip',f'{prefix}.dmg' if osname=='darwin' else f'{prefix}-installer.exe'];assert set(info['artifacts'])==set(names)
         for name in names:
             path=dest/name;assert path.is_file() and sha(path)==info['artifacts'][name],f'absent or modified artifact: {name}';expected.append(path)
         expected.append(mf)
     assert len(commits)==1,'artifacts come from different commits'
     (dest/'SHA256SUMS').write_text(''.join(f'{sha(p)}  {p.name}\n' for p in sorted(expected)))
-    print('Verified all four target manifests and package checksums.')
+    print('Verified all six target manifests and package checksums.')
 
 def smoke(args):
     assert args.os==HOST and args.arch==ARCH,'Runtime test requires matching native runner'
@@ -224,7 +279,7 @@ def release_artifacts(args):
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('action');p.add_argument('--os',default=HOST);p.add_argument('--arch',default=ARCH);p.add_argument('--version',default='v0.1.0');p.add_argument('--ref',default='main');p.add_argument('--dev',action='store_true');args=p.parse_args()
     assert re.fullmatch(r'v?\d+\.\d+\.\d+',args.version),'VERSION must be a simple semantic version'
-    if args.action=='help':print('make doctor | check | dev | build | package [GOOS=darwin|windows GOARCH=arm64|amd64 VERSION=v0.1.0] | smoke | dist | release-artifacts REF=main | verify-data | verify-branding | bindings | clean\nBuild/package requires the matching native macOS/Windows host. On Linux use make check, or authenticate GitHub CLI as xibolun and run make release-artifacts REF=main for all four CI packages.')
+    if args.action=='help':print('make doctor | check | dev | build | package [GOOS=darwin|windows|linux GOARCH=arm64|amd64 VERSION=v0.1.0] | smoke | dist | release-artifacts REF=main | verify-data | verify-branding | bindings | clean\nBuild/package requires a matching native macOS/Windows/Linux host and declared system dependencies. Linux CGO builds require a matching architecture. Authenticate GitHub CLI as xibolun and run make release-artifacts REF=main for all six CI targets.')
     elif args.action=='doctor':doctor(args)
     elif args.action=='check':check()
     elif args.action=='verify-data':verify_data()
@@ -239,9 +294,10 @@ def main():
             (ROOT/'frontend/dist').mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/'frontend/index.html',ROOT/'frontend/dist/index.html')
         env=os.environ.copy();env.update(GOOS=args.os if args.os in ('windows','darwin') else 'windows',CGO_ENABLED='0' if args.os!='darwin' else '1');run([cli(),'generate','bindings','-ts','-i','-names'],env=env)
     elif args.action=='dev':
-        assert args.os==HOST and HOST in ('darwin','windows'),'Development desktop mode requires native macOS/Windows'
+        validate_desktop_target(args,native=True)
         doctor(args);npm('ci');npm('run','build');env=os.environ.copy();env['PATH']=str(Path(cli()).parent)+os.pathsep+env.get('PATH','');run([cli(),'dev'],env=env)
     elif args.action=='run-native':
+        validate_desktop_target(args,native=True)
         _,binary,_,_=paths(args);run([binary])
     elif args.action=='dist':dist(args)
     elif args.action=='smoke':smoke(args)
