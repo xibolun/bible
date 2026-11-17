@@ -252,7 +252,7 @@ def package_native(args):
         run(['codesign','--force','--deep','--sign','-',app]);run(['codesign','--verify','--deep','--strict',app])
         zipped=dest/f'{prefix}.zip';run(['ditto','-c','-k','--sequesterRsrc','--keepParent',app,zipped])
         stage=root/'dmg-stage';shutil.rmtree(stage,ignore_errors=True);stage.mkdir();shutil.copytree(app,stage/'Bible.app');(stage/'Applications').symlink_to('/Applications')
-        dmg=dest/f'{prefix}.dmg';run(['hdiutil','create','-volname','Bible','-srcfolder',stage,'-ov','-format','UDZO',dmg]);run(['hdiutil','verify',dmg])
+        dmg=dest/f'{prefix}.dmg';run(['hdiutil','create','-fs','HFS+','-volname','Bible','-srcfolder',stage,'-ov','-format','UDZO',dmg]);run(['hdiutil','verify',dmg])
         manifest(args,dest,prefix,[zipped,dmg],'adhoc; not notarized')
     elif args.os=='windows':
         executable=nsis()

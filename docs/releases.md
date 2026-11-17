@@ -16,6 +16,8 @@ git push origin v1.2.3
 
 每个 Release 包含 12 个安装或便携文件、六份目标清单、六份原生验证报告，以及汇总 `release-manifest.json` 与 `SHA256SUMS`。发布说明提供逐平台下载链接。macOS 仍为临时签名、Windows 未签名；此自动化不提供发布证书或公证。
 
+macOS DMG 显式使用 HFS+，避免依赖不同 runner 的文件系统默认值；继续执行签名校验、DMG 完整性校验和原生运行验证。相关问题见 [GitHub runner 维护记录](https://github.com/actions/runner-images/issues/4288)。
+
 上传中断时保留本工作流创建的草稿，可以重跑恢复。已公开的完整版本在重跑时核对其原有清单及哈希并保留文件，不用重新构建的时间戳差异覆盖公开资产。标签移位、缺失/错误平台包、版本或提交不一致、未通过原生验证，以及哈希错误都会阻止发布。
 
 用户已明确允许仅自动发版使用 `github-actions[bot]`。发布作业单独使用仓库内置临时 `GITHUB_TOKEN` 的 Contents 写权限；构建作业保持只读，不需要个人 Token 或新建 Secrets。手工代码提交、推送与 PR 仍使用 xibolun。
