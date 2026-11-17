@@ -122,6 +122,10 @@ def verify_branding():
     for path in files:assert not bad.search(path.read_text(encoding='utf-8')),f'default branding in {path.relative_to(ROOT)}'
     assert not list((ROOT/'frontend/public').glob('*wails*'))
     for path in ['build/appicon.png','build/windows/icon.ico','build/darwin/icons.icns']:assert (ROOT/path).is_file(),f'missing owned icon: {path}'
+    for size in [16,24,32,48,64,128,256,512]:
+        icon=(ROOT/f'build/linux/icons/hicolor/{size}x{size}/apps/io.github.xibolun.bible.png').read_bytes()
+        assert icon[:8]==b'\x89PNG\r\n\x1a\n' and struct.unpack_from('>II',icon,16)==(size,size),'invalid Linux icon size'
+    assert (ROOT/'build/linux/icons/hicolor/scalable/apps/io.github.xibolun.bible.svg').read_bytes()==(ROOT/'frontend/public/bible.svg').read_bytes()
     for name,dimensions in [('welcome.bmp',(164,314)),('header.bmp',(150,57))]:
         bitmap=(ROOT/'build/windows'/name).read_bytes()
         assert bitmap[:2]==b'BM' and struct.unpack_from('<ii',bitmap,18)==dimensions,'invalid installer art: '+name
@@ -210,10 +214,10 @@ def package_linux(args,root,binary,dest,prefix):
     archive=dest/f'{prefix}.tar.gz'
     with tarfile.open(archive,'w:gz') as target:target.add(bundle,arcname=prefix)
     stage=root/'debian/bible-desktop';shutil.rmtree(stage,ignore_errors=True)
-    for folder in ('DEBIAN','etc/apparmor.d','usr/bin','usr/share/applications','usr/share/icons/hicolor/1024x1024/apps','usr/share/doc/bible-desktop'):(stage/folder).mkdir(parents=True,exist_ok=True)
+    for folder in ('DEBIAN','etc/apparmor.d','usr/bin','usr/share/applications','usr/share/doc/bible-desktop'):(stage/folder).mkdir(parents=True,exist_ok=True)
     shutil.copy2(binary,stage/'usr/bin/bible');(stage/'usr/bin/bible').chmod(0o755)
     shutil.copy2(ROOT/'build/linux/io.github.xibolun.bible.desktop',stage/'usr/share/applications/io.github.xibolun.bible.desktop')
-    shutil.copy2(ROOT/'build/appicon.png',stage/'usr/share/icons/hicolor/1024x1024/apps/io.github.xibolun.bible.png')
+    shutil.copytree(ROOT/'build/linux/icons',stage/'usr/share/icons')
     shutil.copy2(ROOT/'THIRD_PARTY_NOTICES.txt',stage/'usr/share/doc/bible-desktop/copyright')
     shutil.copytree(ROOT/'licenses',stage/'usr/share/doc/bible-desktop/licenses')
     shutil.copy2(ROOT/'build/linux/io.github.xibolun.bible.apparmor',stage/'etc/apparmor.d/io.github.xibolun.bible')

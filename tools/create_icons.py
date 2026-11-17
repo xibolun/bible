@@ -21,6 +21,14 @@ def main():
     icon.save(ROOT/'build/appicon.png')
     icon.save(ROOT/'build/windows/icon.ico', sizes=[(n, n) for n in [16, 24, 32, 48, 64, 128, 256]])
     icon.save(ROOT/'build/darwin/icons.icns')
+    linux = ROOT/'build/linux/icons/hicolor'
+    for size in [16, 24, 32, 48, 64, 128, 256, 512]:
+        target = linux/f'{size}x{size}/apps/io.github.xibolun.bible.png'
+        target.parent.mkdir(parents=True, exist_ok=True)
+        logo(size).save(target)
+    scalable = linux/'scalable/apps/io.github.xibolun.bible.svg'
+    scalable.parent.mkdir(parents=True, exist_ok=True)
+    scalable.write_bytes(SVG.read_bytes())
     welcome = Image.new('RGB', (164, 314), '#1e4b66')
     welcome.paste(logo(116), (24, 44), logo(116))
     draw = ImageDraw.Draw(welcome)
