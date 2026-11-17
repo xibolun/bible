@@ -16,6 +16,7 @@
     "test:serve": "vite build --emptyOutDir --outDir ../.cache/mock-dist && vite preview --outDir ../.cache/mock-dist --host 127.0.0.1 --port 5173"
   },
   "dependencies": {
+    "@ant-design/icons": "6.3.4",
     "@wailsio/runtime": "3.1.0",
     "antd": "6.7.1",
     "react": "19.3.1",

@@ -60,7 +60,7 @@ func TestUnicodeSelectionPersistenceAndCopy(t *testing.T) {
 	if !r.OK || len(*r.Data) != 1 {
 		t.Fatalf("%+v", r.Error)
 	}
-	if !s.CopySelection(sel, "textWithReference", nil, CopyOptions{}).OK || !strings.Contains(desk.text, "😀é中\n— 创世记 1:1 · CUV") {
+	if !s.CopySelection(sel, "textWithReference", nil, CopyOptions{}).OK || !strings.Contains(desk.text, "😀é中\n— 创世记1:1·CUV") {
 		t.Fatal(desk.text)
 	}
 	if !s.CopySelection(sel, "parallelVerse", []string{"cuv", "webp"}, CopyOptions{}).OK || !strings.Contains(desk.text, "An English verse.") {
@@ -93,14 +93,14 @@ func TestCopyAndCardUseOnlySelectedTranslationPair(t *testing.T) {
 	s.Data.Translations = append(s.Data.Translations, bible.Translation{ID: "kjv", DataVersion: "v1", Abbreviation: "KJV"})
 	s.Data.Chapters["kjv/GEN/1"] = []bible.Verse{{Label: "1", Text: "King James wording."}}
 	sel := selected()
-	if result := s.CopySelection(sel, "parallelVerse", []string{"cuv", "kjv"}, CopyOptions{}); !result.OK || !strings.Contains(desktop.text, "KJV\nKing James wording.") || strings.Contains(desktop.text, "WEBP") || strings.Contains(desktop.text, "An English verse.") {
+	if result := s.CopySelection(sel, "parallelVerse", []string{"cuv", "kjv"}, CopyOptions{}); !result.OK || !strings.Contains(desktop.text, "King James wording.\n— 创世记1:1·KJV") || strings.Contains(desktop.text, "WEBP") || strings.Contains(desktop.text, "An English verse.") {
 		t.Fatalf("wrong pair copied: %s", desktop.text)
 	}
-	card := s.GetCard(sel, []string{"cuv", "kjv"}, true)
+	card := s.GetCard(sel, []string{"cuv", "kjv"}, true, CopyOptions{})
 	if !card.OK || len(card.Data.Lines) != 2 || card.Data.Lines[1].Version != "KJV" || card.Data.Lines[1].Text != "King James wording." {
 		t.Fatalf("wrong pair in card: %+v", card)
 	}
-	if !s.CopySelection(sel, "parallelVerse", []string{"cuv", "webp", "kjv"}, CopyOptions{ReferencePosition: "before"}).OK || !strings.HasPrefix(desktop.text, "创世记 1:1 · CUV + WEBP + KJV\n") || !strings.Contains(desktop.text, "An English verse.") {
+	if !s.CopySelection(sel, "parallelVerse", []string{"cuv", "webp", "kjv"}, CopyOptions{ReferencePosition: "before"}).OK || !strings.HasPrefix(desktop.text, "创世记1:1·CUV\n") || !strings.Contains(desktop.text, "An English verse.") {
 		t.Fatalf("three-version reference copy failed: %s", desktop.text)
 	}
 	for _, ids := range [][]string{{"cuv", "webp", "kjv", "cuv"}, {"cuv", "cuv"}, {"cuv", "missing"}, {"webp", "kjv"}} {
@@ -113,11 +113,11 @@ func TestCopyAndCardUseOnlySelectedTranslationPair(t *testing.T) {
 func TestCardValidationAndCancellation(t *testing.T) {
 	s, desk := fixture(t)
 	sel := selected()
-	c := s.GetCard(sel, []string{"cuv", "webp"}, true)
+	c := s.GetCard(sel, []string{"cuv", "webp"}, true, CopyOptions{})
 	if !c.OK || len(c.Data.Lines) != 2 {
 		t.Fatal(c.Error)
 	}
-	if s.GetCard(sel, []string{"webp"}, false).OK {
+	if s.GetCard(sel, []string{"webp"}, false, CopyOptions{}).OK {
 		t.Fatal("partial selection wrongly transferred to other language")
 	}
 	var b bytes.Buffer
@@ -187,11 +187,11 @@ func TestCopyAlwaysIncludesReferenceAndHonorsPositionAndLanguage(t *testing.T) {
 	sel := selected()
 	sel.Spans = []Span{{VerseKey: "1", Start: 0, End: 6}, {VerseKey: "2", Start: 0, End: 3}}
 	options := CopyOptions{ReferencePosition: "before", UILanguage: "en"}
-	if !s.CopySelection(sel, "textWithReference", nil, options).OK || !strings.HasPrefix(desktop.text, "Genesis 1:1–2 · CUV\nA😀é中B\n第二节") {
+	if !s.CopySelection(sel, "textWithReference", nil, options).OK || !strings.HasPrefix(desktop.text, "Genesis 1:1–2·CUV\nA😀é中B\n第二节") {
 		t.Fatal(desktop.text)
 	}
 	options.ReferencePosition = "after"
-	if !s.CopySelection(sel, "parallelVerse", []string{"cuv", "webp"}, options).OK || !strings.HasSuffix(desktop.text, "\n— Genesis 1:1–2 · CUV + WEBP") || !strings.Contains(desktop.text, "An English verse.\nSecond verse.") {
+	if !s.CopySelection(sel, "parallelVerse", []string{"cuv", "webp"}, options).OK || !strings.HasSuffix(desktop.text, "\n— Genesis 1:1–2·WEBP") || !strings.Contains(desktop.text, "An English verse.\nSecond verse.") {
 		t.Fatal(desktop.text)
 	}
 	if s.CopySelection(sel, "textOnly", nil, CopyOptions{}).OK {

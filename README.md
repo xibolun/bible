@@ -1,159 +1,35 @@
-# Bible
+# Bible · 圣经
 
-A desktop Bible reader built with Go and Wails: Chinese/English offline reading,
-verse-aligned comparison, persistent text highlights, copying, focus reading,
-and scripture-card PNG export.
+一款离线圣经桌面阅读器，支持 macOS、Windows 和 Linux。
 
-The initial implementation is tracked in [Issue #1](https://github.com/xibolun/bible/issues/1).
+## 特性
 
-## Development
+- 内置完整简体和合本 CUV、WEBP 和 KJV，支持多版本上下对照。
+- 书卷目录、自动换行的章号、逐句节号，以及阅读区两侧的章节切换。
+- 文字选区高亮，复制可选择全书名／简称、译本标识、整段或逐节引用。
+- 经文卡片预览与 PNG 导出，提供方图、竖图、配色与引用样式。
+- 中英文界面、字号和复制偏好本地保存；经文、高亮和设置离线可用。
 
-Use Go **1.26.10**, Node **22.22.1** (or a compatible Node 22.12+), npm, Python 3.12+,
-GNU Make, and the pinned Wails CLI:
+## 安装
 
-```sh
-go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
-make doctor
-make check
-make dev
-```
+在 [Releases](https://github.com/xibolun/bible/releases) 选择与系统、处理器匹配的安装包。每个版本提供以下六种组合，文件名包含版本号和架构。
 
-Native macOS builds require Xcode Command Line Tools. Native Windows builds
-require NSIS and WebView2; add GNU Make and NSIS to PATH (Git Bash is supported).
-Native Linux builds use GTK4/WebKitGTK 6.0 and a C compiler. On Ubuntu 24.04+
-or a compatible Debian release, install the declared dependencies explicitly:
+| 系统       | 架构                                   | 安装包                              |
+| ---------- | -------------------------------------- | ----------------------------------- |
+| macOS 12+  | Apple Silicon（arm64）／Intel（amd64） | `.dmg`，也提供应用 `.zip`           |
+| Windows 11 | ARM64／Intel、AMD 64 位（amd64）       | `-installer.exe`，也提供便携 `.zip` |
+| Linux      | arm64／amd64                           | `.deb` 或 `.tar.gz`                 |
 
-```sh
-sudo apt-get update
-sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev dpkg-dev
-```
+- **macOS**：打开 DMG，将 Bible 拖入 Applications。当前应用使用临时签名，尚未公证。
+- **Windows**：运行对应架构的安装器。需要 Microsoft WebView2 Runtime；当前安装包未签名。
+- **Linux**：推荐 Ubuntu 24.04 及以上或兼容系统，安装对应 `.deb` 后运行 `bible`。依赖 GTK4、WebKitGTK 6.0 和桌面文件对话框服务，包管理器会安装声明的依赖。tar 包在解压后运行 `Bible`，受限用户命名空间环境的配置见开发文档。
 
-No command silently installs operating-system dependencies. Desktop targets
-are Linux, macOS and Windows on amd64 and arm64.
+Release 附带 `SHA256SUMS` 与构建清单，方便核对版本和文件完整性。卸载保留用户的标记和设置。
 
-```sh
-make package                                      # Current native OS/architecture
-make package GOOS=linux GOARCH=amd64 VERSION=v0.1.0
-make package GOOS=darwin GOARCH=arm64 VERSION=v0.1.0
-make package GOOS=windows GOARCH=amd64 VERSION=v0.1.0
-make smoke                                        # Matching native machine only
-make dist VERSION=v0.1.0                          # Require all six target packages
-```
+## 使用
 
-Build and package each target on its matching OS. Linux CGO builds also require
-a matching host architecture. Unsupported host/target combinations and missing
-Linux build libraries are diagnosed before the full checks. Setting `GOOS`
-does not install a foreign SDK or configure a cross-compilation toolchain.
+点击书卷和章号阅读；在顶部选择对照译本。拖选文字或点击节号选择经文，Shift 可连续选择。选区旁的工具栏提供高亮、复制和卡片操作。
 
-To obtain all six package sets from one host, authenticate
-GitHub CLI as `xibolun` and explicitly collect the CI artifacts:
+在「设置」中选择复制样式、字号和界面语言；卡片编辑器可单独调整引用样式。源码入口位于设置中。
 
-```sh
-make check
-make release-artifacts REF=main VERSION=v0.1.0
-```
-
-The artifact command defaults to `main`; `REF` can select an issue branch or
-commit. It waits for CI and downloads the packages; it can dispatch the native
-matrix when no run exists. It requires network access and GitHub CLI credentials.
-Local build/package commands never start remote builds automatically.
-
-Outputs include architecture-specific Linux tar.gz/deb, macOS app ZIP/DMG and
-Windows portable ZIP/NSIS installer, plus build manifests
-and SHA-256 checksums under `dist/<version>/`. macOS packages are ad-hoc signed,
-not notarized; Windows packages are unsigned. These are internal test artifacts.
-The workflow does not publish a GitHub Release or merge a PR.
-
-On Linux, run `bin/linux-amd64/Bible` after a build (use `linux-arm64` on ARM),
-or extract the tar.gz bundle and run its `Bible` executable. Install the deb with
-`sudo apt install ./dist/v0.1.0/bible-v0.1.0-linux-amd64.deb` for a system desktop
-entry and the `bible` command. Packages retain annotations on removal.
-
-Linux binaries link to system GTK4/WebKitGTK libraries. Runtime packages on
-Ubuntu/Debian are `libgtk-4-1` and `libwebkitgtk-6.0-4`; file dialogs use
-`xdg-desktop-portal` with a suitable desktop backend. The deb records actual
-shared-library dependencies. CI builds on Ubuntu 24.04; local builds record the
-host libc/GTK/WebKit versions in their manifest and are not promised to run on
-older distributions. RPM, AppImage and universal Linux compatibility are not
-part of this build path.
-
-Ubuntu releases that restrict unprivileged user namespaces require an AppArmor
-rule for WebKit's bubblewrap sandbox. The deb includes a profile attached only
-to `/usr/bin/bible`, loaded on installation when AppArmor supports it and
-unloaded on removal. It permits `userns` for this executable while retaining the
-system restriction and WebKit sandbox. Prefer the deb on those systems; a tar
-binary at another path needs an administrator-provided profile for that exact
-path. CI uses the same profile with its test binary path.
-
-For headless native smoke checks, additionally install `xvfb xauth dbus-x11`
-and run:
-
-```sh
-GDK_BACKEND=x11 GSK_RENDERER=cairo LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 \
-  dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' make smoke
-```
-
-This launches the real Linux WebView twice with isolated test data. Interactive
-file dialogs and real Wayland/multi-monitor behavior still need manual checks.
-
-## Browser prototype and checks
-
-The explicit browser prototype uses the same bundled text and a Mock adapter.
-Its highlights are stored in browser storage and are separate from desktop data.
-
-```sh
-cd frontend
-npm ci
-VITE_DATA_MODE=mock npm run dev
-npm run test -- --run
-npx playwright install chromium
-npm run test:e2e
-```
-
-In PowerShell, set `$env:VITE_DATA_MODE='mock'` before `npm run dev`.
-The prototype visibly identifies simulated services. Native mode never falls
-back to Mock success when the Go bridge is unavailable.
-
-## Data, fonts and user files
-
-Three complete translations (CUV, WEBP and SWORD KJV 3.1) and a CJK font are bundled. Source versions, hashes
-and conversion details are in `data/manifest.json` and `data/font.json`.
-`tools/import_data.py` rebuilds text from the pinned publisher archives and a
-CUV plain export and KJV raw per-verse OSIS export; it rejects unknown lines and duplicate references. Run
-`make verify-data` after regeneration. `tools/create_icons.py` and
-`wails3 generate icons` regenerate the owned icon assets. The font subset was
-produced with fontTools 4.60.1 using the ranges recorded in its manifest.
-
-Choose a primary translation and any of the other installed translations for
-comparison, including all three bundled editions. Corresponding passages are
-stacked vertically with compact spacing; visible verse numbers are omitted.
-Chapter buttons wrap, including all 150 Psalms. Click an edition abbreviation
-to select a passage, Shift-click for a range, or select text directly. Actions
-appear near the selection endpoint and stay within the window.
-
-Settings include reading font size (14–32), Chinese/English interface language,
-copy reference position and About. Toolbar and keyboard copying always include
-the book, chapter, verse range and edition, before or after the text as selected.
-Comparison copying and cards use only the visible selected translations.
-Legacy preferences receive defaults for the added fields without resetting
-reading positions or annotations. Interface language is independent of scripture.
-Existing CUV/WEBP text versions and highlights are retained. See
-[scripture sources and rebuilding](docs/scripture-sources.md) for exact module
-versions, permissions, transformation rules and rebuild commands. NIV remains
-pending authorized data in [Issue #6](https://github.com/xibolun/bible/issues/6),
-as confirmed by the user; no NIV text is currently included.
-
-Desktop annotations and preferences are stored in the platform user-config
-directory, under `Bible/user.db`; the installed scripture remains read-only.
-Migration failures preserve the database. Uninstallation retains user data.
-Cards are saved to a path chosen through the native PNG save dialog.
-
-Windows requires the Microsoft WebView2 Runtime. The installer detects a missing
-runtime and offers the Microsoft download page with explicit user interaction.
-Offline reading does not imply that a machine missing its system runtime can
-install fully offline.
-
-Third-party texts and dependency notices are included in
-`THIRD_PARTY_NOTICES.txt` and `licenses/`. No original-source open-source
-license has been selected. See `docs/project-decisions.md` for desktop-specific
-engineering decisions and the limits of automated native smoke checks.
+[开发与本机构建](docs/development.md) · [自动发版](docs/releases.md) · [经文来源与许可](docs/scripture-sources.md) · [第三方声明](THIRD_PARTY_NOTICES.txt)

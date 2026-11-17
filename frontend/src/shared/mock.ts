@@ -6,8 +6,11 @@ import {
   type Highlight,
   type Preferences,
   type Selection,
+  type FormatOptions,
 } from "./types";
 import { codepoints } from "./selection";
+import { formatPassage, passageText } from "./formatting";
+import { sourceRepository } from "./build";
 let loading: Promise<Dataset> | undefined;
 function data() {
   return (loading ??= fetch("/dataset.json").then((r) => {
@@ -37,6 +40,44 @@ async function text(sel: Selection) {
 function fail(kind: string) {
   if (new URLSearchParams(location.search).get("mockError") === kind)
     throw new Error(`模拟 ${kind} 操作失败，请重试。`);
+}
+async function validateIds(ids: string[]) {
+  const d = await data();
+  if (
+    !ids.length ||
+    new Set(ids).size !== ids.length ||
+    ids.some((id) => !d.translations.some((t) => t.id === id))
+  )
+    throw new Error("INVALID_TRANSLATION");
+}
+async function formatted(
+  sel: Selection,
+  id: string,
+  full: boolean,
+  options: FormatOptions,
+) {
+  const d = await data();
+  const book = d.books.find((book) => book.id === sel.bookId)!,
+    translation = d.translations.find((t) => t.id === id)!;
+  const verses = sel.spans.map((span) => {
+    const verse = d.chapters[`${id}/${sel.bookId}/${sel.chapter}`]?.find(
+      (verse) => verse.label === span.verseKey,
+    );
+    return {
+      label: span.verseKey,
+      text: verse
+        ? full
+          ? verse.text
+          : [...verse.text].slice(span.start, span.end).join("")
+        : options.uiLanguage === "en"
+          ? "Verse not present in this translation"
+          : "本译本无此节",
+    };
+  });
+  return formatPassage(
+    { book, chapter: sel.chapter, verses, translation },
+    options,
+  );
 }
 export const mock: API = {
   async ListTranslations() {
@@ -128,78 +169,44 @@ export const mock: API = {
   },
   async CopySelection(sel, mode, ids, options) {
     fail("clipboard");
-    const d = await data(),
-      b = d.books.find((b) => b.id === sel.bookId)!,
-      t = d.translations.find((t) => t.id === sel.translationId)!;
-    let content = await text(sel);
-    const ref = `${options.uiLanguage === "en" ? b.englishName : b.name} ${sel.chapter}:${sel.spans[0].verseKey}${sel.spans.length > 1 ? "–" + sel.spans.at(-1)!.verseKey : ""}`;
-    let editions = t.abbreviation;
-    if (mode === "parallelVerse") {
-      if (
-        ids.length < 2 ||
-        new Set(ids).size !== ids.length ||
-        !ids.includes(sel.translationId) ||
-        ids.some(
-          (id) => !d.translations.some((translation) => translation.id === id),
-        )
-      )
-        throw new Error("无效的对照译本或选区");
-      content = ids
-        .map((id) =>
-          d.translations.find((translation) => translation.id === id)!,
-        )
-        .map(
-          (t) =>
-            `${t.abbreviation}\n${sel.spans.map((span) => d.chapters[`${t.id}/${sel.bookId}/${sel.chapter}`].find((v) => v.label === span.verseKey)?.text ?? (options.uiLanguage === "en" ? "Verse not present in this translation" : "本译本无此节")).join("\n")}`,
-        )
-        .join("\n\n");
-      editions = ids
-        .map(
-          (id) =>
-            d.translations.find((translation) => translation.id === id)!
-              .abbreviation,
-        )
-        .join(" + ");
-    } else if (mode !== "textWithReference")
+    await text(sel);
+    if (mode === "textWithReference") ids = [sel.translationId];
+    else if (
+      mode !== "parallelVerse" ||
+      ids.length < 2 ||
+      !ids.includes(sel.translationId)
+    )
       throw new Error("INVALID_SELECTION");
-    const reference = `${ref} · ${editions}`;
-    content =
-      options.referencePosition === "before"
-        ? `${reference}\n${content}`
-        : `${content}\n— ${reference}`;
-    await navigator.clipboard.writeText(content);
+    await validateIds(ids);
+    const lines = await Promise.all(
+      ids.map((id) => formatted(sel, id, mode === "parallelVerse", options)),
+    );
+    await navigator.clipboard.writeText(lines.map(passageText).join("\n\n"));
     return true;
   },
-  async GetCard(sel, ids, full) {
+  async GetCard(sel, ids, full, options) {
     await text(sel);
-    const d = await data(),
-      b = d.books.find((b) => b.id === sel.bookId)!;
+    await validateIds(ids);
+    if (!full && (ids.length !== 1 || ids[0] !== sel.translationId))
+      throw new Error("INVALID_SELECTION");
+    const lines = await Promise.all(
+      ids.map((id) => formatted(sel, id, full, options)),
+    );
     const out: CardContent = {
-      lines: [],
+      lines,
       fileName: `bible-${sel.bookId}-${sel.chapter}-${sel.spans[0].verseKey}`,
-      codepoints: 0,
+      codepoints: lines.reduce(
+        (sum, line) => sum + codepoints(line.text) + codepoints(line.reference),
+        0,
+      ),
     };
-    for (const p of sel.spans) {
-      for (const id of ids) {
-        const v = d.chapters[`${id}/${sel.bookId}/${sel.chapter}`]?.find(
-          (v) => v.label === p.verseKey,
-        );
-        if (!v) continue;
-        const value = full
-          ? v.text
-          : [...v.text].slice(p.start, p.end).join("");
-        out.lines.push({
-          text: value,
-          reference: `${b.name} ${sel.chapter}:${p.verseKey}`,
-          translationId: id,
-          version: d.translations.find((t) => t.id === id)!.abbreviation,
-        });
-        out.codepoints += codepoints(value);
-      }
-    }
     if (sel.spans.length > 20 || out.codepoints > 4000)
       throw new Error("卡片最多20节、4000个字符");
     return out;
+  },
+  async OpenSource() {
+    window.open(sourceRepository, "_blank", "noopener,noreferrer");
+    return true;
   },
   async SaveCard(encoded, _w, _h, name) {
     fail("export");

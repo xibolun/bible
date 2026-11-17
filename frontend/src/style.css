@@ -495,6 +495,65 @@ mark {
 .settings-fields .muted {
   margin: 0;
 }
+.format-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 12px;
+  background: #f5f8fa;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font: inherit;
+  line-height: 1.65;
+}
+.reading-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.reading-content .verse-scroll {
+  height: 100%;
+  padding-left: 42px;
+  padding-right: 42px;
+}
+.is-focused .reading-content .verse-scroll {
+  padding-left: 6vw;
+  padding-right: 6vw;
+}
+.chapter-edge {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 120px;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--blue);
+  opacity: 0;
+  z-index: 2;
+  transition: opacity 0.2s ease;
+}
+.chapter-edge-previous {
+  left: 0;
+  background: linear-gradient(to right, #dce8f0dd, transparent);
+  border-radius: 0 5px 5px 0;
+}
+.chapter-edge-next {
+  right: 0;
+  background: linear-gradient(to left, #dce8f0dd, transparent);
+  border-radius: 5px 0 0 5px;
+}
+.chapter-edge:enabled:hover,
+.chapter-edge:focus-visible {
+  opacity: 1;
+}
+.chapter-edge:disabled {
+  pointer-events: none;
+}
 .settings-about {
   font-size: 13px;
   line-height: 1.6;

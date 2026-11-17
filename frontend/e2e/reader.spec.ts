@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
+import formatExamples from "../../testdata/passage-formats.json" with { type: "json" };
+import { referenceStyles } from "../src/shared/formatting";
 
 async function selectVersion(page: Page, name: string, option: string) {
   const input = page.getByRole("combobox", { name, exact: true });
@@ -47,7 +49,7 @@ test("offline reader, persistence, bilingual copy and exact-size PNG", async ({
   await page.getByRole("button", { name: "复制", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toContain("创世记 1:1");
+    .toContain("创世记1:1");
   await page.getByRole("button", { name: "制作卡片", exact: true }).click();
   await expect(page.getByRole("button", { name: "导出 PNG" })).toBeEnabled();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -152,9 +154,9 @@ test("SWORD KJV stacked versions, selected-version copy, highlights and cards", 
   expect(layout[0].lineRatio).toBeLessThanOrEqual(1.6);
   await expect(page.locator(".reference, .verse-number")).toHaveCount(0);
   expect(await firstRow.locator(".verse-select").allTextContents()).toEqual([
-    "KJV",
-    "WEBP",
-    "CUV",
+    "1",
+    "1",
+    "1",
   ]);
   const cells = await firstRow.locator(".verse-cell").evaluateAll((elements) =>
     elements.map((element) => {
@@ -204,11 +206,12 @@ test("SWORD KJV stacked versions, selected-version copy, highlights and cards", 
   await page.getByText("复制当前对照", { exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toContain("KJV\nIn the beginning");
+    .toContain("In the beginning");
   const copied = await page.evaluate(() => navigator.clipboard.readText());
-  expect(copied).toContain("CUV\n起初");
-  expect(copied).toContain("WEBP\nIn the beginning");
-  expect(copied).toContain("创世记 1:1 · KJV + WEBP + CUV");
+  expect(copied).toContain("起初");
+  expect(copied).toContain("创世记1:1·WEBP");
+  expect(copied).toContain("the heavens and the earth");
+  expect(copied).toContain("创世记1:1·KJV");
 
   await page.getByRole("button", { name: "制作卡片", exact: true }).click();
   await selectVersion(page, "卡片语言", "当前对照 · KJV + WEBP + CUV");
@@ -298,7 +301,11 @@ test("legacy settings, bilingual interface and reference placement in keyboard c
     .press("Tab");
   await selectVersion(page, "界面语言", "English");
   await panel.getByRole("tab", { name: "About", exact: true }).click();
-  await expect(panel.getByText("Application version 0.1.0")).toBeVisible();
+  await expect(
+    panel.getByText(
+      `Application version ${process.env.BIBLE_APP_VERSION || "0.1.0"}`,
+    ),
+  ).toBeVisible();
   await expect(
     panel.getByText("KJV · King James Version (1769)", { exact: true }),
   ).toBeVisible();
@@ -317,7 +324,7 @@ test("legacy settings, bilingual interface and reference placement in keyboard c
   await page.getByRole("button", { name: "Copy", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toMatch(/^Genesis 1:1 · CUV\n起初/);
+    .toMatch(/^Genesis 1:1·CUV\n起初/);
   await expect
     .poll(() =>
       page.evaluate(
@@ -345,7 +352,7 @@ test("legacy settings, bilingual interface and reference placement in keyboard c
   await page.keyboard.press("ControlOrMeta+C");
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toMatch(/起初[\s\S]*\n— Genesis 1:1 · CUV$/);
+    .toMatch(/起初[\s\S]*\n— Genesis 1:1·CUV$/);
   await page.getByRole("button", { name: "Create card", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Export PNG", exact: true }),
@@ -406,7 +413,7 @@ test("selection actions follow the endpoint, fit edges and close when scrolled a
   await page.keyboard.press("ControlOrMeta+C");
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toContain("创世记 1:1 · CUV");
+    .toContain("创世记1:1·CUV");
   await page
     .getByRole("button", { name: "选择中文第1节", exact: true })
     .click();
@@ -454,4 +461,118 @@ test("selection actions follow the endpoint, fit edges and close when scrolled a
     element.scrollTop = element.scrollHeight;
   });
   await expect(toolbar).toHaveCount(0);
+});
+
+test("seven copy presets, per-verse cards and external GitHub source", async ({
+  page,
+  context,
+}) => {
+  await context.route("https://github.com/xibolun/bible", (route) =>
+    route.fulfill({ body: "Source repository" }),
+  );
+  await page.goto("/");
+  await page.locator('[data-book="ECC"]').click();
+  await expect(
+    page.locator(".verse-row").first().locator(".verse-select"),
+  ).toHaveText("1");
+  await expect(page.locator(".verse-row").first()).not.toContainText("CUV");
+  for (const sample of formatExamples.cases) {
+    await page.getByRole("button", { name: "设置", exact: true }).click();
+    await selectVersion(
+      page,
+      "复制样式",
+      referenceStyles.find((style) => style.value === sample.style)!.zh,
+    );
+    await expect(page.locator(".format-preview")).toBeVisible();
+    await page.getByRole("button", { name: "完成", exact: true }).click();
+    await page
+      .getByRole("button", { name: "选择中文第6节", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "选择中文第7节", exact: true })
+      .click({ modifiers: ["Shift"] });
+    await expect(page.getByRole("toolbar")).toContainText("已选 2 段");
+    await page.keyboard.press("ControlOrMeta+C");
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe(sample.expected);
+  }
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem("bible:mock:preferences")!)
+            .referenceStyle,
+      ),
+    )
+    .toBe("verses-full");
+  await page.reload();
+  await page
+    .getByRole("button", { name: "选择中文第6节", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "选择中文第7节", exact: true })
+    .click({ modifiers: ["Shift"] });
+  await page.getByRole("button", { name: "制作卡片", exact: true }).click();
+  for (const [style, name] of [
+    ["逐节简称引用", "card-per-verse.png"],
+    ["全书名", "card-full-without-edition.png"],
+  ]) {
+    await selectVersion(page, "卡片引用样式", style);
+    await expect(
+      page.getByRole("button", { name: "导出 PNG", exact: true }),
+    ).toBeEnabled();
+    const pending = page.waitForEvent("download");
+    await page.getByRole("button", { name: "导出 PNG", exact: true }).click();
+    await (await pending).saveAs(test.info().outputPath(name));
+  }
+  await page
+    .getByRole("button", { name: "关闭卡片编辑器", exact: true })
+    .click();
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "复制样式", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: test.info().outputPath("copy-format-settings.png"),
+    animations: "disabled",
+  });
+  const opened = context.waitForEvent("page");
+  await page.getByRole("button", { name: "访问源码", exact: true }).click();
+  const source = await opened;
+  await expect(source).toHaveURL("https://github.com/xibolun/bible");
+  await source.close();
+});
+
+test("chapter edge arrows fade in, support keyboard and respect boundaries", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const previous = page.getByRole("button", { name: "上一章", exact: true });
+  const next = page.getByRole("button", { name: "下一章", exact: true });
+  await expect(previous).toBeDisabled();
+  await expect(next).toBeEnabled();
+  await page.mouse.move(100, 50);
+  await expect(next).toHaveCSS("opacity", "0");
+  await next.hover();
+  await expect(next).toHaveCSS("opacity", "1");
+  await page.screenshot({
+    path: test.info().outputPath("chapter-edge-hover.png"),
+    animations: "disabled",
+  });
+  await next.click();
+  await expect(
+    page.getByRole("heading", { name: "创世记第 2 章", exact: true }),
+  ).toBeVisible();
+  await expect(previous).toBeEnabled();
+  await page.keyboard.press("Tab");
+  await previous.focus();
+  await expect(previous).toHaveCSS("opacity", "1");
+  await previous.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "创世记第 1 章", exact: true }),
+  ).toBeVisible();
+  await page.locator('[data-book="PSA"]').click();
+  await page.getByRole("button", { name: "第150章", exact: true }).click();
+  await expect(next).toBeDisabled();
 });

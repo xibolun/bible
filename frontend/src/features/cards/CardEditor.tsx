@@ -16,9 +16,11 @@ import type {
   CardContent,
   Selection,
   Translation,
+  FormatOptions,
 } from "../../shared/types";
 import { drawCard, type CardStyle } from "./layout";
 import { translator, errorText, type Language } from "../../shared/locale";
+import { referenceStyles, inlineReferences } from "../../shared/formatting";
 
 const templates = [
   { name: "素白", background: "#f7f5ef", color: "#263747" },
@@ -31,6 +33,7 @@ export function CardEditor({
   translations,
   comparison,
   language,
+  formatOptions,
   onClose,
 }: {
   api: API;
@@ -38,10 +41,12 @@ export function CardEditor({
   translations: Translation[];
   comparison: string[];
   language: Language;
+  formatOptions: FormatOptions;
   onClose: () => void;
 }) {
   const { message } = App.useApp();
   const t = translator(language);
+  const [format, setFormat] = useState(formatOptions);
   const [mode, setMode] = useState(selection.translationId),
     [full, setFull] = useState(false),
     [content, setContent] = useState<CardContent>(),
@@ -65,7 +70,7 @@ export function CardEditor({
     setError("");
     const ids = idsKey.split(",");
     api
-      .GetCard(selection, ids, full || mode !== selection.translationId)
+      .GetCard(selection, ids, full || mode !== selection.translationId, format)
       .then((v) => {
         if (!cancel) setContent(v);
       })
@@ -81,7 +86,7 @@ export function CardEditor({
     return () => {
       cancel = true;
     };
-  }, [api, selection, mode, full, idsKey]);
+  }, [api, selection, mode, full, idsKey, format]);
   useEffect(() => {
     if (!content) return;
     let cancel = false;
@@ -130,6 +135,8 @@ export function CardEditor({
       open
       title={t("制作经文卡片", "Create scripture card")}
       width={920}
+      style={{ top: 24 }}
+      styles={{ body: { maxHeight: "calc(100vh - 200px)", overflowY: "auto" } }}
       onCancel={() => {
         if (!saving) onClose();
       }}
@@ -144,9 +151,10 @@ export function CardEditor({
           </Button>
           <Button
             type="primary"
+            aria-label={t("导出 PNG", "Export PNG")}
             onClick={save}
             loading={saving}
-            disabled={!ready}
+            disabled={!ready || saving}
           >
             {t("导出 PNG", "Export PNG")}
           </Button>
@@ -156,6 +164,42 @@ export function CardEditor({
     >
       <div className="card-editor">
         <div className="card-controls">
+          <label>
+            {t("引用样式", "Reference style")}
+            <Select
+              aria-label={t("卡片引用样式", "Card reference style")}
+              value={format.referenceStyle}
+              onChange={(value) => {
+                setReady(false);
+                setFormat({ ...format, referenceStyle: value });
+              }}
+              options={referenceStyles.map((style) => ({
+                value: style.value,
+                label: t(style.zh, style.en),
+              }))}
+            />
+          </label>
+          {!inlineReferences(format.referenceStyle) && (
+            <label>
+              {t("引用位置", "Reference position")}
+              <Segmented
+                block
+                value={format.referencePosition}
+                options={[
+                  { value: "before", label: t("经文之前", "Before text") },
+                  { value: "after", label: t("经文之后", "After text") },
+                ]}
+                onChange={(value) => {
+                  setReady(false);
+                  setFormat({
+                    ...format,
+                    referencePosition:
+                      value as FormatOptions["referencePosition"],
+                  });
+                }}
+              />
+            </label>
+          )}
           <label>
             {t("经文译本", "Scripture translation")}
             <Select
