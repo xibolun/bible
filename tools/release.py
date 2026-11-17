@@ -23,12 +23,18 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def source(tag, root=ROOT, expected=None):
+def source(tag, root=ROOT, expected=None, refresh=False):
     require(VERSION.fullmatch(tag), 'Release tags must use vX.Y.Z without leading zeroes')
     commit = subprocess.check_output(['git', 'rev-parse', f'refs/tags/{tag}^{{commit}}'], cwd=root, text=True).strip()
     require(subprocess.run(['git', 'merge-base', '--is-ancestor', commit, 'origin/main'], cwd=root).returncode == 0,
             'Release tag must identify a commit merged into main')
     require(expected is None or expected == commit, 'Release tag moved after the build started')
+    if refresh:
+        # Fetch only FETCH_HEAD so the final publication gate observes the
+        # current remote tag without overwriting any local tag or branch.
+        subprocess.run(['git', 'fetch', '--no-tags', 'origin', f'refs/tags/{tag}'], cwd=root, check=True)
+        remote = subprocess.check_output(['git', 'rev-parse', 'FETCH_HEAD^{commit}'], cwd=root, text=True).strip()
+        require(remote == commit, 'Release tag moved after the build started')
     return commit
 
 
@@ -124,7 +130,7 @@ class GitHub:
                         '--pattern', 'release-manifest.json', '--pattern', 'SHA256SUMS'], check=True)
 
     def publish(self, tag, commit):
-        source(tag, expected=commit)
+        source(tag, expected=commit, refresh=True)
         subprocess.run(['gh', 'release', 'edit', tag, '--repo', REPOSITORY, '--draft=false', '--verify-tag'], check=True)
 
 
