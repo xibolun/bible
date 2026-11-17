@@ -20,8 +20,8 @@ export function ApplyHighlight(request: string, sel: $models.Selection, color: s
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ApplyHighlight", request, sel, color);
 }
 
-export function CopySelection(sel: $models.Selection, mode: string, ids: string[] | null): $CancellablePromise<$models.Result<boolean>> {
-    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.CopySelection", sel, mode, ids);
+export function CopySelection(sel: $models.Selection, mode: string, ids: string[] | null, options: $models.CopyOptions): $CancellablePromise<$models.Result<boolean>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.CopySelection", sel, mode, ids, options);
 }
 
 export function GetCard(sel: $models.Selection, ids: string[] | null, full: boolean): $CancellablePromise<$models.Result<$models.CardContent>> {

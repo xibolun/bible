@@ -14,6 +14,11 @@ export interface CardLine {
     "version": string;
 }
 
+export interface CopyOptions {
+    "referencePosition": string;
+    "uiLanguage": string;
+}
+
 export interface Preferences {
     "bookId": string;
     "chapter": number;
@@ -22,6 +27,8 @@ export interface Preferences {
     "translations": string[] | null;
     "parallel": boolean;
     "fontSize": number;
+    "referencePosition": string;
+    "uiLanguage": string;
     "windowX": number;
     "windowY": number;
     "windowWidth": number;

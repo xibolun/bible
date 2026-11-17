@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   App as AntApp,
@@ -13,6 +13,7 @@ import {
   Tooltip,
 } from "antd";
 import zhCN from "antd/locale/zh_CN";
+import enUS from "antd/locale/en_US";
 import { getAPI } from "./shared/api";
 import {
   colors,
@@ -29,6 +30,12 @@ import {
 import { captureSelection, wholeVerses } from "./shared/selection";
 import { CardEditor } from "./features/cards/CardEditor";
 import { drawCard } from "./features/cards/layout";
+import { Settings } from "./features/settings/Settings";
+import {
+  SelectionToolbar,
+  type SelectionAnchor,
+} from "./features/selection/SelectionToolbar";
+import { translator, errorText, type Language } from "./shared/locale";
 
 function MarkedText({ text, marks }: { text: string; marks: Highlight[] }) {
   const points = [...text];
@@ -50,7 +57,7 @@ function MarkedText({ text, marks }: { text: string; marks: Highlight[] }) {
   return <>{pieces}</>;
 }
 
-function Reader() {
+function Reader({ onLanguage }: { onLanguage: (language: Language) => void }) {
   const { message } = AntApp.useApp();
   const [api, setAPI] = useState<API>(),
     [books, setBooks] = useState<Book[]>([]),
@@ -66,17 +73,26 @@ function Reader() {
     [painting, setPainting] = useState(false),
     [focus, setFocus] = useState(false),
     [card, setCard] = useState<Selection | null>(null),
-    [about, setAbout] = useState(false),
+    [settings, setSettings] = useState(false),
+    [selectionAnchor, setSelectionAnchor] = useState<SelectionAnchor>(),
     [retry, setRetry] = useState(0);
   const scroll = useRef<HTMLDivElement>(null),
     request = useRef(0),
     scrollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     persistRequest = useRef(0),
-    restoring = useRef(false);
+    restoring = useRef(false),
+    smokeActive = useRef(false);
+  const dismissSelection = useCallback(() => setSelection(null), []);
   const currentPrefs = useRef(prefs);
   currentPrefs.current = prefs;
-  const versions = Object.fromEntries(
-    translations.map((t) => [t.id, t.dataVersion]),
+  const t = translator(prefs.uiLanguage);
+  useEffect(() => {
+    onLanguage(prefs.uiLanguage);
+    document.documentElement.lang = prefs.uiLanguage;
+  }, [onLanguage, prefs.uiLanguage]);
+  const versions = useMemo(
+    () => Object.fromEntries(translations.map((t) => [t.id, t.dataVersion])),
+    [translations],
   );
   const ids = prefs.parallel ? prefs.translations : [prefs.translations[0]];
   const idsKey = ids.join(",");
@@ -95,7 +111,7 @@ function Reader() {
       setBooks(bs);
       setPrefs(p);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "启动失败，请重试");
+      setError(errorText(e, currentPrefs.current.uiLanguage));
     } finally {
       setStarting(false);
     }
@@ -127,7 +143,7 @@ function Reader() {
           if (n === request.current) setHighlights(h);
         } catch (e) {
           if (n === request.current)
-            setAnnotationError(e instanceof Error ? e.message : "标记读取失败");
+            setAnnotationError(errorText(e, currentPrefs.current.uiLanguage));
         }
         if (n !== request.current) return;
         restoring.current = true;
@@ -145,7 +161,7 @@ function Reader() {
       .catch((e) => {
         if (n === request.current) {
           setChapter(undefined);
-          setError(e instanceof Error ? e.message : "加载失败");
+          setError(errorText(e, currentPrefs.current.uiLanguage));
         }
       })
       .finally(() => {
@@ -156,9 +172,10 @@ function Reader() {
     if (!api || starting) return;
     const n = ++persistRequest.current;
     const timer = setTimeout(() => {
+      if (smokeActive.current) return;
       api.SavePreferences(prefs).catch((e) => {
         if (n === persistRequest.current)
-          setAnnotationError(e instanceof Error ? e.message : "偏好保存失败");
+          setAnnotationError(errorText(e, currentPrefs.current.uiLanguage));
       });
     }, 350);
     return () => clearTimeout(timer);
@@ -190,33 +207,126 @@ function Reader() {
       scrollOffset: 0,
     }));
   };
-  function selectText() {
+  function placeToolbar(
+    value: Selection,
+    point?: { clientX: number; clientY: number },
+  ) {
+    const element = Array.from(
+      scroll.current?.querySelectorAll<HTMLElement>("[data-verse-text]") ?? [],
+    ).find(
+      (element) =>
+        element.dataset.translation === value.translationId &&
+        element.dataset.verse === value.spans.at(-1)?.verseKey,
+    );
+    if (!element) return;
+    const rect = element.getBoundingClientRect();
+    const browserSelection = window.getSelection();
+    let endRect = rect;
+    if (
+      !point &&
+      browserSelection?.focusNode &&
+      !browserSelection.isCollapsed
+    ) {
+      const range = document.createRange();
+      range.setStart(browserSelection.focusNode, browserSelection.focusOffset);
+      range.collapse(true);
+      endRect = range.getClientRects()[0] ?? rect;
+    }
+    setSelectionAnchor({
+      element,
+      top: rect.top,
+      x: point?.clientX ?? Math.min(endRect.left + 100, endRect.right),
+      y: point?.clientY ?? endRect.bottom,
+    });
+  }
+  function selectText(point?: {
+    clientX: number;
+    clientY: number;
+    target?: EventTarget | null;
+  }) {
     if (!chapter || busy) return;
+    if (
+      point?.target instanceof Element &&
+      point.target.closest(".verse-select")
+    )
+      return;
     try {
       const value = captureSelection(chapter, versions);
-      if (value) setSelection(value);
+      if (value) {
+        setSelection(value);
+        placeToolbar(value, point);
+      } else if (point) setSelection(null);
     } catch (e) {
-      message.warning(e instanceof Error ? e.message : "无效选区");
+      setSelection(null);
+      message.warning(errorText(e, prefs.uiLanguage));
     }
   }
-  function selectVerse(id: string, label: string, shift: boolean) {
+  function selectVerse(
+    id: string,
+    label: string,
+    shift: boolean,
+    point?: { clientX: number; clientY: number },
+  ) {
     if (!chapter) return;
     const from =
       shift && selection?.translationId === id
         ? selection.spans[0].verseKey
         : label;
-    setSelection(wholeVerses(chapter, id, versions[id], from, label));
+    const value = wholeVerses(chapter, id, versions[id], from, label);
+    setSelection(value);
     window.getSelection()?.removeAllRanges();
+    placeToolbar(value, point);
   }
-  async function copy(mode: string) {
-    if (!api || !selection) return;
-    try {
-      await api.CopySelection(selection, mode, prefs.translations);
-      message.success("已复制经文");
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "复制失败，请重试");
-    }
-  }
+  const copy = useCallback(
+    async (mode: string, value = selection) => {
+      if (!api || !value) return;
+      try {
+        await api.CopySelection(value, mode, idsKey.split(","), {
+          referencePosition: prefs.referencePosition,
+          uiLanguage: prefs.uiLanguage,
+        });
+        message.success(
+          translator(prefs.uiLanguage)("已复制经文", "Scripture copied"),
+        );
+      } catch (e) {
+        message.error(errorText(e, prefs.uiLanguage));
+      }
+    },
+    [
+      api,
+      selection,
+      idsKey,
+      prefs.referencePosition,
+      prefs.uiLanguage,
+      message,
+    ],
+  );
+  useEffect(() => {
+    const interceptCopy = (event: ClipboardEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("input, textarea, [contenteditable='true']")) return;
+      const browserSelection = window.getSelection();
+      const start = browserSelection?.anchorNode;
+      const element = start instanceof Element ? start : start?.parentElement;
+      if (
+        !element?.closest(".verses") &&
+        !target?.closest(".verses, .selection-toolbar")
+      )
+        return;
+      event.preventDefault();
+      try {
+        const value = chapter && captureSelection(chapter, versions);
+        if (!value && browserSelection && !browserSelection.isCollapsed)
+          throw new Error("INVALID_SELECTION");
+        if (value || selection)
+          void copy("textWithReference", value || selection);
+      } catch (error) {
+        message.warning(errorText(error, prefs.uiLanguage));
+      }
+    };
+    document.addEventListener("copy", interceptCopy);
+    return () => document.removeEventListener("copy", interceptCopy);
+  }, [chapter, versions, selection, copy, message, prefs.uiLanguage]);
   async function paint(color: string) {
     if (!api || !selection) return;
     setPainting(true);
@@ -227,9 +337,13 @@ function Reader() {
         ...h,
       ]);
       setAnnotationError("");
-      message.success(color ? "高亮已保存" : "高亮已清除");
+      message.success(
+        color
+          ? t("高亮已保存", "Highlight saved")
+          : t("高亮已清除", "Highlight cleared"),
+      );
     } catch (e) {
-      setAnnotationError(e instanceof Error ? e.message : "保存失败，请重试");
+      setAnnotationError(errorText(e, prefs.uiLanguage));
     } finally {
       setPainting(false);
     }
@@ -261,6 +375,8 @@ function Reader() {
   useEffect(() => {
     if (!api || starting || !translations.length) return;
     async function smoke() {
+      if (smokeActive.current) return;
+      smokeActive.current = true;
       let passed = false;
       try {
         const c = await api!.GetChapter(
@@ -276,7 +392,7 @@ function Reader() {
         if (!hs.some((h) => h.verseKey === "1" && h.color === "green"))
           throw new Error("highlight");
         const kjvChapter = await api!.GetChapter(
-          ["cuv", "kjv"],
+          ["cuv", "kjv", "webp"],
           "GEN",
           1,
           "native-kjv-smoke",
@@ -291,9 +407,30 @@ function Reader() {
             )
         )
           throw new Error("KJV chapter");
-        await api!.CopySelection(s, "parallelVerse", ["cuv", "kjv"]);
-        const content = await api!.GetCard(s, ["cuv", "kjv"], true);
-        if (!content.lines.some((line) => line.version === "KJV"))
+        const previous = await api!.GetPreferences();
+        await api!.SavePreferences({
+          ...previous,
+          referencePosition: "before",
+          uiLanguage: "en",
+          fontSize: 20,
+        });
+        const restored = await api!.GetPreferences();
+        if (
+          restored.uiLanguage !== "en" ||
+          restored.referencePosition !== "before" ||
+          restored.fontSize !== 20
+        )
+          throw new Error("settings persistence");
+        await api!.SavePreferences(previous);
+        await api!.CopySelection(s, "parallelVerse", ["cuv", "kjv", "webp"], {
+          referencePosition: "before",
+          uiLanguage: "en",
+        });
+        const content = await api!.GetCard(s, ["cuv", "kjv", "webp"], true);
+        if (
+          content.lines.length !== 3 ||
+          !content.lines.some((line) => line.version === "KJV")
+        )
           throw new Error("KJV card");
         const image = document.createElement("canvas");
         await drawCard(image, content, {
@@ -316,7 +453,11 @@ function Reader() {
         console.error("native smoke failed", e);
       } finally {
         const native = await import("./shared/native");
-        await native.reportSmoke(passed);
+        try {
+          await native.reportSmoke(passed);
+        } finally {
+          smokeActive.current = false;
+        }
       }
     }
     window.addEventListener("bible:native-smoke", smoke);
@@ -331,7 +472,7 @@ function Reader() {
     return (
       <div className="startup">
         <Spin size="large" />
-        <p>正在打开圣经…</p>
+        <p>{t("正在打开圣经…", "Opening Bible…")}</p>
       </div>
     );
   if (!api)
@@ -339,31 +480,39 @@ function Reader() {
       <div className="startup">
         <Alert
           type="error"
-          title={error || "桌面服务未连接"}
+          title={
+            error || t("桌面服务未连接", "The desktop service is unavailable")
+          }
           showIcon
-          action={<Button onClick={load}>重试</Button>}
+          action={<Button onClick={load}>{t("重试", "Retry")}</Button>}
         />
       </div>
     );
   return (
     <div className={`reader-shell ${focus ? "is-focused" : ""}`}>
       {!focus && (
-        <aside className="sidebar" aria-label="书卷目录">
+        <aside className="sidebar" aria-label={t("书卷目录", "Books")}>
           <header className="brand">
             <img src="/bible.svg" alt="" />
             <div>
-              <strong>圣经</strong>
+              <strong>{t("圣经", "Bible")}</strong>
               <span>BIBLE</span>
             </div>
-            <span className="offline-dot" title="离线阅读" />
+            <span
+              className="offline-dot"
+              title={t("离线阅读", "Offline reading")}
+            />
           </header>
           <div className="book-list">
             {(["OT", "NT"] as const).map((group) => (
               <section key={group}>
                 <h2>
-                  {group === "OT" ? "旧约" : "新约"}
+                  {group === "OT"
+                    ? t("旧约", "Old Testament")
+                    : t("新约", "New Testament")}
                   <span>
-                    {group === "OT" ? "OLD TESTAMENT" : "NEW TESTAMENT"}
+                    {prefs.uiLanguage !== "en" &&
+                      (group === "OT" ? "OLD TESTAMENT" : "NEW TESTAMENT")}
                   </span>
                 </h2>
                 {books
@@ -396,9 +545,11 @@ function Reader() {
                       }}
                       data-book={b.id}
                     >
-                      <span>{b.name}</span>
+                      <span>
+                        {prefs.uiLanguage === "en" ? b.englishName : b.name}
+                      </span>
                       <span className="book-abbreviation">
-                        {b.abbreviation}
+                        {prefs.uiLanguage === "en" ? b.id : b.abbreviation}
                       </span>
                     </button>
                   ))}
@@ -406,26 +557,12 @@ function Reader() {
             ))}
           </div>
           <footer className="sidebar-footer">
-            <span>本地离线阅读</span>
-            <Button type="text" size="small" onClick={() => setAbout(!about)}>
-              关于
-            </Button>
+            <span>{t("本地离线阅读", "Offline reading")}</span>
           </footer>
         </aside>
       )}
       <main className="reading-main">
-        <nav className="chapter-nav" aria-label="章节导航">
-          <Button
-            type="text"
-            aria-label="向前滚动章号"
-            onClick={() =>
-              document
-                .querySelector(".chapter-strip")
-                ?.scrollBy({ left: -300, behavior: "smooth" })
-            }
-          >
-            ‹
-          </Button>
+        <nav className="chapter-nav" aria-label={t("章节导航", "Chapters")}>
           <div className="chapter-strip">
             {Array.from(
               {
@@ -435,7 +572,8 @@ function Reader() {
             ).map((n) => (
               <button
                 className="chapter-button"
-                aria-label={`第${n}章`}
+                aria-label={t(`第${n}章`, `Chapter ${n}`)}
+                data-chapter={n}
                 aria-current={n === prefs.chapter ? "page" : undefined}
                 key={n}
                 onClick={() => navigate(prefs.bookId, n)}
@@ -453,7 +591,7 @@ function Reader() {
                       requestAnimationFrame(() =>
                         document
                           .querySelector<HTMLButtonElement>(
-                            `.chapter-button[aria-label="第${next}章"]`,
+                            `.chapter-button[data-chapter="${next}"]`,
                           )
                           ?.focus(),
                       );
@@ -465,43 +603,42 @@ function Reader() {
               </button>
             ))}
           </div>
-          <Button
-            type="text"
-            aria-label="向后滚动章号"
-            onClick={() =>
-              document
-                .querySelector(".chapter-strip")
-                ?.scrollBy({ left: 300, behavior: "smooth" })
-            }
-          >
-            ›
-          </Button>
         </nav>
         <header className="reader-toolbar">
           <div className="chapter-title">
             <h1>
-              {books.find((b) => b.id === prefs.bookId)?.name}
-              <span>第 {prefs.chapter} 章</span>
+              {prefs.uiLanguage === "en"
+                ? books.find((b) => b.id === prefs.bookId)?.englishName
+                : books.find((b) => b.id === prefs.bookId)?.name}
+              {prefs.uiLanguage === "en" ? " " : ""}
+              <span>
+                {t(`第 ${prefs.chapter} 章`, `Chapter ${prefs.chapter}`)}
+              </span>
             </h1>
             <p>
               {books.find((b) => b.id === prefs.bookId)?.englishName}{" "}
-              <span>·</span> {prefs.parallel ? "双译本对照" : "经文阅读"}
+              <span>·</span>{" "}
+              {prefs.parallel
+                ? t("多译本对照", "Compare translations")
+                : t("经文阅读", "Scripture reading")}
             </p>
           </div>
           <div className="reader-actions">
             {!focus && (
               <>
                 <Select
-                  aria-label="主译本"
+                  aria-label={t("主译本", "Primary translation")}
                   value={prefs.translations[0]}
                   onChange={(id) =>
                     setPrefs((p) => ({
                       ...p,
                       translations: [
                         id,
-                        p.translations[1] === id
-                          ? p.translations[0]
-                          : p.translations[1],
+                        ...p.translations
+                          .slice(1)
+                          .map((other) =>
+                            other === id ? p.translations[0] : other,
+                          ),
                       ],
                     }))
                   }
@@ -513,65 +650,73 @@ function Reader() {
                 />
                 {prefs.parallel && (
                   <Select
-                    aria-label="对照译本"
-                    value={prefs.translations[1]}
-                    onChange={(id) =>
+                    aria-label={t("对照译本", "Comparison translations")}
+                    mode="multiple"
+                    optionLabelProp="abbreviation"
+                    value={prefs.translations.slice(1)}
+                    onChange={(selected: string[]) =>
                       setPrefs((p) => ({
                         ...p,
-                        translations: [p.translations[0], id],
+                        translations: [p.translations[0], ...selected],
+                        parallel: selected.length > 0,
                       }))
                     }
                     options={translations
                       .filter((t) => t.id !== prefs.translations[0])
                       .map((t) => ({
                         value: t.id,
+                        abbreviation: t.abbreviation,
                         label: `${t.abbreviation} · ${t.language.startsWith("zh") ? "简体中文" : "English"}`,
                       }))}
-                    style={{ width: 160 }}
+                    style={{ minWidth: 180, maxWidth: 260 }}
                   />
                 )}
                 <label className="parallel-toggle">
-                  双译本对照
+                  {t("多译本对照", "Compare")}
                   <Switch
                     checked={prefs.parallel}
-                    onChange={(v) => setPrefs((p) => ({ ...p, parallel: v }))}
+                    onChange={(v) =>
+                      setPrefs((p) => ({
+                        ...p,
+                        parallel: v,
+                        translations:
+                          v && p.translations.length === 1
+                            ? [
+                                ...p.translations,
+                                translations.find(
+                                  (translation) =>
+                                    translation.id !== p.translations[0],
+                                )!.id,
+                              ]
+                            : p.translations,
+                      }))
+                    }
                   />
                 </label>
-                <div className="font-controls">
-                  <Tooltip title="缩小字体">
-                    <Button
-                      aria-label="缩小字体"
-                      disabled={prefs.fontSize <= 14}
-                      onClick={() =>
-                        setPrefs((p) => ({ ...p, fontSize: p.fontSize - 1 }))
-                      }
-                    >
-                      A−
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title="放大字体">
-                    <Button
-                      aria-label="放大字体"
-                      disabled={prefs.fontSize >= 32}
-                      onClick={() =>
-                        setPrefs((p) => ({ ...p, fontSize: p.fontSize + 1 }))
-                      }
-                    >
-                      A＋
-                    </Button>
-                  </Tooltip>
-                </div>
               </>
             )}
             <Button onClick={() => setFocus((v) => !v)}>
-              {focus ? "退出专注 · Esc" : "专注阅读"}
+              {focus
+                ? t("退出专注 · Esc", "Exit focus · Esc")
+                : t("专注阅读", "Focus")}
+            </Button>
+            <Button
+              onClick={() => {
+                setSelection(null);
+                setSettings(true);
+              }}
+            >
+              {t("设置", "Settings")}
             </Button>
           </div>
         </header>
         {prototype && (
           <Alert
             className="prototype-banner"
-            title="产品原型 / 模拟数据 · 标记仅保存在浏览器中；尚未具备权限保护"
+            title={t(
+              "产品原型 / 模拟数据 · 标记仅保存在浏览器中；尚未具备权限保护",
+              "Prototype / Mock data · Annotations are stored in this browser; access controls are not implemented",
+            )}
             type="warning"
           />
         )}
@@ -581,7 +726,9 @@ function Reader() {
             type="error"
             showIcon
             action={
-              <Button onClick={() => setRetry((n) => n + 1)}>重试</Button>
+              <Button onClick={() => setRetry((n) => n + 1)}>
+                {t("重试", "Retry")}
+              </Button>
             }
           />
         )}
@@ -591,7 +738,9 @@ function Reader() {
             type="error"
             showIcon
             action={
-              <Button onClick={() => setRetry((n) => n + 1)}>重试读取</Button>
+              <Button onClick={() => setRetry((n) => n + 1)}>
+                {t("重试读取", "Retry loading")}
+              </Button>
             }
             closable
             onClose={() => setAnnotationError("")}
@@ -600,11 +749,13 @@ function Reader() {
         {stale > 0 && (
           <Alert
             type="warning"
-            title={`有 ${stale} 条标记属于其他经文版本，已保留原记录，请核对后重新标记。`}
+            title={t(
+              `有 ${stale} 条标记属于其他经文版本，已保留原记录，请核对后重新标记。`,
+              `${stale} annotations belong to another scripture version. Original records have been retained; review before highlighting again.`,
+            )}
           />
         )}
-        <div className={`version-headings columns-${ids.length}`}>
-          <div className="reference-heading">章:节</div>
+        <div className="version-headings">
           {ids.map((id) => (
             <div key={id}>
               <strong>{translations.find((t) => t.id === id)?.name}</strong>
@@ -624,42 +775,48 @@ function Reader() {
               style={{ fontSize: prefs.fontSize }}
               onMouseUp={selectText}
               onKeyUp={(e) => {
-                if (e.key === "Shift") selectText();
-              }}
-              onCopy={(e) => {
-                if (selection) {
-                  e.preventDefault();
-                  void copy("textWithReference");
-                }
+                if (e.key === "Shift" || e.shiftKey) selectText();
               }}
             >
               {chapter?.rows.map((row) => (
-                <div
-                  key={row.label}
-                  className={`verse-row columns-${ids.length}`}
-                  data-row={row.label}
-                >
-                  <span className="reference">
-                    {prefs.chapter}:{row.label}
-                  </span>
+                <div key={row.label} className="verse-row" data-row={row.label}>
                   {row.cells.map((cell) => (
                     <div
                       key={cell.translationId}
                       className={`verse-cell ${translations.find((t) => t.id === cell.translationId)?.language.startsWith("en") ? "english" : ""} ${selection?.translationId === cell.translationId && selection.spans.some((p) => p.verseKey === row.label) ? "is-selected" : ""}`}
                     >
                       <button
-                        className="verse-number"
-                        title="点击选择整节；Shift 选择连续多节"
-                        aria-label={`选择${cell.translationId === "cuv" ? "中文" : translations.find((t) => t.id === cell.translationId)?.abbreviation}第${row.label}节`}
+                        className="verse-select"
+                        title={t(
+                          "选择整段；Shift 选择连续经文",
+                          "Select this passage; Shift-click for a range",
+                        )}
+                        aria-label={t(
+                          `选择${cell.translationId === "cuv" ? "中文" : translations.find((t) => t.id === cell.translationId)?.abbreviation}第${row.label}节`,
+                          `Select ${translations.find((t) => t.id === cell.translationId)?.abbreviation} verse ${row.label}`,
+                        )}
                         disabled={cell.missing || busy}
                         onClick={(e) =>
-                          selectVerse(cell.translationId, row.label, e.shiftKey)
+                          selectVerse(
+                            cell.translationId,
+                            row.label,
+                            e.shiftKey,
+                            e.detail ? e : undefined,
+                          )
                         }
                       >
-                        {row.label}
+                        {
+                          translations.find((t) => t.id === cell.translationId)
+                            ?.abbreviation
+                        }
                       </button>
                       {cell.missing ? (
-                        <span className="missing-verse">本译本无此节</span>
+                        <span className="missing-verse">
+                          {t(
+                            "本译本无此节",
+                            "Verse not present in this translation",
+                          )}
+                        </span>
                       ) : (
                         <span
                           data-verse-text
@@ -681,17 +838,27 @@ function Reader() {
                   ))}
                 </div>
               ))}
-              {!chapter && !busy && !error && <Empty description="暂无经文" />}
+              {!chapter && !busy && !error && (
+                <Empty description={t("暂无经文", "No scripture available")} />
+              )}
             </div>
           </Spin>
         </div>
         <footer className="reader-footer">
           <span>
             {chapter
-              ? `${chapter.rows.length} 节 · ${prefs.parallel ? "双译本对照" : "单译本"}`
-              : "经文阅读"}
+              ? t(
+                  `${ids.length} 个译本`,
+                  `${ids.length} translation${ids.length > 1 ? "s" : ""}`,
+                )
+              : t("经文阅读", "Scripture reading")}
           </span>
-          <span>拖动选择文字，或点击节号进行标记</span>
+          <span>
+            {t(
+              "拖选文字，或点击译本简称；Shift 连续选择",
+              "Select text or click an edition; Shift-click for a range",
+            )}
+          </span>
           <Space size={4}>
             <Button
               type="text"
@@ -699,7 +866,7 @@ function Reader() {
               disabled={prefs.chapter <= 1 || busy}
               onClick={() => navigate(prefs.bookId, prefs.chapter - 1)}
             >
-              ‹ 上一章
+              {t("‹ 上一章", "‹ Previous")}
             </Button>
             <Button
               type="text"
@@ -711,26 +878,28 @@ function Reader() {
               }
               onClick={() => navigate(prefs.bookId, prefs.chapter + 1)}
             >
-              下一章 ›
+              {t("下一章 ›", "Next ›")}
             </Button>
           </Space>
         </footer>
       </main>
-      {selection && (
-        <div
-          className="selection-toolbar"
-          role="toolbar"
-          aria-label="经文选区操作"
-          onMouseDown={(e) => e.preventDefault()}
+      {selection && selectionAnchor && (
+        <SelectionToolbar
+          anchor={selectionAnchor}
+          label={t("经文选区操作", "Scripture selection actions")}
+          onDismiss={dismissSelection}
         >
           <span className="selection-label">
-            已选 {selection.spans.length} 节
+            {t(
+              `已选 ${selection.spans.length} 段`,
+              `${selection.spans.length} selected`,
+            )}
           </span>
           <div className="highlight-colors">
             {Object.entries(colors).map(([key, c]) => (
-              <Tooltip key={key} title={c.name}>
+              <Tooltip key={key} title={t(c.name, key)}>
                 <button
-                  aria-label={`${c.name}高亮`}
+                  aria-label={t(`${c.name}高亮`, `${key} highlight`)}
                   className="color-swatch"
                   disabled={painting}
                   style={{ background: c.value }}
@@ -740,85 +909,68 @@ function Reader() {
             ))}
           </div>
           <Button size="small" loading={painting} onClick={() => paint("")}>
-            清除高亮
+            {t("清除高亮", "Clear highlight")}
           </Button>
           <Dropdown.Button
             size="small"
+            style={{ width: "auto", flex: "0 0 auto" }}
             onClick={() => copy("textWithReference")}
             menu={{
               items: [
-                { key: "textOnly", label: "仅复制经文" },
                 {
                   key: "parallelVerse",
-                  label: "复制本节对照",
-                  disabled: selection.spans.length !== 1,
+                  label: t("复制当前对照", "Copy comparison"),
+                  disabled: ids.length < 2,
                 },
               ],
               onClick: ({ key }) => copy(key),
             }}
           >
-            复制
+            {t("复制", "Copy")}
           </Dropdown.Button>
           <Button
             type="primary"
             size="small"
             onClick={() => setCard(selection)}
           >
-            制作卡片
+            {t("制作卡片", "Create card")}
           </Button>
           <Button
             type="text"
             size="small"
-            aria-label="关闭选区操作"
+            aria-label={t("关闭选区操作", "Close selection actions")}
             onClick={() => setSelection(null)}
           >
             ×
           </Button>
-        </div>
+        </SelectionToolbar>
       )}
       {card && (
         <CardEditor
           api={api}
           selection={card}
           translations={translations}
-          comparison={prefs.translations}
+          comparison={ids}
+          language={prefs.uiLanguage}
           onClose={() => setCard(null)}
         />
       )}
-      {about && (
-        <div className="about-panel" role="dialog" aria-label="关于圣经">
-          <Button
-            className="about-close"
-            type="text"
-            onClick={() => setAbout(false)}
-            aria-label="关闭关于"
-          >
-            ×
-          </Button>
-          <img src="/bible.svg" alt="" />
-          <h2>圣经 · Bible</h2>
-          <p>离线阅读、对照与经文卡片</p>
-          {translations.map((t) => (
-            <p key={t.id}>
-              <strong>{t.name}</strong>
-              <br />
-              {t.license} · {t.abbreviation}
-              <br />
-              <small>{t.dataVersion}</small>
-            </p>
-          ))}
-          <p className="muted">
-            译文、字体与依赖来源见发行包 THIRD_PARTY_NOTICES。
-          </p>
-        </div>
+      {settings && (
+        <Settings
+          preferences={prefs}
+          translations={translations}
+          onChange={(value) => setPrefs((p) => ({ ...p, ...value }))}
+          onClose={() => setSettings(false)}
+        />
       )}
     </div>
   );
 }
 export default function BibleApp() {
+  const [language, setLanguage] = useState<Language>("zh-CN");
   return (
     <ConfigProvider
-      locale={zhCN}
+      locale={language === "en" ? enUS : zhCN}
       button={{ autoInsertSpace: false }}
       theme={{
         token: {
@@ -831,7 +983,7 @@ export default function BibleApp() {
       }}
     >
       <AntApp>
-        <Reader />
+        <Reader onLanguage={setLanguage} />
       </AntApp>
     </ConfigProvider>
   );
