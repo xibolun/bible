@@ -1,5 +1,7 @@
 # 自动发版
 
+PR／合并阶段只运行快速代码检查与浏览器回归，不运行六平台打包、安装器测试或工件聚合。六平台完整流程仅由版本标签发版或显式手动运行触发；Issue 分支推送不再额外触发一套重复打包。
+
 将本功能合并到 main 后，推送 `vX.Y.Z` 标签触发完整发版。标签必须指向已合并到 main 的提交；版本号不能含前导零或预发布后缀。
 
 ```sh
@@ -18,6 +20,6 @@ git push origin v1.2.3
 
 用户已明确允许仅自动发版使用 `github-actions[bot]`。发布作业单独使用仓库内置临时 `GITHUB_TOKEN` 的 Contents 写权限；构建作业保持只读，不需要个人 Token 或新建 Secrets。手工代码提交、推送与 PR 仍使用 xibolun。
 
-本地检查可运行 `python3 -m unittest discover -s tools -p 'test_*.py'`。普通 desktop CI 的 collect 作业也运行完整发布包校验，但不执行公开发布；发布函数使用模拟 GitHub 测试中断、重跑及不可变资产行为。
+本地检查可运行 `python3 -m unittest discover -s tools -p 'test_*.py'`。手动 desktop 打包的 collect 作业也运行完整发布包校验，但不执行公开发布；发布函数使用模拟 GitHub 测试中断、重跑及不可变资产行为。
 
 实现依据：[GitHub 可复用工作流](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)、[Release 创建](https://cli.github.com/manual/gh_release_create)、[草稿列表及访问权限](https://docs.github.com/en/rest/releases/releases#list-releases)、[资产哈希字段](https://docs.github.com/en/rest/releases/assets)。

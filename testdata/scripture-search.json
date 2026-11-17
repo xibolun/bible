@@ -1,0 +1,26 @@
+[
+  { "text": "起初，神创造天地。", "pattern": "起%神", "match": true },
+  { "text": "起初，神创造天地。", "pattern": "起_神", "match": false },
+  { "text": "起初，神创造天地。", "pattern": "起__神", "match": true },
+  { "text": "起初，神创造天地。", "pattern": "神%起", "match": false },
+  { "text": "甲😀神", "pattern": "甲_神", "match": true },
+  { "text": "甲😀神", "pattern": "甲__神", "match": false },
+  {
+    "text": "In the beginning God created",
+    "pattern": "BEGINNING%GOD",
+    "match": true
+  },
+  { "text": "Ä", "pattern": "ä", "match": false },
+  { "text": "100% complete", "pattern": "100\\%", "match": true },
+  { "text": "1000 complete", "pattern": "100\\%", "match": false },
+  { "text": "a_b", "pattern": "a\\_b", "match": true },
+  { "text": "axb", "pattern": "a\\_b", "match": false },
+  { "text": "a\\b", "pattern": "a\\\\b", "match": true },
+  { "text": "a.b[0]", "pattern": "a.b[0]", "match": true },
+  { "text": "axb0", "pattern": "a.b[0]", "match": false },
+  { "text": "神", "pattern": "  神  ", "match": true },
+  { "text": "God created", "pattern": "%%God%%", "match": true },
+  { "text": "God created", "pattern": "' OR 1=1 --", "match": false },
+  { "text": "abc", "pattern": "%", "match": true },
+  { "text": "xyz", "pattern": "a%a%a%a%a%a%b", "match": false }
+]

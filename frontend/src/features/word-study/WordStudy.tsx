@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Button, Drawer, Empty, Input, Select, Spin } from "antd";
 import { errorText, translator, type Language } from "../../shared/locale";
+import { DictionaryDefinition } from "./DictionaryDefinition";
+import { chineseMeaning } from "./definition";
 import type {
   API,
   Book,
@@ -127,11 +129,36 @@ export function WordStudy({
           />
         )}
         <Spin spinning={busy}>
+          {study && study.entries.length > 0 && (
+            <Select
+              className="entry-selector"
+              aria-label={t("原文词条", "Original-language entry")}
+              value={
+                study.entries.some((value) => value.id === entry?.id)
+                  ? entry?.id
+                  : undefined
+              }
+              placeholder={t("选择当前经节词条", "Choose a verse entry")}
+              options={study.entries.map((value) => ({
+                value: value.id,
+                label: `${value.id} · ${chineseMeaning(value.chineseDefinition ?? "").split("\n")[0]}`,
+              }))}
+              onChange={(code) => {
+                ++request.current;
+                setBusy(false);
+                setError(undefined);
+                setQuery("");
+                setEntry(study.entries.find((value) => value.id === code));
+              }}
+            />
+          )}
+          {entry && <DictionaryDefinition entry={entry} language={language} />}
           {study && (
-            <section aria-label={t("经节关联词组", "Verse word links")}>
-              <h3>
-                {t("经节关联词组", "Verse word links")} <small>KJV</small>
-              </h3>
+            <details
+              aria-label={t("经节关联词组", "Verse word links")}
+              className="english-definition"
+            >
+              <summary>{t("KJV 经节关联词组", "KJV verse word links")}</summary>
               <div className="study-words">
                 {study.words.flatMap((word, index) =>
                   word.strongs.map((code) => {
@@ -176,55 +203,7 @@ export function WordStudy({
                   )}
                 />
               )}
-            </section>
-          )}
-          {entry && (
-            <article
-              className="dictionary-entry"
-              aria-label={t("词典释义", "Dictionary definition")}
-            >
-              <div className="entry-code">
-                {entry.id} ·{" "}
-                {entry.language === "Greek"
-                  ? t("希腊文", "Greek")
-                  : entry.language === "Aramaic"
-                    ? t("亚兰文", "Aramaic")
-                    : t("希伯来文", "Hebrew")}
-              </div>
-              <h2 lang={entry.language === "Greek" ? "grc" : "he"} dir="auto">
-                {entry.lemma}
-              </h2>
-              <p className="entry-pronunciation">
-                {entry.transliteration} {entry.pronunciation}
-              </p>
-              <h3>{t("中文释义", "Chinese definition")}</h3>
-              {entry.chineseDefinition ? (
-                <>
-                  <p lang="zh-Hant" className="entry-definition">
-                    {entry.chineseDefinition}
-                  </p>
-                  <small className="study-source">{entry.chineseSource}</small>
-                </>
-              ) : (
-                <Empty
-                  description={t(
-                    "此编号暂无中文释义",
-                    "No Chinese definition for this number",
-                  )}
-                />
-              )}
-              {entry.definition && (
-                <details className="english-definition">
-                  <summary>
-                    {t("英文原始释义", "English source definition")}
-                  </summary>
-                  <p lang="en" className="entry-definition">
-                    {entry.definition}
-                  </p>
-                  <small className="study-source">{entry.source}</small>
-                </details>
-              )}
-            </article>
+            </details>
           )}
         </Spin>
       </div>

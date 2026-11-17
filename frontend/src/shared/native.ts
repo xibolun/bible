@@ -12,6 +12,7 @@ import type {
   Translation,
   DictionaryEntry,
   VerseStudy,
+  SearchPage,
 } from "./types";
 interface Result {
   ok: boolean;
@@ -33,6 +34,10 @@ async function invoke<T>(request: PromiseLike<Result>): Promise<T> {
   return r.data as T;
 }
 export const native: API = {
+  SearchScripture: (translation, pattern, offset, limit) =>
+    invoke<SearchPage>(
+      bridge.SearchScripture(translation, pattern, offset, limit),
+    ),
   LookupWord: (code) => invoke<DictionaryEntry>(bridge.LookupWord(code)),
   GetVerseWords: (book, chapter, verse) =>
     invoke<VerseStudy>(bridge.GetVerseWords(book, chapter, verse)),

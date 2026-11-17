@@ -67,3 +67,7 @@ export function SaveCard(encoded: string, width: number, height: number, name: s
 export function SavePreferences(p: $models.Preferences): $CancellablePromise<$models.Result<boolean>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.SavePreferences", p);
 }
+
+export function SearchScripture(translation: string, pattern: string, offset: number, limit: number): $CancellablePromise<$models.Result<bible$0.SearchPage>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.SearchScripture", translation, pattern, offset, limit);
+}

@@ -1,7 +1,6 @@
 name: Desktop packages
+run-name: Desktop packages ${{ inputs.version || 'checks' }} (${{ github.ref_name }})
 on:
-  push:
-    branches: ['issue/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -24,6 +23,45 @@ concurrency:
   group: desktop-${{ github.ref }}-${{ inputs.version || 'v0.1.0' }}
   cancel-in-progress: true
 jobs:
+  checks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26.10'
+          cache: true
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.22.1'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Check formatting and Python regressions
+        run: |
+          test -z "$(gofmt -l main.go internal)"
+          python3 -m unittest discover -s tools -p 'test_*.py'
+      - name: Check frontend and build embedded assets
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm run test -- --run
+          npm run build
+      - name: Check Go logic and desktop compilation without packaging
+        run: |
+          go vet ./internal/...
+          go test ./internal/...
+          mkdir -p .cache
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags production -o .cache/bible-compile-check.exe .
+      - name: Check bundled data and branding
+        run: |
+          make verify-data
+          make verify-branding
   browser:
     runs-on: ubuntu-24.04
     env:
@@ -51,6 +89,8 @@ jobs:
             frontend/test-results
             frontend/playwright-report
   native:
+    # Release callers supply ref; PRs run only the fast checks and browser jobs.
+    if: github.event_name == 'workflow_dispatch' || inputs.ref != ''
     name: ${{ matrix.os }}-${{ matrix.arch }}
     strategy:
       fail-fast: false
@@ -153,6 +193,7 @@ jobs:
           path: dist/${{ inputs.version || 'v0.1.0' }}/
           if-no-files-found: error
   collect:
+    if: github.event_name == 'workflow_dispatch' || inputs.ref != ''
     needs: [browser, native]
     runs-on: ubuntu-24.04
     env:

@@ -46,6 +46,21 @@ export interface Row {
     "cells": Cell[] | null;
 }
 
+export interface SearchHit {
+    "translationId": string;
+    "bookId": string;
+    "bookName": string;
+    "englishName": string;
+    "chapter": number;
+    "verseKey": string;
+    "text": string;
+}
+
+export interface SearchPage {
+    "total": number;
+    "results": SearchHit[] | null;
+}
+
 export interface Translation {
     "id": string;
     "language": string;

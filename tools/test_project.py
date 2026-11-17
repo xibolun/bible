@@ -84,6 +84,14 @@ class PackagingPreflightTests(unittest.TestCase):
 
 
 class LinuxArtifactsTests(unittest.TestCase):
+    def test_package_collector_ignores_fast_pr_checks_and_other_versions(self):
+        def run(event,title):
+            return {'event':event,'workflowName':'Desktop packages','displayTitle':title}
+        wanted=run('workflow_dispatch','Desktop packages v1.2.3 (main)')
+        runs=[run('pull_request','Desktop packages checks (15/merge)'),
+              run('workflow_dispatch','Desktop packages v1.2.2 (main)'),wanted]
+        self.assertEqual(project.package_runs(runs,'v1.2.3'),[wanted])
+
     def test_elf_architecture_and_invalid_binary_rejection(self):
         with tempfile.TemporaryDirectory() as directory:
             binary=Path(directory)/'Bible'

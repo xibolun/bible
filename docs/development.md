@@ -1,7 +1,7 @@
 # Development, builds and verification
 
 A desktop Bible reader built with Go and Wails: Chinese/English offline reading,
-verse-aligned comparison, persistent text highlights, copying, focus reading,
+verse-aligned comparison, persistent text highlights, copying, offline search,
 and scripture-card PNG export.
 
 The initial implementation is tracked in [Issue #1](https://github.com/xibolun/bible/issues/1).
@@ -54,8 +54,9 @@ make release-artifacts REF=main VERSION=v0.1.0
 ```
 
 The artifact command defaults to `main`; `REF` can select an issue branch or
-commit. It waits for CI and downloads the packages; it can dispatch the native
-matrix when no run exists. It requires network access and GitHub CLI credentials.
+commit. It reuses a manual package run for the exact version or explicitly
+dispatches the native matrix. Fast PR checks are not package runs. It requires
+network access and GitHub CLI credentials.
 Local build/package commands never start remote builds automatically.
 
 Outputs include architecture-specific Linux tar.gz/deb, macOS app ZIP/DMG and
@@ -64,6 +65,9 @@ and SHA-256 checksums under `dist/<version>/`. macOS packages are ad-hoc signed,
 not notarized; Windows packages are unsigned. The desktop build workflow only
 produces artifacts. The separate [release workflow](releases.md) publishes
 complete, verified version-tag bundles; neither workflow merges pull requests.
+PR/merge checks run formatting, unit tests, frontend build, a compile check and
+browser regressions. Six-target packaging, native runtime smoke and package
+aggregation run only for releases or explicit manual requests.
 
 On Linux, run `bin/linux-amd64/Bible` after a build (use `linux-arm64` on ARM),
 or extract the tar.gz bundle and run its `Bible` executable. Install the deb with

@@ -87,6 +87,7 @@ export interface Highlight {
   color: string;
 }
 export interface Preferences {
+  searchHistory: SearchHistoryEntry[];
   readingTheme: ReadingTheme;
   bookId: string;
   chapter: number;
@@ -140,6 +141,7 @@ export interface Dataset {
   chapters: Record<string, Verse[]>;
 }
 export const defaults: Preferences = {
+  searchHistory: [],
   readingTheme: "light",
   bookId: "GEN",
   chapter: 1,
@@ -166,6 +168,12 @@ export const colors: Record<string, { name: string; value: string }> = {
   purple: { name: "紫色", value: "#e8d9ff" },
 };
 export interface API {
+  SearchScripture(
+    translation: string,
+    pattern: string,
+    offset: number,
+    limit: number,
+  ): Promise<SearchPage>;
   LookupWord(code: string): Promise<DictionaryEntry>;
   GetVerseWords(
     book: string,
@@ -214,3 +222,20 @@ export interface API {
   ): Promise<Saved>;
 }
 export const prototype = import.meta.env.VITE_DATA_MODE === "mock";
+export interface SearchHit {
+  translationId: string;
+  bookId: string;
+  bookName: string;
+  englishName: string;
+  chapter: number;
+  verseKey: string;
+  text: string;
+}
+export interface SearchPage {
+  total: number;
+  results: SearchHit[];
+}
+export interface SearchHistoryEntry {
+  translationId: string;
+  pattern: string;
+}

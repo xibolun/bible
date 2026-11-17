@@ -22,6 +22,7 @@ export interface CopyOptions {
 }
 
 export interface Preferences {
+    "searchHistory": SearchHistoryEntry[] | null;
     "readingTheme": string;
     "bookId": string;
     "chapter": number;
@@ -58,6 +59,11 @@ export interface Saved {
     "saved": boolean;
     "cancelled": boolean;
     "fileName": string;
+}
+
+export interface SearchHistoryEntry {
+    "translationId": string;
+    "pattern": string;
 }
 
 export interface Selection {

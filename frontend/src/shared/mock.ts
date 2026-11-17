@@ -80,6 +80,11 @@ async function formatted(
   );
 }
 export const mock: API = {
+  async SearchScripture(translation, pattern, offset, limit) {
+    fail("data");
+    const { searchScripture } = await import("./search");
+    return searchScripture(await data(), translation, pattern, offset, limit);
+  },
   async LookupWord(code) {
     const { loadWordStudy, lookupWord } = await import("./word-study");
     return lookupWord(await loadWordStudy(), code);
