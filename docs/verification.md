@@ -1,9 +1,13 @@
 # Verification boundaries
 
-`make check` runs Go formatting, vet and behavior tests, frontend lint/typecheck,
-six selection/layout unit cases, a production build, data integrity and owned
+`make check` runs packaging-preflight regressions, Go formatting, vet and behavior
+tests, frontend lint/typecheck, six selection/layout unit cases, a production
+build, data integrity and owned
 branding-input checks. The interval suite includes a per-character fuzz model;
 SQLite tests verify rollback, restart, idempotence and future-schema retention.
+The packaging regressions verify that unsupported targets and foreign native
+hosts fail before tools/checks/output writes, including under Python `-O`, while
+all four native targets and Windows binary cross-compilation remain allowed.
 
 Browser end-to-end tests use a production build of the explicit Mock adapter.
 They exercise book/chapter navigation, Chinese/English comparison, offline

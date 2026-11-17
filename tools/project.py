@@ -39,6 +39,19 @@ def npm(*args):
 
 def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
+def validate_desktop_target(args,native=False):
+    target=f'{args.os}/{args.arch}';host=f'{HOST}/{ARCH}'
+    guidance=(f'Run make check for code/browser validation. To obtain all four packages from CI, '
+              f'authenticate GitHub CLI as xibolun and run: make release-artifacts REF=main VERSION={args.version}. '
+              'CI builds on the matching native runners; no Linux desktop package is produced.')
+    if (args.os,args.arch) not in TARGETS:
+        supported=', '.join(f'{osname}/{arch}' for osname,arch in TARGETS)
+        raise RuntimeError(f'Unsupported desktop target {target} on host {host}. Supported targets: {supported}. {guidance}')
+    if native and args.os!=HOST:
+        raise RuntimeError(f'Native build/package for {target} requires a {args.os} host; current host is {host}. {guidance}')
+    if not native and args.os=='darwin' and HOST!='darwin':
+        raise RuntimeError(f'Compiling {target} requires the native macOS toolchain; current host is {host}. {guidance}')
+
 def cli():
     cached=ROOT/'.cache'/('wails3.exe' if HOST=='windows' else 'wails3')
     found=str(cached) if cached.is_file() else shutil.which('wails3')
@@ -84,18 +97,19 @@ def nsis():
     return None
 
 def doctor(args):
+    if args.os in ('darwin','windows'):validate_desktop_target(args,native=True)
     for name in ['go','node','npm']:
         if not shutil.which(name+'.cmd' if HOST=='windows' and name=='npm' else name):raise RuntimeError(f'{name} missing')
     assert 'go1.26.10 ' in output(['go','version']),'Use pinned Go 1.26.10'
     assert tuple(map(int,output(['node','--version']).lstrip('v').split('.')))>=(22,12,0),'Node 22.12+ required'
     cli();verify_data();verify_branding()
     if args.os in ('darwin','windows'):
-        assert args.os==HOST,'Native packaging requires the matching OS'
         if HOST=='darwin':run(['xcode-select','-p']);assert shutil.which('hdiutil')
         if HOST=='windows' and not nsis():raise RuntimeError('NSIS missing. Install explicitly and add makensis to PATH.')
     print(f'Doctor passed on {HOST}/{ARCH}; distribution targets are macOS and Windows.')
 
 def check():
+    run([sys.executable,'-m','unittest','discover','-s','tools','-p','test_*.py'])
     files=[ROOT/'main.go',*list((ROOT/'internal').rglob('*.go'))]
     formatted=output(['gofmt','-l',*files]);assert not formatted,'Run gofmt on: '+formatted
     # Native main.go embeds the built frontend, so assets must exist before Go checks.
@@ -117,8 +131,7 @@ def binary_arch(path,osname,arch):
         assert struct.unpack_from('<I',b,4)[0]=={'amd64':0x1000007,'arm64':0x100000c}[arch]
 
 def compile_app(args):
-    assert args.os in ('darwin','windows') and args.arch in ('amd64','arm64'),'Unsupported desktop target'
-    assert args.os==HOST or args.os=='windows','macOS uses a native macOS toolchain'
+    validate_desktop_target(args)
     root,binary,_,_=paths(args);root.mkdir(parents=True,exist_ok=True)
     env=os.environ.copy();env.update(GOOS=args.os,GOARCH=args.arch,CGO_ENABLED='1' if args.os=='darwin' else '0')
     if args.os=='darwin':env['MACOSX_DEPLOYMENT_TARGET']='12.0'
@@ -138,7 +151,7 @@ def manifest(args,dest,prefix,files,signing):
     (dest/f'{prefix}-manifest.json').write_text(json.dumps(result,indent=2)+'\n')
 
 def package_native(args):
-    assert HOST==args.os,'Package creation requires corresponding native OS'
+    validate_desktop_target(args,native=True)
     compile_app(args)
     root,binary,dest,prefix=paths(args);dest.mkdir(parents=True,exist_ok=True)
     if args.os=='darwin':
@@ -209,9 +222,9 @@ def release_artifacts(args):
     run(['gh','run','download',identifier,'--repo','xibolun/bible','--name',f'bible-{args.version}-all-targets','--dir',dest]);dist(args)
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action');p.add_argument('--os',default=HOST);p.add_argument('--arch',default=ARCH);p.add_argument('--version',default='v0.1.0');p.add_argument('--ref',default='issue/1');p.add_argument('--dev',action='store_true');args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action');p.add_argument('--os',default=HOST);p.add_argument('--arch',default=ARCH);p.add_argument('--version',default='v0.1.0');p.add_argument('--ref',default='main');p.add_argument('--dev',action='store_true');args=p.parse_args()
     assert re.fullmatch(r'v?\d+\.\d+\.\d+',args.version),'VERSION must be a simple semantic version'
-    if args.action=='help':print('make doctor | check | dev | build | package [GOOS=darwin|windows GOARCH=arm64|amd64 VERSION=v0.1.0] | smoke | dist | release-artifacts REF=issue/1 | verify-data | verify-branding | bindings | clean')
+    if args.action=='help':print('make doctor | check | dev | build | package [GOOS=darwin|windows GOARCH=arm64|amd64 VERSION=v0.1.0] | smoke | dist | release-artifacts REF=main | verify-data | verify-branding | bindings | clean\nBuild/package requires the matching native macOS/Windows host. On Linux use make check, or authenticate GitHub CLI as xibolun and run make release-artifacts REF=main for all four CI packages.')
     elif args.action=='doctor':doctor(args)
     elif args.action=='check':check()
     elif args.action=='verify-data':verify_data()
@@ -219,6 +232,7 @@ def main():
     elif args.action=='compile':compile_app(args)
     elif args.action=='package-native':package_native(args)
     elif args.action in ('build','package'):
+        validate_desktop_target(args,native=True)
         doctor(args);check();run([cli(),'task',args.action,f'TARGET_OS={args.os}',f'TARGET_ARCH={args.arch}',f'VERSION={args.version}'])
     elif args.action=='bindings':
         if not (ROOT/'frontend/dist/index.html').is_file():

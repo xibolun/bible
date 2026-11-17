@@ -24,15 +24,32 @@ No command silently installs operating-system dependencies. Linux can run code
 and browser checks; desktop distribution targets are macOS and Windows.
 
 ```sh
-make package                                      # Current native OS/architecture
+make package                                      # On macOS/Windows: current host target
 make package GOOS=darwin GOARCH=arm64 VERSION=v0.1.0
 make package GOOS=windows GOARCH=amd64 VERSION=v0.1.0
 make smoke                                        # Matching native machine only
-make release-artifacts REF=issue/1 VERSION=v0.1.0   # Collect CI matrix artifacts
 make dist VERSION=v0.1.0                          # Require all four target packages
 ```
 
-Build each target on its matching OS. Outputs include architecture-specific
+Build and package each target on its matching OS. On Linux, `make build` and
+`make package` stop before dependency/build checks and explain the supported
+alternatives. Setting `GOOS=darwin` or `GOOS=windows` does not supply a native
+packaging toolchain.
+
+To obtain all four package sets from Linux (or another host), authenticate
+GitHub CLI as `xibolun` and explicitly collect the CI artifacts:
+
+```sh
+make check
+make release-artifacts REF=main VERSION=v0.1.0
+```
+
+The artifact command defaults to `main`; `REF` can select an issue branch or
+commit. It waits for CI and downloads the packages; it can dispatch the native
+matrix when no run exists. It requires network access and GitHub CLI credentials.
+Local build/package commands never start remote builds automatically.
+
+Outputs include architecture-specific
 macOS app ZIP/DMG or Windows portable ZIP/NSIS installer, plus build manifests
 and SHA-256 checksums under `dist/<version>/`. macOS packages are ad-hoc signed,
 not notarized; Windows packages are unsigned. These are internal test artifacts.
