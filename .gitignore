@@ -1,0 +1,17 @@
+.codex/
+.agents/
+node_modules/
+frontend/dist/
+bin/
+dist/
+.cache/
+*.syso
+*.db
+*.db-shm
+*.db-wal
+coverage/
+test-results/
+playwright-report/
+.DS_Store
+__pycache__/
+*.pyc

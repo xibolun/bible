@@ -1,0 +1,23 @@
+version: '3'
+vars:
+  PYTHON: '{{if eq OS "windows"}}python{{else}}python3{{end}}'
+tasks:
+  build:
+    desc: Compile the native desktop binary
+    cmds:
+      - '{{.PYTHON}} tools/project.py compile --os {{.TARGET_OS | default OS}} --arch {{.TARGET_ARCH | default ARCH}} --version {{.VERSION | default "v0.1.0"}} {{if eq .DEV "true"}}--dev{{end}}'
+  package:
+    desc: Compile and package for the native target
+    cmds:
+      - '{{.PYTHON}} tools/project.py package-native --os {{.TARGET_OS | default OS}} --arch {{.TARGET_ARCH | default ARCH}} --version {{.VERSION | default "v0.1.0"}}'
+  frontend:dev:
+    desc: Run frontend hot reload
+    dir: frontend
+    cmds:
+      - npm run dev -- --port 5173
+  run:
+    desc: Run the native development application
+    cmds:
+      - '{{.PYTHON}} tools/project.py run-native'
+    env:
+      FRONTEND_DEVSERVER_URL: http://127.0.0.1:5173

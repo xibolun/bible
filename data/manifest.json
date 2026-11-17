@@ -1,0 +1,28 @@
+{
+  "retrieved": "2026-11-16",
+  "sources": [
+    {
+      "id": "cuv",
+      "url": "https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/ChiUns.zip",
+      "sha256": "37fcef08bd3b5f42f5d7b8e0a9326075f9f41e6aa39906711b092f105ae4857e",
+      "version": "3.1",
+      "exportSha256": "6d6b67c46231adba2e516ad8277e08b2f08c2f86a54c96e0e6ddc477dd974dcf",
+      "conversion": "diatheke 4.8 / SWORD 1.9.0 plain, optional filters disabled"
+    },
+    {
+      "id": "webp",
+      "url": "https://ebible.org/Scriptures/engwebp_vpl.zip",
+      "sha256": "7ebe6b7dc416ce63691d1a3889a06f841ccb7f414ada69be82da891f4b9be44f",
+      "version": "2026-11-13",
+      "conversion": "publisher VPL plain text"
+    }
+  ],
+  "datasetSha256": "3d6afeb3378bb871c199ad25f0bdd428b49236dec09ffcfd22d00612cb7e5843",
+  "plainSha256": "88796147db770a6d0dc35c88545738975b68f60e2fd9bc3afb1ac6bac65d985f",
+  "books": 66,
+  "chapters": 2378,
+  "verses": {
+    "cuv": 31103,
+    "webp": 31098
+  }
+}
