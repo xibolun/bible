@@ -97,12 +97,25 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev dpkg-dev desktop-file-utils xvfb xauth dbus-x11
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev dpkg-dev desktop-file-utils xvfb xauth dbus-x11 at-spi2-core apparmor
           desktop-file-validate build/linux/io.github.xibolun.bible.desktop
       - name: Install pinned CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
       - name: Check and package
         run: make package GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} VERSION="$VERSION"
+      - name: Permit WebKit sandbox namespaces for the CI application
+        if: runner.os == 'Linux'
+        env:
+          BIBLE_TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          profile = Path('build/linux/io.github.xibolun.bible.apparmor').read_text()
+          binary = Path(os.environ['GITHUB_WORKSPACE']) / 'bin' / ('linux-' + os.environ['BIBLE_TARGET_ARCH']) / 'Bible'
+          Path(os.environ['RUNNER_TEMP'], 'bible-smoke.apparmor').write_text(profile.replace('/usr/bin/bible', str(binary)))
+          PY
+          sudo apparmor_parser -r "$RUNNER_TEMP/bible-smoke.apparmor"
       - name: Exercise native WebView and Go bridge twice
         if: runner.os != 'Linux'
         run: make smoke GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} VERSION="$VERSION"

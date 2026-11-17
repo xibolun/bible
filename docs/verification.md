@@ -37,6 +37,11 @@ the browser Mock adapter. It does not prove interactive portal dialogs,
 Wayland compositing, desktop integration or compatibility with every Linux
 distribution. Local Ubuntu 26.04 builds record newer runtime dependencies;
 Ubuntu 24.04 CI packages have a different minimum runtime than local builds.
+On Ubuntu's restricted runner, CI loads the package's application-specific
+AppArmor `userns` profile with the exact test binary path. Global kernel
+restrictions and WebKit sandboxing remain enabled. Profile syntax, Debian
+control-script permissions and the exact executable attachment are verified;
+the tar archive does not install a system profile automatically.
 
 The following remain explicit manual release checks, rather than automated
 smoke claims:

@@ -77,6 +77,14 @@ host libc/GTK/WebKit versions in their manifest and are not promised to run on
 older distributions. RPM, AppImage and universal Linux compatibility are not
 part of this build path.
 
+Ubuntu releases that restrict unprivileged user namespaces require an AppArmor
+rule for WebKit's bubblewrap sandbox. The deb includes a profile attached only
+to `/usr/bin/bible`, loaded on installation when AppArmor supports it and
+unloaded on removal. It permits `userns` for this executable while retaining the
+system restriction and WebKit sandbox. Prefer the deb on those systems; a tar
+binary at another path needs an administrator-provided profile for that exact
+path. CI uses the same profile with its test binary path.
+
 For headless native smoke checks, additionally install `xvfb xauth dbus-x11`
 and run:
 
