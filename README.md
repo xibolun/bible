@@ -124,9 +124,19 @@ CUV plain export and KJV raw per-verse OSIS export; it rejects unknown lines and
 `wails3 generate icons` regenerate the owned icon assets. The font subset was
 produced with fontTools 4.60.1 using the ranges recorded in its manifest.
 
-Choose a primary translation and, in comparison mode, a distinct comparison
-translation. The current pair is also used for full-verse comparison copying
-and comparison cards; KJV/WEBP English-to-English comparison is supported.
+Choose a primary translation and any of the other installed translations for
+comparison, including all three bundled editions. Corresponding passages are
+stacked vertically with compact spacing; visible verse numbers are omitted.
+Chapter buttons wrap, including all 150 Psalms. Click an edition abbreviation
+to select a passage, Shift-click for a range, or select text directly. Actions
+appear near the selection endpoint and stay within the window.
+
+Settings include reading font size (14–32), Chinese/English interface language,
+copy reference position and About. Toolbar and keyboard copying always include
+the book, chapter, verse range and edition, before or after the text as selected.
+Comparison copying and cards use only the visible selected translations.
+Legacy preferences receive defaults for the added fields without resetting
+reading positions or annotations. Interface language is independent of scripture.
 Existing CUV/WEBP text versions and highlights are retained. See
 [scripture sources and rebuilding](docs/scripture-sources.md) for exact module
 versions, permissions, transformation rules and rebuild commands. NIV remains

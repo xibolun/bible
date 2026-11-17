@@ -66,7 +66,7 @@ it("measures through highlight spans without including verse buttons", () => {
     spans: [{ verseKey: "1", start: 1, end: 5 }],
   });
 });
-it("rejects a selection crossing translation columns", () => {
+it("rejects a selection crossing translations", () => {
   document.body.innerHTML =
     '<span data-verse-text data-translation="cuv" data-verse="1">中文</span><span data-verse-text data-translation="webp" data-verse="1">English</span>';
   const els = document.querySelectorAll("span"),
@@ -75,7 +75,19 @@ it("rejects a selection crossing translation columns", () => {
   r.setEnd(els[1].firstChild!, 3);
   window.getSelection()!.addRange(r);
   expect(() => captureSelection(chapter, { cuv: "v1", webp: "v1" })).toThrow(
-    "不能跨列",
+    "MIXED_TRANSLATION",
+  );
+});
+it("rejects an interleaved translation even when both endpoints use CUV", () => {
+  document.body.innerHTML =
+    '<span data-verse-text data-translation="cuv" data-verse="1">A😀é中B</span><span data-verse-text data-translation="webp" data-verse="1">English.</span><span data-verse-text data-translation="cuv" data-verse="2">第二节</span>';
+  const cells = document.querySelectorAll("span");
+  const range = document.createRange();
+  range.setStart(cells[0].firstChild!, 0);
+  range.setEnd(cells[2].firstChild!, 3);
+  window.getSelection()!.addRange(range);
+  expect(() => captureSelection(chapter, { cuv: "v1" })).toThrow(
+    "MIXED_TRANSLATION",
   );
 });
 it("builds a contiguous full-verse keyboard range in either direction", () => {

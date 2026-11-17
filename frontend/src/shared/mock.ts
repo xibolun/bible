@@ -79,10 +79,13 @@ export const mock: API = {
   },
   async GetPreferences() {
     fail("storage");
-    return JSON.parse(
-      localStorage.getItem("bible:mock:preferences") ??
-        JSON.stringify(defaults),
-    ) as Preferences;
+    return {
+      ...defaults,
+      ...JSON.parse(
+        localStorage.getItem("bible:mock:preferences") ??
+          JSON.stringify(defaults),
+      ),
+    } as Preferences;
   },
   async SavePreferences(p) {
     fail("storage");
@@ -123,22 +126,22 @@ export const mock: API = {
     persist();
     return this.ListHighlights([sel.translationId], sel.bookId, sel.chapter);
   },
-  async CopySelection(sel, mode, ids) {
+  async CopySelection(sel, mode, ids, options) {
     fail("clipboard");
     const d = await data(),
       b = d.books.find((b) => b.id === sel.bookId)!,
       t = d.translations.find((t) => t.id === sel.translationId)!;
     let content = await text(sel);
-    const ref = `${b.name} ${sel.chapter}:${sel.spans[0].verseKey}${sel.spans.length > 1 ? "–" + sel.spans.at(-1)!.verseKey : ""}`;
+    const ref = `${options.uiLanguage === "en" ? b.englishName : b.name} ${sel.chapter}:${sel.spans[0].verseKey}${sel.spans.length > 1 ? "–" + sel.spans.at(-1)!.verseKey : ""}`;
+    let editions = t.abbreviation;
     if (mode === "parallelVerse") {
       if (
-        ids.length !== 2 ||
-        new Set(ids).size !== 2 ||
+        ids.length < 2 ||
+        new Set(ids).size !== ids.length ||
         !ids.includes(sel.translationId) ||
         ids.some(
           (id) => !d.translations.some((translation) => translation.id === id),
-        ) ||
-        sel.spans.length !== 1
+        )
       )
         throw new Error("无效的对照译本或选区");
       content = ids
@@ -147,11 +150,23 @@ export const mock: API = {
         )
         .map(
           (t) =>
-            `${t.abbreviation}\n${d.chapters[`${t.id}/${sel.bookId}/${sel.chapter}`].find((v) => v.label === sel.spans[0].verseKey)?.text ?? "本译本无此节"}`,
+            `${t.abbreviation}\n${sel.spans.map((span) => d.chapters[`${t.id}/${sel.bookId}/${sel.chapter}`].find((v) => v.label === span.verseKey)?.text ?? (options.uiLanguage === "en" ? "Verse not present in this translation" : "本译本无此节")).join("\n")}`,
         )
         .join("\n\n");
-    }
-    if (mode !== "textOnly") content += `\n— ${ref} · ${t.abbreviation}`;
+      editions = ids
+        .map(
+          (id) =>
+            d.translations.find((translation) => translation.id === id)!
+              .abbreviation,
+        )
+        .join(" + ");
+    } else if (mode !== "textWithReference")
+      throw new Error("INVALID_SELECTION");
+    const reference = `${ref} · ${editions}`;
+    content =
+      options.referencePosition === "before"
+        ? `${reference}\n${content}`
+        : `${content}\n— ${reference}`;
     await navigator.clipboard.writeText(content);
     return true;
   },

@@ -121,12 +121,17 @@ func (d *Dataset) Align(ids []string, book string, chapter int) (Chapter, error)
 	if !ok || chapter < 1 || chapter > b.Chapters {
 		return Chapter{}, fmt.Errorf("INVALID_REFERENCE")
 	}
-	if len(ids) < 1 || len(ids) > 2 || (len(ids) == 2 && ids[0] == ids[1]) {
+	if len(ids) < 1 || len(ids) > len(d.Translations) {
 		return Chapter{}, fmt.Errorf("INVALID_TRANSLATION")
 	}
 	labels := []string{}
 	all := map[string]bool{}
+	seen := map[string]bool{}
 	for _, id := range ids {
+		if seen[id] {
+			return Chapter{}, fmt.Errorf("INVALID_TRANSLATION")
+		}
+		seen[id] = true
 		if _, ok := d.Translation(id); !ok {
 			return Chapter{}, fmt.Errorf("INVALID_TRANSLATION")
 		}
