@@ -111,7 +111,15 @@ class GitHub:
             except (ValueError, AttributeError):
                 missing = False
             if missing:
-                return None
+                # The tag endpoint finds published releases. Drafts are visible
+                # in the authenticated list for a caller with push access.
+                drafts = subprocess.run(['gh', 'api', '--paginate', '--slurp',
+                                         f'repos/{REPOSITORY}/releases?per_page=100'], capture_output=True, text=True)
+                if drafts.returncode:
+                    raise RuntimeError('Could not inspect release drafts: ' + drafts.stderr.strip())
+                matches = [item for page in json.loads(drafts.stdout) for item in page if item['tag_name'] == tag]
+                require(len(matches) <= 1, 'Multiple releases identify the same tag')
+                return matches[0] if matches else None
             raise RuntimeError('Could not inspect the existing release: ' + result.stderr.strip())
         return json.loads(result.stdout)
 

@@ -20,4 +20,4 @@ git push origin v1.2.3
 
 本地检查可运行 `python3 -m unittest discover -s tools -p 'test_*.py'`。普通 desktop CI 的 collect 作业也运行完整发布包校验，但不执行公开发布；发布函数使用模拟 GitHub 测试中断、重跑及不可变资产行为。
 
-实现依据：[GitHub 可复用工作流](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)、[Release 创建](https://cli.github.com/manual/gh_release_create)、[资产哈希字段](https://docs.github.com/en/rest/releases/assets)。
+实现依据：[GitHub 可复用工作流](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)、[Release 创建](https://cli.github.com/manual/gh_release_create)、[草稿列表及访问权限](https://docs.github.com/en/rest/releases/releases#list-releases)、[资产哈希字段](https://docs.github.com/en/rest/releases/assets)。
