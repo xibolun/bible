@@ -116,6 +116,10 @@ back to Mock success when the Go bridge is unavailable.
 
 ## Data, fonts and user files
 
+See the [Chinese and foreign-language scripture licensing catalog](docs/scripture-licensing.md)
+for edition-specific sources, public licenses, permission contacts and offline
+distribution requirements (last verified 2026-11-17).
+
 Both complete translations and a CJK font are bundled. Source versions, hashes
 and conversion details are in `data/manifest.json` and `data/font.json`.
 `tools/import_data.py` rebuilds text from the pinned publisher archives and a
