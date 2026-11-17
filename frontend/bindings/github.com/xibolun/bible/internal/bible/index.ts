@@ -8,6 +8,8 @@ export type {
     DictionaryEntry,
     OriginalWord,
     Row,
+    SearchHit,
+    SearchPage,
     Translation,
     VerseStudy
 } from "./models.js";

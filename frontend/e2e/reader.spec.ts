@@ -71,9 +71,9 @@ test("offline reader, persistence, bilingual copy and exact-size PNG", async ({
   await page
     .getByRole("button", { name: "关闭卡片编辑器", exact: true })
     .click();
-  await page.getByRole("button", { name: "专注阅读", exact: true }).click();
-  await expect(page.locator(".sidebar")).toHaveCount(0);
-  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "专注阅读", exact: true }),
+  ).toHaveCount(0);
   await expect(page.locator(".sidebar")).toBeVisible();
   await context.setOffline(false);
   await page.reload();
@@ -544,41 +544,61 @@ test("seven copy presets, per-verse cards and external GitHub source", async ({
   await source.close();
 });
 
-test("chapter edge arrows fade in, support keyboard and respect boundaries", async ({
+test("chapter list follows controls and keyboard shortcuts respect control context", async ({
   page,
 }) => {
   await page.goto("/");
-  const previous = page.getByRole("button", { name: "上一章", exact: true });
-  const next = page.getByRole("button", { name: "下一章", exact: true });
-  await expect(previous).toBeDisabled();
-  await expect(next).toBeEnabled();
-  await page.mouse.move(100, 50);
-  await expect(next).toHaveCSS("opacity", "0");
-  await page.locator(".verses").hover();
-  await expect(next).toHaveCSS("opacity", "0");
-  const icon = await next.locator("svg").boundingBox();
-  expect(icon!.width).toBeGreaterThanOrEqual(44);
-  await next.hover();
-  await expect(next).toHaveCSS("opacity", "1");
-  await page.screenshot({
-    path: test.info().outputPath("chapter-edge-hover.png"),
-    animations: "disabled",
-  });
-  await next.click();
-  await expect(
-    page.getByRole("heading", { name: "创世记第 2 章", exact: true }),
-  ).toBeVisible();
-  await expect(previous).toBeEnabled();
-  await page.keyboard.press("Tab");
-  await previous.focus();
-  await expect(previous).toHaveCSS("opacity", "1");
-  await previous.press("Enter");
   await expect(
     page.getByRole("heading", { name: "创世记第 1 章", exact: true }),
   ).toBeVisible();
+  const controls = await page.locator(".reader-toolbar").boundingBox();
+  const chapters = await page.locator(".chapter-nav").boundingBox();
+  expect(chapters!.y).toBeGreaterThanOrEqual(controls!.y + controls!.height);
+  await expect(page.locator(".chapter-edge")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "专注阅读", exact: true }),
+  ).toHaveCount(0);
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    page.getByRole("heading", { name: "创世记第 2 章", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "第2章", exact: true })
+    .press("ArrowRight");
+  await expect(
+    page.getByRole("heading", { name: "创世记第 3 章", exact: true }),
+  ).toBeVisible();
+  await page.locator("h1").click();
+  await page.keyboard.press("ArrowLeft");
+  await expect(
+    page.getByRole("heading", { name: "创世记第 2 章", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    page.getByRole("heading", { name: "创世记第 2 章", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("combobox", { name: "主译本", exact: true })
+    .press("ArrowLeft");
+  await expect(
+    page.getByRole("heading", { name: "创世记第 2 章", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.locator('[data-book="PSA"]').click();
   await page.getByRole("button", { name: "第150章", exact: true }).click();
-  await expect(next).toBeDisabled();
+  await page.locator("h1").click();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    page.getByRole("heading", { name: "箴言第 1 章", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "下一章", exact: true }),
+  ).toBeEnabled();
+  await page.screenshot({
+    path: test.info().outputPath("reader-navigation.png"),
+  });
 });
 
 test("licensed Chinese original-language notes work offline from selected verses", async ({
@@ -592,6 +612,11 @@ test("licensed Chinese original-language notes work offline from selected verses
   await page.getByRole("button", { name: "原文注解", exact: true }).click();
   const drawer = page.getByRole("dialog", { name: "原文字典注解" });
   await expect(drawer.getByText("H7225 · 希伯来文")).toBeVisible();
+  const initialMeaning = drawer.locator(".chinese-meaning");
+  await expect(initialMeaning).toContainText("首先");
+  await expect(initialMeaning).toBeInViewport();
+  await expect(initialMeaning).not.toContainText("AV -");
+  await drawer.getByText("KJV 经节关联词组", { exact: true }).click();
   await drawer.getByRole("button", { name: "God H430", exact: true }).click();
   const definition = drawer.getByRole("article", { name: "词典释义" });
   await expect(definition).toContainText("אֱלֹהִים");
@@ -616,6 +641,7 @@ test("licensed Chinese original-language notes work offline from selected verses
   await page.keyboard.press("Escape");
   await page.locator('[data-book="JHN"]').click();
   await page.getByRole("button", { name: "原文字典", exact: true }).click();
+  await drawer.getByText("KJV 经节关联词组", { exact: true }).click();
   await drawer
     .getByRole("button", { name: "the Word G3056", exact: true })
     .first()

@@ -1,5 +1,13 @@
 # Verification boundaries
 
+Search shares native/Mock fixtures for ordered wildcards, Unicode underscores,
+literal escapes, ASCII case behavior and SQL-looking text treated as data. Go
+checks exercise real bundled text, pagination, empty results and invalid inputs.
+Browser checks verify toolbar order, removed focus/edge controls, shortcut
+contexts, offline search, translation switching and same-chapter verse jumps.
+Dictionary checks require Chinese meanings in the opening viewport before
+English statistics. Native smoke searches for Genesis 1:1 through the Go bridge.
+
 Word-study regressions check real offline Hebrew/Greek lookups and KJV verse
 associations, Chinese definitions, invalid references and dictionary numbers,
 source importer escapes, duplicate records and preservation of source script.
@@ -34,7 +42,7 @@ cases guard against silently using WEBP or including an unselected translation.
 Browser end-to-end tests use a production build of the explicit Mock adapter.
 They exercise book/chapter navigation, Chinese/English and KJV/WEBP comparison, offline
 operations after loading bundled assets, highlight persistence across reload,
-clipboard content, exact PNG dimensions, focus-mode exit, mixed-translation
+clipboard content, exact PNG dimensions, stable reader navigation, mixed-translation
 selection rejection, visible data errors and direct export retry after a save
 failure without losing editor state. Screenshots and an actual exported
 PNG are uploaded with the browser report. These tests do not substitute for a
@@ -52,7 +60,7 @@ Shared user-supplied golden examples verify seven reference styles in Go and
 TypeScript, including exact punctuation, full/abbreviated book names, optional
 editions and per-verse prefixes. Browser cases check all seven copied strings,
 per-verse and edition-free PNGs, persisted style selection, external source
-navigation and edge-arrow hover/focus/boundaries. Card layout tests preserve
+navigation and context-aware chapter shortcuts/boundaries. Card layout tests preserve
 explicit line breaks and prevent closing punctuation from starting a line.
 
 The native matrix builds on macOS arm64/Intel, Windows arm64/amd64 and Ubuntu

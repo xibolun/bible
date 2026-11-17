@@ -34,6 +34,8 @@ import { drawCard } from "./features/cards/layout";
 import { appVersion } from "./shared/build";
 import { Settings } from "./features/settings/Settings";
 import { WordStudy } from "./features/word-study/WordStudy";
+import { ScriptureSearch } from "./features/search/ScriptureSearch";
+import { adjacentChapter } from "./shared/navigation";
 import { palettes, type ReadingTheme } from "./shared/themes";
 import {
   SelectionToolbar,
@@ -81,9 +83,9 @@ function Reader({
     [annotationError, setAnnotationError] = useState(""),
     [selection, setSelection] = useState<Selection | null>(null),
     [painting, setPainting] = useState(false),
-    [focus, setFocus] = useState(false),
     [card, setCard] = useState<Selection | null>(null),
     [settings, setSettings] = useState(false),
+    [searching, setSearching] = useState(false),
     [studyVerse, setStudyVerse] = useState<string | null>(null),
     [selectionAnchor, setSelectionAnchor] = useState<SelectionAnchor>(),
     [retry, setRetry] = useState(0);
@@ -97,6 +99,13 @@ function Reader({
   const currentPrefs = useRef(prefs);
   currentPrefs.current = prefs;
   const t = translator(prefs.uiLanguage);
+  const previousChapter = adjacentChapter(
+    books,
+    prefs.bookId,
+    prefs.chapter,
+    -1,
+  );
+  const nextChapter = adjacentChapter(books, prefs.bookId, prefs.chapter, 1);
   useEffect(() => {
     onLanguage(prefs.uiLanguage);
     document.documentElement.lang = prefs.uiLanguage;
@@ -206,18 +215,8 @@ function Reader({
     document
       .querySelector<HTMLElement>('.book-button[aria-current="page"]')
       ?.scrollIntoView({ block: "nearest" });
-  }, [prefs.bookId, prefs.chapter, focus]);
-  useEffect(() => {
-    const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setFocus(false);
-        setSelection(null);
-      }
-    };
-    window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
-  }, []);
-  const navigate = (bookId: string, ch: number) => {
+  }, [prefs.bookId, prefs.chapter]);
+  const navigate = useCallback((bookId: string, ch: number) => {
     setStudyVerse(null);
     setPrefs((p) => ({
       ...p,
@@ -226,7 +225,55 @@ function Reader({
       topVerse: "",
       scrollOffset: 0,
     }));
-  };
+  }, []);
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelection(null);
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        busy ||
+        starting ||
+        settings ||
+        searching ||
+        studyVerse ||
+        card ||
+        window.getSelection()?.isCollapsed === false ||
+        target?.closest(
+          "input, textarea, select, [contenteditable], [role='combobox'], [role='dialog'], .ant-select, .chapter-nav, .selection-toolbar",
+        )
+      )
+        return;
+      const next = adjacentChapter(
+        books,
+        prefs.bookId,
+        prefs.chapter,
+        event.key === "ArrowRight" ? 1 : -1,
+      );
+      if (!next) return;
+      event.preventDefault();
+      navigate(next.bookId, next.chapter);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [
+    books,
+    prefs.bookId,
+    prefs.chapter,
+    busy,
+    starting,
+    settings,
+    searching,
+    studyVerse,
+    card,
+    navigate,
+  ]);
   function placeToolbar(
     value: Selection,
     point?: { clientX: number; clientY: number },
@@ -408,6 +455,14 @@ function Reader({
           "native-smoke",
         );
         if (c.rows.length < 30) throw new Error("incomplete chapter");
+        const found = await api!.SearchScripture("cuv", "起%神", 0, 30);
+        if (
+          !found.results.some(
+            (hit) =>
+              hit.bookId === "GEN" && hit.chapter === 1 && hit.verseKey === "1",
+          )
+        )
+          throw new Error("scripture search");
         const hebrew = await api!.LookupWord("H430");
         const greek = await api!.LookupWord("G3056");
         const study = await api!.GetVerseWords("JHN", 1, "1");
@@ -529,121 +584,77 @@ function Reader({
       </div>
     );
   return (
-    <div className={`reader-shell ${focus ? "is-focused" : ""}`}>
-      {!focus && (
-        <aside className="sidebar" aria-label={t("书卷目录", "Books")}>
-          <header className="brand">
-            <img src="/bible.svg" alt="" />
-            <div>
-              <strong>{t("圣经", "Bible")}</strong>
-              <span>BIBLE</span>
-            </div>
-            <span
-              className="offline-dot"
-              title={t("离线阅读", "Offline reading")}
-            />
-          </header>
-          <div className="book-list">
-            {(["OT", "NT"] as const).map((group) => (
-              <section key={group}>
-                <h2>
-                  {group === "OT"
-                    ? t("旧约", "Old Testament")
-                    : t("新约", "New Testament")}
-                  <span>
-                    {prefs.uiLanguage !== "en" &&
-                      (group === "OT" ? "OLD TESTAMENT" : "NEW TESTAMENT")}
-                  </span>
-                </h2>
-                {books
-                  .filter((b) => b.testament === group)
-                  .map((b) => (
-                    <button
-                      key={b.id}
-                      className="book-button"
-                      aria-current={prefs.bookId === b.id ? "page" : undefined}
-                      onClick={() => navigate(b.id, 1)}
-                      onKeyDown={(e) => {
-                        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                          e.preventDefault();
-                          const next =
-                            books[
-                              books.findIndex((x) => x.id === b.id) +
-                                (e.key === "ArrowDown" ? 1 : -1)
-                            ];
-                          if (next) {
-                            navigate(next.id, 1);
-                            requestAnimationFrame(() =>
-                              document
-                                .querySelector<HTMLButtonElement>(
-                                  `[data-book="${next.id}"]`,
-                                )
-                                ?.focus(),
-                            );
-                          }
+    <div className="reader-shell">
+      <aside className="sidebar" aria-label={t("书卷目录", "Books")}>
+        <header className="brand">
+          <img src="/bible.svg" alt="" />
+          <div>
+            <strong>{t("圣经", "Bible")}</strong>
+            <span>BIBLE</span>
+          </div>
+          <span
+            className="offline-dot"
+            title={t("离线阅读", "Offline reading")}
+          />
+        </header>
+        <div className="book-list">
+          {(["OT", "NT"] as const).map((group) => (
+            <section key={group}>
+              <h2>
+                {group === "OT"
+                  ? t("旧约", "Old Testament")
+                  : t("新约", "New Testament")}
+                <span>
+                  {prefs.uiLanguage !== "en" &&
+                    (group === "OT" ? "OLD TESTAMENT" : "NEW TESTAMENT")}
+                </span>
+              </h2>
+              {books
+                .filter((b) => b.testament === group)
+                .map((b) => (
+                  <button
+                    key={b.id}
+                    className="book-button"
+                    aria-current={prefs.bookId === b.id ? "page" : undefined}
+                    onClick={() => navigate(b.id, 1)}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                        e.preventDefault();
+                        const next =
+                          books[
+                            books.findIndex((x) => x.id === b.id) +
+                              (e.key === "ArrowDown" ? 1 : -1)
+                          ];
+                        if (next) {
+                          navigate(next.id, 1);
+                          requestAnimationFrame(() =>
+                            document
+                              .querySelector<HTMLButtonElement>(
+                                `[data-book="${next.id}"]`,
+                              )
+                              ?.focus(),
+                          );
                         }
-                      }}
-                      data-book={b.id}
-                    >
-                      <span>
-                        {prefs.uiLanguage === "en" ? b.englishName : b.name}
-                      </span>
-                      <span className="book-abbreviation">
-                        {prefs.uiLanguage === "en" ? b.id : b.abbreviation}
-                      </span>
-                    </button>
-                  ))}
-              </section>
-            ))}
-          </div>
-          <footer className="sidebar-footer">
-            <span>{t("本地离线阅读", "Offline reading")}</span>
-          </footer>
-        </aside>
-      )}
+                      }
+                    }}
+                    data-book={b.id}
+                  >
+                    <span>
+                      {prefs.uiLanguage === "en" ? b.englishName : b.name}
+                    </span>
+                    <span className="book-abbreviation">
+                      {prefs.uiLanguage === "en" ? b.id : b.abbreviation}
+                    </span>
+                  </button>
+                ))}
+            </section>
+          ))}
+        </div>
+        <footer className="sidebar-footer">
+          <span>{t("本地离线阅读", "Offline reading")}</span>
+        </footer>
+      </aside>
       <main className="reading-main">
-        <nav className="chapter-nav" aria-label={t("章节导航", "Chapters")}>
-          <div className="chapter-strip">
-            {Array.from(
-              {
-                length: books.find((b) => b.id === prefs.bookId)?.chapters ?? 0,
-              },
-              (_, i) => i + 1,
-            ).map((n) => (
-              <button
-                className="chapter-button"
-                aria-label={t(`第${n}章`, `Chapter ${n}`)}
-                data-chapter={n}
-                aria-current={n === prefs.chapter ? "page" : undefined}
-                key={n}
-                onClick={() => navigate(prefs.bookId, n)}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-                    const next = n + (e.key === "ArrowRight" ? 1 : -1);
-                    if (
-                      next >= 1 &&
-                      next <=
-                        (books.find((b) => b.id === prefs.bookId)?.chapters ??
-                          0)
-                    ) {
-                      e.preventDefault();
-                      navigate(prefs.bookId, next);
-                      requestAnimationFrame(() =>
-                        document
-                          .querySelector<HTMLButtonElement>(
-                            `.chapter-button[data-chapter="${next}"]`,
-                          )
-                          ?.focus(),
-                      );
-                    }
-                  }
-                }}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </nav>
         <header className="reader-toolbar">
           <div className="chapter-title">
             <h1>
@@ -665,6 +676,14 @@ function Reader({
           </div>
           <div className="reader-actions">
             <Button
+              onClick={() => {
+                setSelection(null);
+                setSearching(true);
+              }}
+            >
+              {t("经文搜索", "Search scripture")}
+            </Button>
+            <Button
               disabled={!chapter || busy}
               onClick={() => {
                 setStudyVerse(
@@ -677,82 +696,73 @@ function Reader({
             >
               {t("原文字典", "Dictionary")}
             </Button>
-            {!focus && (
-              <>
-                <Select
-                  aria-label={t("主译本", "Primary translation")}
-                  value={prefs.translations[0]}
-                  onChange={(id) =>
-                    setPrefs((p) => ({
-                      ...p,
-                      translations: [
-                        id,
-                        ...p.translations
-                          .slice(1)
-                          .map((other) =>
-                            other === id ? p.translations[0] : other,
-                          ),
-                      ],
-                    }))
-                  }
-                  options={translations.map((t) => ({
+            <Select
+              aria-label={t("主译本", "Primary translation")}
+              value={prefs.translations[0]}
+              onChange={(id) =>
+                setPrefs((p) => ({
+                  ...p,
+                  translations: [
+                    id,
+                    ...p.translations
+                      .slice(1)
+                      .map((other) =>
+                        other === id ? p.translations[0] : other,
+                      ),
+                  ],
+                }))
+              }
+              options={translations.map((t) => ({
+                value: t.id,
+                label: `${t.abbreviation} · ${t.language.startsWith("zh") ? "简体中文" : "English"}`,
+              }))}
+              style={{ width: 160 }}
+            />
+            {prefs.parallel && (
+              <Select
+                aria-label={t("对照译本", "Comparison translations")}
+                mode="multiple"
+                optionLabelProp="abbreviation"
+                value={prefs.translations.slice(1)}
+                onChange={(selected: string[]) =>
+                  setPrefs((p) => ({
+                    ...p,
+                    translations: [p.translations[0], ...selected],
+                    parallel: selected.length > 0,
+                  }))
+                }
+                options={translations
+                  .filter((t) => t.id !== prefs.translations[0])
+                  .map((t) => ({
                     value: t.id,
+                    abbreviation: t.abbreviation,
                     label: `${t.abbreviation} · ${t.language.startsWith("zh") ? "简体中文" : "English"}`,
                   }))}
-                  style={{ width: 160 }}
-                />
-                {prefs.parallel && (
-                  <Select
-                    aria-label={t("对照译本", "Comparison translations")}
-                    mode="multiple"
-                    optionLabelProp="abbreviation"
-                    value={prefs.translations.slice(1)}
-                    onChange={(selected: string[]) =>
-                      setPrefs((p) => ({
-                        ...p,
-                        translations: [p.translations[0], ...selected],
-                        parallel: selected.length > 0,
-                      }))
-                    }
-                    options={translations
-                      .filter((t) => t.id !== prefs.translations[0])
-                      .map((t) => ({
-                        value: t.id,
-                        abbreviation: t.abbreviation,
-                        label: `${t.abbreviation} · ${t.language.startsWith("zh") ? "简体中文" : "English"}`,
-                      }))}
-                    style={{ minWidth: 180, maxWidth: 260 }}
-                  />
-                )}
-                <label className="parallel-toggle">
-                  {t("多译本对照", "Compare")}
-                  <Switch
-                    checked={prefs.parallel}
-                    onChange={(v) =>
-                      setPrefs((p) => ({
-                        ...p,
-                        parallel: v,
-                        translations:
-                          v && p.translations.length === 1
-                            ? [
-                                ...p.translations,
-                                translations.find(
-                                  (translation) =>
-                                    translation.id !== p.translations[0],
-                                )!.id,
-                              ]
-                            : p.translations,
-                      }))
-                    }
-                  />
-                </label>
-              </>
+                style={{ minWidth: 180, maxWidth: 260 }}
+              />
             )}
-            <Button onClick={() => setFocus((v) => !v)}>
-              {focus
-                ? t("退出专注 · Esc", "Exit focus · Esc")
-                : t("专注阅读", "Focus")}
-            </Button>
+            <label className="parallel-toggle">
+              {t("多译本对照", "Compare")}
+              <Switch
+                checked={prefs.parallel}
+                onChange={(v) =>
+                  setPrefs((p) => ({
+                    ...p,
+                    parallel: v,
+                    translations:
+                      v && p.translations.length === 1
+                        ? [
+                            ...p.translations,
+                            translations.find(
+                              (translation) =>
+                                translation.id !== p.translations[0],
+                            )!.id,
+                          ]
+                        : p.translations,
+                  }))
+                }
+              />
+            </label>
             <Button
               onClick={() => {
                 setSelection(null);
@@ -763,6 +773,48 @@ function Reader({
             </Button>
           </div>
         </header>
+        <nav className="chapter-nav" aria-label={t("章节导航", "Chapters")}>
+          <div className="chapter-strip">
+            {Array.from(
+              {
+                length: books.find((b) => b.id === prefs.bookId)?.chapters ?? 0,
+              },
+              (_, i) => i + 1,
+            ).map((n) => (
+              <button
+                className="chapter-button"
+                aria-label={t(`第${n}章`, `Chapter ${n}`)}
+                data-chapter={n}
+                aria-current={n === prefs.chapter ? "page" : undefined}
+                key={n}
+                onClick={() => navigate(prefs.bookId, n)}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                    const next = adjacentChapter(
+                      books,
+                      prefs.bookId,
+                      n,
+                      e.key === "ArrowRight" ? 1 : -1,
+                    );
+                    if (next) {
+                      e.preventDefault();
+                      navigate(next.bookId, next.chapter);
+                      requestAnimationFrame(() =>
+                        document
+                          .querySelector<HTMLButtonElement>(
+                            `.chapter-button[data-chapter="${next.chapter}"]`,
+                          )
+                          ?.focus(),
+                      );
+                    }
+                  }
+                }}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </nav>
         {prototype && (
           <Alert
             className="prototype-banner"
@@ -901,44 +953,6 @@ function Reader({
               </div>
             </Spin>
           </div>
-          <button
-            className="chapter-edge chapter-edge-previous"
-            aria-label={t("上一章", "Previous chapter")}
-            disabled={busy || prefs.chapter <= 1}
-            onClick={() => navigate(prefs.bookId, prefs.chapter - 1)}
-          >
-            <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="m15 5-7 7 7 7"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-          <button
-            className="chapter-edge chapter-edge-next"
-            aria-label={t("下一章", "Next chapter")}
-            disabled={
-              busy ||
-              prefs.chapter >=
-                (books.find((book) => book.id === prefs.bookId)?.chapters ?? 1)
-            }
-            onClick={() => navigate(prefs.bookId, prefs.chapter + 1)}
-          >
-            <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="m9 5 7 7-7 7"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
         </div>
         <footer className="reader-footer">
           <span>
@@ -951,30 +965,31 @@ function Reader({
           </span>
           <span>
             {t(
-              "拖选文字，或点击节号；Shift 连续选择",
-              "Select text or click a verse number; Shift-click for a range",
+              "拖选文字或点击节号；Shift 连选；← / → 翻章",
+              "Select text or verse numbers; Shift for a range; ← / → for chapters",
             )}
           </span>
           <Space size={4}>
             <Button
               type="text"
               size="small"
-              disabled={prefs.chapter <= 1 || busy}
-              onClick={() => navigate(prefs.bookId, prefs.chapter - 1)}
+              disabled={!previousChapter || busy}
+              onClick={() =>
+                previousChapter &&
+                navigate(previousChapter.bookId, previousChapter.chapter)
+              }
             >
-              {t("‹ 上一章", "‹ Previous")}
+              {t("上一章", "Previous chapter")}
             </Button>
             <Button
               type="text"
               size="small"
-              disabled={
-                prefs.chapter >=
-                  (books.find((b) => b.id === prefs.bookId)?.chapters ?? 1) ||
-                busy
+              disabled={!nextChapter || busy}
+              onClick={() =>
+                nextChapter && navigate(nextChapter.bookId, nextChapter.chapter)
               }
-              onClick={() => navigate(prefs.bookId, prefs.chapter + 1)}
             >
-              {t("下一章 ›", "Next ›")}
+              {t("下一章", "Next chapter")}
             </Button>
           </Space>
         </footer>
@@ -1070,6 +1085,36 @@ function Reader({
           verses={chapter.rows.map((row) => row.label)}
           language={prefs.uiLanguage}
           onClose={() => setStudyVerse(null)}
+        />
+      )}
+      {searching && (
+        <ScriptureSearch
+          api={api}
+          translations={translations}
+          initialTranslation={prefs.translations[0]}
+          language={prefs.uiLanguage}
+          onClose={() => setSearching(false)}
+          onSelect={(hit) => {
+            setSearching(false);
+            setSelection(null);
+            setStudyVerse(null);
+            setPrefs((p) => ({
+              ...p,
+              bookId: hit.bookId,
+              chapter: hit.chapter,
+              topVerse: hit.verseKey,
+              scrollOffset: 0,
+              translations: [
+                hit.translationId,
+                ...p.translations
+                  .slice(1)
+                  .map((id) =>
+                    id === hit.translationId ? p.translations[0] : id,
+                  ),
+              ],
+            }));
+            setRetry((n) => n + 1);
+          }}
         />
       )}
       {settings && (

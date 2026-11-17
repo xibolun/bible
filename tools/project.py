@@ -297,9 +297,14 @@ def smoke(args):
         print(f'Native bridge run {attempt+1} passed; file-dialog interaction remains manual.')
     dest.mkdir(parents=True,exist_ok=True);shutil.copy2(report,dest/f'{prefix}-native-smoke.json')
 
+def package_runs(runs,version):
+    return [item for item in runs if item['event']=='workflow_dispatch'
+            and item['workflowName']=='Desktop packages'
+            and item['displayTitle'].startswith(f'Desktop packages {version} (')]
+
 def release_artifacts(args):
     ref=args.ref;commit=output(['gh','api',f'repos/xibolun/bible/commits/{ref}','--jq','.sha'])
-    def runs():return json.loads(output(['gh','run','list','--repo','xibolun/bible','--commit',commit,'--json','databaseId,status,conclusion','--limit','20']))
+    def runs():return package_runs(json.loads(output(['gh','run','list','--repo','xibolun/bible','--commit',commit,'--json','databaseId,status,conclusion,event,workflowName,displayTitle','--limit','20'])),args.version)
     selected=runs()
     if not selected:
         run(['gh','workflow','run','desktop.yml','--repo','xibolun/bible','--ref',ref,'-f',f'version={args.version}'])

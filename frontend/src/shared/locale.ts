@@ -5,6 +5,8 @@ export const translator = (language: Language) => (zh: string, en: string) =>
   language === "en" ? en : zh;
 
 const errors: Record<string, string> = {
+  INVALID_SEARCH:
+    "Enter a 1–128 character search pattern and check escapes and pagination.",
   INVALID_WORD: "Enter a Strong’s number such as H430 or G3056.",
   WORD_NOT_FOUND: "This Strong’s entry is not in the bundled dictionary.",
   INVALID_REFERENCE: "This book or chapter is unavailable.",
@@ -31,6 +33,8 @@ const errors: Record<string, string> = {
 export function errorText(error: unknown, language: Language) {
   const value = error as { code?: string; message?: string };
   const code = value?.code ?? value?.message ?? "";
+  if (language !== "en" && code === "INVALID_SEARCH")
+    return "请输入 1–128 个字符的搜索条件，检查转义符和分页范围。";
   if (language !== "en" && code === "INVALID_WORD")
     return "请输入 Strong’s 编号，例如 H430 或 G3056。";
   if (language !== "en" && code === "WORD_NOT_FOUND")

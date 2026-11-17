@@ -33,6 +33,9 @@ type Result[T any] struct {
 func success[T any](v T) Result[T] { return Result[T]{OK: true, Data: &v} }
 func failure[T any](code string) Result[T] {
 	msg := map[string]string{"INVALID_REFERENCE": "书卷或章节不存在", "INVALID_TRANSLATION": "请选择不同且已安装的译本", "DATA_UNAVAILABLE": "内置经文不可用，请重新安装完整应用", "INVALID_SELECTION": "请选择同章同译本的连续经文", "STALE_DATA": "经文版本已变化，请重新选择", "STORAGE_ERROR": "无法读取或保存本地数据，请检查磁盘权限后重试", "CLIPBOARD_ERROR": "复制失败，请保留选区后重试", "INVALID_IMAGE": "卡片图像或尺寸无效", "EXPORT_ERROR": "保存失败，请检查目标文件夹和磁盘空间", "INVALID_SETTINGS": "显示设置或阅读位置无效", "CARD_LIMIT": "卡片最多20节、4000个字符", "BRIDGE_UNAVAILABLE": "桌面服务未连接，请重启应用"}[code]
+	if code == "INVALID_SEARCH" {
+		msg = "请输入 1–128 个字符的搜索条件，检查转义符和分页范围"
+	}
 	if msg == "" {
 		msg = map[string]string{"INVALID_WORD": "请输入 Strong’s 编号，例如 H430 或 G3056", "WORD_NOT_FOUND": "内置词典没有此 Strong’s 词条"}[code]
 		if msg == "" {
@@ -82,6 +85,13 @@ func New(data *bible.Dataset, store *storage.Store, desktop Desktop) *Service {
 }
 
 func (s *Service) ListTranslations() Result[[]bible.Translation] { return success(s.Data.Translations) }
+func (s *Service) SearchScripture(translation, pattern string, offset, limit int) Result[bible.SearchPage] {
+	page, err := s.Data.Search(translation, pattern, offset, limit)
+	if err != nil {
+		return failure[bible.SearchPage](err.Error())
+	}
+	return success(page)
+}
 func (s *Service) LookupWord(code string) Result[bible.DictionaryEntry] {
 	entry, err := bible.LookupWord(code)
 	if err != nil {
