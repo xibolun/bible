@@ -32,4 +32,4 @@ Release 附带 `SHA256SUMS` 与构建清单，方便核对版本和文件完整�
 
 在「设置」中选择复制样式、字号和界面语言；卡片编辑器可单独调整引用样式。源码入口位于设置中。
 
-[开发与本机构建](docs/development.md) · [自动发版](docs/releases.md) · [经文来源与许可](docs/scripture-sources.md) · [第三方声明](THIRD_PARTY_NOTICES.txt)
+[开发与本机构建](docs/development.md) · [自动发版](docs/releases.md) · [经文来源与许可](docs/scripture-sources.md) · [译本授权目录](docs/scripture-licensing.md) · [第三方声明](THIRD_PARTY_NOTICES.txt)
