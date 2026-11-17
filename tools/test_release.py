@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import release
@@ -64,6 +65,22 @@ class FakeGitHub:
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_github_lookup_finds_drafts_and_does_not_hide_authentication_failures(self):
+        missing = SimpleNamespace(returncode=1, stdout='{"status":"404"}', stderr='not found')
+        draft = {'id': 42, 'tag_name': TAG, 'draft': True, 'assets': []}
+        pages = SimpleNamespace(returncode=0, stdout=json.dumps([[{'tag_name': 'v0.1.0'}], [draft]]))
+        with patch.object(release.subprocess, 'run', side_effect=[missing, pages]) as run:
+            self.assertEqual(release.GitHub().view(TAG), draft)
+            self.assertIn('--paginate', run.call_args.args[0])
+        with patch.object(release.subprocess, 'run', side_effect=[missing, SimpleNamespace(returncode=0, stdout='[[]]')]):
+            self.assertIsNone(release.GitHub().view(TAG))
+        denied = SimpleNamespace(returncode=1, stdout='{"status":"403"}', stderr='forbidden')
+        with patch.object(release.subprocess, 'run', return_value=denied) as run:
+            with self.assertRaisesRegex(RuntimeError, 'forbidden'): release.GitHub().view(TAG)
+            self.assertEqual(run.call_count, 1)
+        with patch.object(release.subprocess, 'run', side_effect=[missing, denied]):
+            with self.assertRaisesRegex(RuntimeError, 'drafts'): release.GitHub().view(TAG)
+
     def test_github_publication_rechecks_the_tag_before_running_the_cli(self):
         client = release.GitHub()
         with patch.object(release, 'source') as source, patch.object(release.subprocess, 'run') as run:
