@@ -130,6 +130,23 @@
 .projection-controls .ant-select {
   width: 100%;
 }
+.projection-reference-row {
+  margin-bottom: 14px;
+  align-items: stretch;
+}
+.projection-controls .projection-reference-row > .projection-book-select {
+  flex: 2.4 1 0;
+  width: 0;
+  min-width: 0;
+}
+.projection-controls .projection-reference-row > .projection-number-select {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+}
+.projection-reference-row > .ant-btn {
+  flex: 0 0 auto;
+}
 .projection-controls .ant-input-number {
   width: 100%;
 }

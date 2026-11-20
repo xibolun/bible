@@ -44,14 +44,14 @@ test("searchable dropdowns prepare, reorder and remove passages from different b
 }) => {
   const panel = await open(page);
   await panel.getByRole("tab", { name: "下拉选择", exact: true }).click();
-  await book(page, "创", "创世记");
+  await book(page, "csj", "创世记");
   await number(page, "投影章节", "３");
   await number(page, "投影起始节", "15");
   await number(page, "投影结束节", "16");
   await panel
     .getByRole("button", { name: "加入投影清单", exact: true })
     .click();
-  await book(page, "Ｊｏｈｎ", "约翰福音");
+  await book(page, "yuehan", "约翰福音");
   await number(page, "投影章节", "3");
   await number(page, "投影起始节", "16");
   await panel
@@ -104,6 +104,63 @@ test("searchable dropdowns prepare, reorder and remove passages from different b
   await list.getByRole("button", { name: "清空清单", exact: true }).click();
   await expect(list).toHaveCount(0);
   await expect(audience.locator(".projection-content")).toHaveText(before!);
+});
+
+test("compact unlabeled passage row supports English and Pinyin at minimum bounds with large typography", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "bible:mock:preferences",
+      JSON.stringify({ globalFontSize: 20 }),
+    );
+  });
+  await page.setViewportSize({ width: 1024, height: 640 });
+  const panel = await open(page);
+  await panel.getByRole("tab", { name: "下拉选择", exact: true }).click();
+  const row = panel.getByRole("group", { name: "经文定位", exact: true });
+  await expect(row.locator("label")).toHaveCount(0);
+  for (const [query, name] of [
+    ["John", "约翰福音"],
+    ["yuē hàn", "约翰福音"],
+    ["yhfy", "约翰福音"],
+    ["1 John", "约翰一书"],
+    ["tie sa luo ni jia qian shu", "帖撒罗尼迦前书"],
+  ])
+    await book(page, query, name);
+  await number(page, "投影章节", "3");
+  await number(page, "投影起始节", "5");
+  await number(page, "投影结束节", "6");
+  const controls = row.locator(".ant-select,button");
+  await expect(controls).toHaveCount(5);
+  const bounds = await controls.evaluateAll((elements) =>
+    elements.map((element) => {
+      const r = element.getBoundingClientRect();
+      return {
+        top: r.top,
+        bottom: r.bottom,
+        left: r.left,
+        right: r.right,
+        width: r.width,
+      };
+    }),
+  );
+  for (const boundsItem of bounds) {
+    expect(Math.abs(boundsItem.top - bounds[0].top)).toBeLessThan(2);
+    expect(boundsItem.width).toBeGreaterThan(25);
+  }
+  const group = await row.boundingBox();
+  expect(bounds[0].left).toBeGreaterThanOrEqual(group!.x - 1);
+  expect(bounds.at(-1)!.right).toBeLessThanOrEqual(group!.x + group!.width + 1);
+  const fits = await row.evaluate((el) => el.scrollWidth <= el.clientWidth + 1);
+  expect(fits).toBe(true);
+  await row.getByRole("button", { name: "加入投影清单", exact: true }).click();
+  await expect(
+    panel.getByRole("region", { name: "投影清单", exact: true }),
+  ).toContainText("1TH3:5-6");
+  await row.screenshot({
+    path: test.info().outputPath("compact-projection-reference-row.png"),
+  });
 });
 
 test("quick compound references retain both citations and grouped long text fits a small screen", async ({
