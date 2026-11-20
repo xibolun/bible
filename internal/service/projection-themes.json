@@ -1,0 +1,8 @@
+[
+  {"id":"whiteboard","zh":"白板","en":"Whiteboard","backgroundColor":"#ffffff","textColor":"#18212b","alignment":"left","font":"sans","lineHeight":1.5},
+  {"id":"midnight","zh":"夜空","en":"Midnight","backgroundColor":"#101820","textColor":"#ffffff","alignment":"center","font":"sans","lineHeight":1.5},
+  {"id":"paper","zh":"暖纸","en":"Warm paper","backgroundColor":"#f4eddc","textColor":"#392f24","alignment":"left","font":"serif","lineHeight":1.6},
+  {"id":"sage","zh":"青绿","en":"Sage","backgroundColor":"#e4ede5","textColor":"#213e32","alignment":"left","font":"sans","lineHeight":1.6},
+  {"id":"navy","zh":"深蓝","en":"Navy","backgroundColor":"#102b46","textColor":"#f4f7fc","alignment":"center","font":"sans","lineHeight":1.5},
+  {"id":"plum","zh":"暮紫","en":"Plum","backgroundColor":"#302b40","textColor":"#f6f1fa","alignment":"center","font":"serif","lineHeight":1.6}
+]

@@ -1,13 +1,16 @@
 import { useLayoutEffect, useRef } from "react";
 import { formatPassage } from "../../shared/formatting";
-import { projectionPage, type ProjectionState } from "./model";
+import { projectionPages, type ProjectionState } from "./model";
+import { projectionThemes } from "./themes";
 import "./projection.css";
 
 export function ProjectionBoard({ state }: { state: ProjectionState }) {
   const stage = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
-  const passage = projectionPage(state);
-  const line = passage ? formatPassage(passage, state.style) : null;
+  const lines = projectionPages(state).map((passage) =>
+    formatPassage(passage, state.style),
+  );
+  const theme = projectionThemes.find((t) => t.id === state.style.themeId);
   useLayoutEffect(() => {
     const box = stage.current,
       text = content.current;
@@ -17,7 +20,8 @@ export function ProjectionBoard({ state }: { state: ProjectionState }) {
       if (!live) return;
       const ratio = Math.min(box.clientWidth / 1280, box.clientHeight / 720);
       const max = state.style.fontSize * ratio;
-      let low = Math.min(8, max),
+      // The lower bound scales with the logical slide, including small previews.
+      let low = Math.min(0.5 * ratio, max),
         high = max;
       for (let i = 0; i < 12; i++) {
         const size = (low + high) / 2;
@@ -44,22 +48,35 @@ export function ProjectionBoard({ state }: { state: ProjectionState }) {
     <div
       ref={stage}
       className="projection-board"
+      data-theme={state.style.themeId || "custom"}
       data-blank={state.blank}
       style={{
         backgroundColor: state.blank ? "#000000" : state.style.backgroundColor,
         color: state.style.textColor,
         textAlign: state.style.alignment,
+        fontFamily:
+          theme?.font === "serif"
+            ? '"Noto Serif CJK SC", "Songti SC", SimSun, serif'
+            : '"Bible Sans", sans-serif',
       }}
     >
-      {!state.blank && line && (
-        <div ref={content} className="projection-content">
-          {line.referenceBefore && (
-            <div className="projection-reference">{line.reference}</div>
-          )}
-          <div className="projection-verses">{line.text}</div>
-          {!line.referenceBefore && line.reference && (
-            <div className="projection-reference">{line.reference}</div>
-          )}
+      {!state.blank && lines.length > 0 && (
+        <div
+          ref={content}
+          className="projection-content"
+          style={{ lineHeight: theme?.lineHeight || 1.5 }}
+        >
+          {lines.map((line, index) => (
+            <section className="projection-passage" key={index}>
+              {line.referenceBefore && (
+                <div className="projection-reference">{line.reference}</div>
+              )}
+              <div className="projection-verses">{line.text}</div>
+              {!line.referenceBefore && line.reference && (
+                <div className="projection-reference">{line.reference}</div>
+              )}
+            </section>
+          ))}
         </div>
       )}
     </div>

@@ -1,12 +1,28 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Button, Drawer, Input, InputNumber, Select, Space } from "antd";
+import {
+  Alert,
+  Button,
+  Drawer,
+  Input,
+  InputNumber,
+  Select,
+  Space,
+  Tabs,
+} from "antd";
 import type { InputRef } from "antd";
-import type { API, Translation } from "../../shared/types";
+import type { API, Book, Translation } from "../../shared/types";
 import { ReferenceOptions } from "../../shared/ReferenceOptions";
 import { referenceStyles } from "../../shared/formatting";
 import { translator, type Language } from "../../shared/locale";
 import { ProjectionBoard } from "./ProjectionBoard";
-import { pageCount, type ProjectionStyle } from "./model";
+import {
+  pageCount,
+  projectionPassages,
+  splitProjectionReferences,
+  type ProjectionStyle,
+} from "./model";
+import { applyProjectionTheme, projectionThemes } from "./themes";
+import { PassagePicker } from "./PassagePicker";
 import { useProjection } from "./useProjection";
 
 export function ProjectionControls({
@@ -16,6 +32,7 @@ export function ProjectionControls({
   initialReference,
   initialTranslation,
   translations,
+  books,
   style,
   language,
   onStyle,
@@ -27,6 +44,7 @@ export function ProjectionControls({
   initialReference: string;
   initialTranslation: string;
   translations: Translation[];
+  books: Book[];
   style: ProjectionStyle;
   language: Language;
   onStyle: (style: ProjectionStyle) => void;
@@ -37,6 +55,11 @@ export function ProjectionControls({
   const [translation, setTranslation] = useState(initialTranslation);
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [entryMode, setEntryMode] = useState("quick");
+  const [drafts, setDrafts] = useState<
+    Array<{ id: number; reference: string }>
+  >([]);
+  const draftID = useRef(0);
   const input = useRef<InputRef>(null);
   const wasOpen = useRef(false);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
@@ -48,6 +71,7 @@ export function ProjectionControls({
   }, [open, initialReference, state.reference]);
   useEffect(() => {
     if (!open) return;
+    setEntryMode("quick");
     const timer = setTimeout(
       () => input.current?.focus({ cursor: "all" }),
       100,
@@ -66,12 +90,17 @@ export function ProjectionControls({
   };
   const change = (patch: Partial<ProjectionStyle>) => {
     const next = { ...style, ...patch, uiLanguage: language };
+    if (
+      !patch.themeId &&
+      (patch.backgroundColor || patch.textColor || patch.alignment)
+    )
+      next.themeId = "custom";
     onStyle(next);
     run(() => api.SetProjection("", "", next));
   };
-  const project = () => {
+  const project = (value = reference) => {
     if (publishing) return;
-    if (!reference.trim()) {
+    if (!value.trim()) {
       setError(
         t("请输入卷章节，例如 创3:15-16", "Enter a reference, e.g. GEN3:15-16"),
       );
@@ -79,14 +108,44 @@ export function ProjectionControls({
     }
     setPublishing(true);
     void run(async () => {
-      await api.SetProjection(reference, translation, {
+      await api.SetProjection(value, translation, {
         ...style,
         uiLanguage: language,
       });
       await api.ProjectionWindow("show");
     }).finally(() => setPublishing(false));
   };
+  const add = (value: string) => {
+    try {
+      const references = splitProjectionReferences(value);
+      if (drafts.length + references.length > 12)
+        throw new Error(
+          t(
+            "投影清单最多12段经文",
+            "The projection list supports up to 12 passages",
+          ),
+        );
+      const additions = references.map((reference) => ({
+        id: ++draftID.current,
+        reference,
+      }));
+      setDrafts((current) => [...current, ...additions]);
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const move = (index: number, direction: number) => {
+    setDrafts((current) => {
+      const next = [...current],
+        target = index + direction;
+      if (target < 0 || target >= next.length) return current;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
   const count = pageCount(state);
+  const multiple = drafts.length > 1 || projectionPassages(state).length > 1;
   return (
     <Drawer
       open={open}
@@ -104,27 +163,67 @@ export function ProjectionControls({
           "Enter a reference to project. Move the audience window to another display; F11 fullscreen, Esc windowed.",
         )}
       </p>
-      <label>
-        {t("快速经文", "Quick passage")}
-        <Input.Search
-          ref={input}
-          aria-label={t("投影经文", "Projection reference")}
-          placeholder="创3:15-16"
-          value={reference}
-          enterButton={
-            <Button
-              type="primary"
-              aria-label={t("投放", "Project")}
-              disabled={publishing}
-            >
-              {t("投放", "Project")}
-            </Button>
-          }
-          loading={publishing}
-          onChange={(e) => setReference(e.target.value)}
-          onSearch={project}
-        />
-      </label>
+      <Tabs
+        activeKey={entryMode}
+        onChange={setEntryMode}
+        items={[
+          {
+            key: "quick",
+            label: t("快速输入", "Quick input"),
+            children: (
+              <>
+                <label>
+                  {t("快速经文", "Quick passage")}
+                  <Input.Search
+                    ref={input}
+                    aria-label={t("投影经文", "Projection reference")}
+                    placeholder="创3:15-16;约3:16"
+                    value={reference}
+                    enterButton={
+                      <Button
+                        type="primary"
+                        aria-label={t("投放", "Project")}
+                        disabled={publishing}
+                      >
+                        {t("投放", "Project")}
+                      </Button>
+                    }
+                    loading={publishing}
+                    onChange={(e) => setReference(e.target.value)}
+                    onSearch={() => project()}
+                  />
+                </label>
+                <Button
+                  onClick={() => add(reference)}
+                  disabled={!reference.trim() || drafts.length >= 12}
+                >
+                  {t("加入投影清单", "Add to projection list")}
+                </Button>
+                <p className="projection-hint">
+                  {t(
+                    "多段可用分号或加号分隔；回车直接投放。加入清单后可排序并统一投放。",
+                    "Separate references with a semicolon or plus; Enter projects directly. Add to the list to reorder and project together.",
+                  )}
+                </p>
+              </>
+            ),
+          },
+          {
+            key: "picker",
+            label: t("下拉选择", "Choose passage"),
+            children: (
+              <PassagePicker
+                api={api}
+                books={books}
+                translation={translation}
+                language={language}
+                onAdd={add}
+                disabled={drafts.length >= 12}
+              />
+            ),
+          },
+        ]}
+      />
       <label>
         {t("投影译本", "Projection translation")}
         <Select
@@ -137,6 +236,80 @@ export function ProjectionControls({
           }))}
         />
       </label>
+      {drafts.length > 0 && (
+        <section
+          className="projection-drafts"
+          aria-label={t("投影清单", "Projection list")}
+        >
+          <div className="projection-list-heading">
+            <strong>
+              {t("投影清单", "Projection list")} ({drafts.length}/12)
+            </strong>
+            <Button size="small" onClick={() => setDrafts([])}>
+              {t("清空清单", "Clear list")}
+            </Button>
+          </div>
+          <ol>
+            {drafts.map((draft, index) => (
+              <li key={draft.id}>
+                <span>{draft.reference}</span>
+                <Space size={4}>
+                  <Button
+                    size="small"
+                    aria-label={t(
+                      `上移第${index + 1}段`,
+                      `Move passage ${index + 1} up`,
+                    )}
+                    disabled={index === 0}
+                    onClick={() => move(index, -1)}
+                  >
+                    ↑
+                  </Button>
+                  <Button
+                    size="small"
+                    aria-label={t(
+                      `下移第${index + 1}段`,
+                      `Move passage ${index + 1} down`,
+                    )}
+                    disabled={index === drafts.length - 1}
+                    onClick={() => move(index, 1)}
+                  >
+                    ↓
+                  </Button>
+                  <Button
+                    size="small"
+                    aria-label={t(
+                      `移除第${index + 1}段`,
+                      `Remove passage ${index + 1}`,
+                    )}
+                    onClick={() =>
+                      setDrafts((current) =>
+                        current.filter((d) => d.id !== draft.id),
+                      )
+                    }
+                  >
+                    ×
+                  </Button>
+                </Space>
+              </li>
+            ))}
+          </ol>
+          <Button
+            type="primary"
+            loading={publishing}
+            aria-label={t("投放清单", "Project list")}
+            onClick={() => project(drafts.map((d) => d.reference).join(";"))}
+          >
+            {t("投放清单", "Project list")}
+          </Button>
+          <p className="projection-hint">
+            {t(
+              "同屏显示多段，每段保留出处；清单修改在投放后生效。",
+              "Passages share the screen with individual citations. List edits take effect when projected.",
+            )}
+          </p>
+        </section>
+      )}
       {(error || loadError) && (
         <Alert role="alert" type="error" showIcon title={error || loadError} />
       )}
@@ -209,9 +382,15 @@ export function ProjectionControls({
           />
         </label>
         <label>
-          {t("每页经节", "Verses per page")}
+          {multiple
+            ? t("每段每页经节", "Verses per passage per page")
+            : t("每页经节", "Verses per page")}
           <Select
-            aria-label={t("每页经节", "Verses per page")}
+            aria-label={
+              multiple
+                ? t("每段每页经节", "Verses per passage per page")
+                : t("每页经节", "Verses per page")
+            }
             value={style.versesPerPage}
             options={[1, 2, 3, 4, 5, 6].map((n) => ({
               value: n,
@@ -239,25 +418,38 @@ export function ProjectionControls({
           />
         </label>
         <label>
-          {t("配色", "Palette")}
+          {t("投影主题", "Projection theme")}
           <Select
-            aria-label={t("投影配色", "Projection palette")}
-            placeholder={t("选择配色", "Choose palette")}
-            value={null}
+            aria-label={t("投影主题", "Projection theme")}
+            value={style.themeId || "custom"}
             options={[
-              { value: "white", label: t("白板", "Whiteboard") },
-              { value: "dark", label: t("深色", "Dark") },
-              { value: "warm", label: t("暖纸", "Warm paper") },
+              ...projectionThemes.map((theme) => ({
+                value: theme.id,
+                label: t(theme.zh, theme.en),
+              })),
+              { value: "custom", label: t("自定义", "Custom") },
             ]}
-            onChange={(v) =>
-              change(
-                v === "dark"
-                  ? { backgroundColor: "#101820", textColor: "#ffffff" }
-                  : v === "warm"
-                    ? { backgroundColor: "#f4eddc", textColor: "#392f24" }
-                    : { backgroundColor: "#ffffff", textColor: "#18212b" },
-              )
-            }
+            onChange={(id) => change(applyProjectionTheme(style, id))}
+            optionRender={(option) => {
+              const theme = projectionThemes.find(
+                (theme) => theme.id === option.value,
+              );
+              return (
+                <span className="projection-theme-option">
+                  {theme && (
+                    <i
+                      style={{
+                        background: theme.backgroundColor,
+                        color: theme.textColor,
+                      }}
+                    >
+                      Aa
+                    </i>
+                  )}
+                  <span>{option.label}</span>
+                </span>
+              );
+            }}
           />
         </label>
         <label>
@@ -302,6 +494,28 @@ export function ProjectionControls({
           language={language}
           onChange={change}
         />
+      </div>
+      <div
+        className="projection-theme-choices"
+        role="group"
+        aria-label={t("主题预览", "Theme previews")}
+      >
+        {projectionThemes.map((theme) => (
+          <button
+            key={theme.id}
+            type="button"
+            aria-label={t(`${theme.zh}主题`, `${theme.en} theme`)}
+            aria-pressed={style.themeId === theme.id}
+            style={{
+              background: theme.backgroundColor,
+              color: theme.textColor,
+            }}
+            onClick={() => change(applyProjectionTheme(style, theme.id))}
+          >
+            <span>{t("经文", "Scripture")}</span>
+            <small>{t(theme.zh, theme.en)}</small>
+          </button>
+        ))}
       </div>
     </Drawer>
   );

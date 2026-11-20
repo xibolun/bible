@@ -2,6 +2,7 @@ import type { Book, Dataset, FormatOptions } from "../../shared/types";
 import type { Passage } from "../../shared/formatting";
 
 export interface ProjectionStyle extends Required<FormatOptions> {
+  themeId?: string;
   fontSize: number;
   backgroundColor: string;
   textColor: string;
@@ -12,11 +13,13 @@ export interface ProjectionState {
   revision: number;
   reference: string;
   passage: Passage | null;
+  passages?: Passage[] | null;
   style: ProjectionStyle;
   pageIndex: number;
   blank: boolean;
 }
 export const defaultProjectionStyle: ProjectionStyle = {
+  themeId: "whiteboard",
   fontSize: 64,
   backgroundColor: "#ffffff",
   textColor: "#18212b",
@@ -32,6 +35,7 @@ export const emptyProjection = (): ProjectionState => ({
   revision: 0,
   reference: "",
   passage: null,
+  passages: [],
   style: { ...defaultProjectionStyle },
   pageIndex: 0,
   blank: false,
@@ -44,6 +48,31 @@ const normalize = (s: string) =>
     .replace(/\s/g, "")
     .replace(/[–—]/g, "-")
     .toLowerCase();
+export const projectionSearchText = normalize;
+export function splitProjectionReferences(reference: string): string[] {
+  const refs = reference
+    .replace(/\r\n/g, "\n")
+    .split(/[;；+＋\n]/)
+    .map((r) => r.trim());
+  if (new TextEncoder().encode(reference).length > 4096 || refs.length > 12)
+    throw new Error("投影最多12段、600节经文，请减少清单后重试");
+  if (refs.some((r) => !r)) throw new Error("经文引用不能为空，请检查分隔符");
+  return refs;
+}
+export function resolveReferences(
+  data: Dataset,
+  reference: string,
+  translation: string,
+) {
+  const passages = splitProjectionReferences(reference).map((r) =>
+    resolveReference(data, r, translation),
+  );
+  if (passages.reduce((n, p) => n + p.verses.length, 0) > 600)
+    throw new Error("投影最多12段、600节经文，请减少清单后重试");
+  return passages;
+}
+export const projectionPassages = (s: ProjectionState): Passage[] =>
+  s.passages?.length ? s.passages : s.passage ? [s.passage] : [];
 export function resolveReference(
   data: Dataset,
   reference: string,
@@ -103,16 +132,21 @@ export function resolveReference(
 export const pageCount = (s: ProjectionState) =>
   Math.max(
     1,
-    Math.ceil((s.passage?.verses.length || 0) / s.style.versesPerPage),
+    ...projectionPassages(s).map((p) =>
+      Math.ceil(p.verses.length / s.style.versesPerPage),
+    ),
   );
 export function projectionPage(s: ProjectionState) {
-  return (
-    s.passage && {
-      ...s.passage,
-      verses: s.passage.verses.slice(
+  return projectionPages(s)[0] || null;
+}
+export function projectionPages(s: ProjectionState) {
+  return projectionPassages(s)
+    .map((passage) => ({
+      ...passage,
+      verses: passage.verses.slice(
         s.pageIndex * s.style.versesPerPage,
         (s.pageIndex + 1) * s.style.versesPerPage,
       ),
-    }
-  );
+    }))
+    .filter((p) => p.verses.length > 0);
 }

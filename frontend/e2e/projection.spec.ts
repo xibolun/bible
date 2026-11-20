@@ -102,7 +102,7 @@ test("projection styles update live, paging and blanking synchronize in both dir
   await expect(audience.locator(".projection-content")).toHaveCount(0);
   await panel.getByRole("button", { name: "恢复画面", exact: true }).click();
   await expect(audience.locator(".projection-reference")).toBeVisible();
-  await choose(page, "投影配色", "暖纸");
+  await choose(page, "投影主题", "暖纸");
   await expect(audience.locator(".projection-board")).toHaveCSS(
     "background-color",
     "rgb(244, 237, 220)",
