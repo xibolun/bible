@@ -20,6 +20,10 @@ export function ApplyHighlight(request: string, sel: $models.Selection, color: s
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ApplyHighlight", request, sel, color);
 }
 
+export function ControlProjection(action: string): $CancellablePromise<$models.Result<$models.ProjectionState>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ControlProjection", action);
+}
+
 export function CopySelection(sel: $models.Selection, mode: string, ids: string[] | null, options: $models.CopyOptions): $CancellablePromise<$models.Result<boolean>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.CopySelection", sel, mode, ids, options);
 }
@@ -34,6 +38,10 @@ export function GetChapter(ids: string[] | null, book: string, chapter: number, 
 
 export function GetPreferences(): $CancellablePromise<$models.Result<$models.Preferences>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetPreferences");
+}
+
+export function GetProjection(): $CancellablePromise<$models.Result<$models.ProjectionState>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetProjection");
 }
 
 export function GetVerseWords(book: string, chapter: number, verse: string): $CancellablePromise<$models.Result<bible$0.VerseStudy>> {
@@ -56,6 +64,10 @@ export function LookupWord(code: string): $CancellablePromise<$models.Result<bib
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.LookupWord", code);
 }
 
+export function ProjectionWindow(action: string): $CancellablePromise<$models.Result<boolean>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ProjectionWindow", action);
+}
+
 export function Quit(): $CancellablePromise<$models.Result<boolean>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.Quit");
 }
@@ -74,4 +86,11 @@ export function SavePreferences(p: $models.Preferences): $CancellablePromise<$mo
 
 export function SearchScripture(translation: string, pattern: string, offset: number, limit: number): $CancellablePromise<$models.Result<bible$0.SearchPage>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.SearchScripture", translation, pattern, offset, limit);
+}
+
+/**
+ * Empty reference changes styling without replacing the last confirmed passage.
+ */
+export function SetProjection(reference: string, translation: string, style: $models.ProjectionStyle): $CancellablePromise<$models.Result<$models.ProjectionState>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.SetProjection", reference, translation, style);
 }

@@ -50,6 +50,7 @@ type SearchHistoryEntry struct {
 	Pattern       string `json:"pattern"`
 }
 type Preferences struct {
+	ProjectionStyle   ProjectionStyle      `json:"projectionStyle"`
 	SearchHistory     []SearchHistoryEntry `json:"searchHistory"`
 	ReadingTheme      string               `json:"readingTheme"`
 	BookID            string               `json:"bookId"`
@@ -74,7 +75,7 @@ type Preferences struct {
 }
 
 func Defaults() Preferences {
-	return Preferences{SearchHistory: []SearchHistoryEntry{}, ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, GlobalFontSize: 13, ChapterNumerals: "arabic", ReferenceBrackets: "none", ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
+	return Preferences{ProjectionStyle: DefaultProjectionStyle(), SearchHistory: []SearchHistoryEntry{}, ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, GlobalFontSize: 13, ChapterNumerals: "arabic", ReferenceBrackets: "none", ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
 }
 
 type Desktop interface {
@@ -84,13 +85,14 @@ type Desktop interface {
 }
 type smokeReporter interface{ FinishSmoke(bool, string) error }
 type Service struct {
-	Data    *bible.Dataset
-	Store   *storage.Store
-	Desktop Desktop
+	Data       *bible.Dataset
+	Store      *storage.Store
+	Desktop    Desktop
+	projection projectionStore
 }
 
 func New(data *bible.Dataset, store *storage.Store, desktop Desktop) *Service {
-	return &Service{data, store, desktop}
+	return &Service{Data: data, Store: store, Desktop: desktop, projection: projectionStore{state: ProjectionState{Style: DefaultProjectionStyle()}}}
 }
 
 func (s *Service) ListTranslations() Result[[]bible.Translation] { return success(s.Data.Translations) }
@@ -149,6 +151,9 @@ func (s *Service) GetPreferences() Result[Preferences] {
 	return success(p)
 }
 func (s *Service) validPreferences(p Preferences) bool {
+	if !p.ProjectionStyle.valid() {
+		return false
+	}
 	if p.GlobalFontSize < 11 || p.GlobalFontSize > 20 || !slices.Contains([]string{"arabic", "chinese"}, p.ChapterNumerals) || !slices.Contains([]string{"none", "book", "corner", "square"}, p.ReferenceBrackets) {
 		return false
 	}

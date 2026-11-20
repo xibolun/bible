@@ -7,9 +7,11 @@ export type {
     Chapter,
     DictionaryEntry,
     OriginalWord,
+    Passage,
     Row,
     SearchHit,
     SearchPage,
     Translation,
+    Verse,
     VerseStudy
 } from "./models.js";

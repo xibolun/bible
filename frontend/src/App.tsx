@@ -37,6 +37,7 @@ import { appVersion } from "./shared/build";
 import { Settings } from "./features/settings/Settings";
 import { WordStudy } from "./features/word-study/WordStudy";
 import { ScriptureSearch } from "./features/search/ScriptureSearch";
+import { ProjectionControls } from "./features/projection/ProjectionControls";
 import { adjacentChapter } from "./shared/navigation";
 import { keywordRanges, rememberSearch } from "./shared/search";
 import { commandShortcut, saveAndQuit } from "./shared/shortcuts";
@@ -117,6 +118,7 @@ function Reader({
     [painting, setPainting] = useState(false),
     [card, setCard] = useState<Selection | null>(null),
     [settings, setSettings] = useState(false),
+    [projecting, setProjecting] = useState(false),
     [searching, setSearching] = useState(false),
     [studyVerse, setStudyVerse] = useState<string | null>(null),
     [selectionAnchor, setSelectionAnchor] = useState<SelectionAnchor>(),
@@ -126,6 +128,44 @@ function Reader({
     pattern: string;
   }>();
   const [searchFocus, setSearchFocus] = useState(0);
+  const [projectionFocus, setProjectionFocus] = useState(0);
+  const openProjection = useCallback(() => {
+    setSettings(false);
+    setStudyVerse(null);
+    setSelection(null);
+    setProjecting(true);
+    setProjectionFocus((n) => n + 1);
+  }, []);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (
+        e.key === "F8" &&
+        !e.isComposing &&
+        !e.repeat &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey
+      ) {
+        e.preventDefault();
+        openProjection();
+      }
+    };
+    const message = (e: MessageEvent) => {
+      if (
+        e.origin === location.origin &&
+        e.data === "bible:projection-controls"
+      )
+        openProjection();
+    };
+    window.addEventListener("keydown", key);
+    window.addEventListener("bible:projection-controls", openProjection);
+    window.addEventListener("message", message);
+    return () => {
+      window.removeEventListener("keydown", key);
+      window.removeEventListener("bible:projection-controls", openProjection);
+      window.removeEventListener("message", message);
+    };
+  }, [openProjection]);
   const quitting = useRef(false);
   const scroll = useRef<HTMLDivElement>(null),
     request = useRef(0),
@@ -165,6 +205,7 @@ function Reader({
   }, []);
   const t = translator(prefs.uiLanguage);
   const openSearch = useCallback(() => {
+    setProjecting(false);
     setSelection(null);
     setSettings(false);
     setStudyVerse(null);
@@ -320,6 +361,7 @@ function Reader({
         busy ||
         starting ||
         settings ||
+        projecting ||
         searching ||
         studyVerse ||
         card ||
@@ -348,6 +390,7 @@ function Reader({
     busy,
     starting,
     settings,
+    projecting,
     searching,
     studyVerse,
     card,
@@ -841,6 +884,9 @@ function Reader({
             </p>
           </div>
           <div className="reader-actions">
+            <Button onClick={openProjection}>
+              {t("投影 F8", "Project F8")}
+            </Button>
             <Button onClick={openSearch}>
               {t("经文搜索", "Search scripture")}
             </Button>
@@ -1331,6 +1377,20 @@ function Reader({
           }}
         />
       )}
+      <ProjectionControls
+        api={api}
+        open={projecting}
+        focusRequest={projectionFocus}
+        initialReference={`${prefs.bookId}${prefs.chapter}:${selection?.spans[0]?.verseKey || "1"}${selection && selection.spans.length > 1 ? "-" + selection.spans.at(-1)!.verseKey : ""}`}
+        initialTranslation={prefs.translations[0]}
+        translations={translations}
+        style={prefs.projectionStyle}
+        language={prefs.uiLanguage}
+        onStyle={(projectionStyle) =>
+          setPrefs((p) => ({ ...p, projectionStyle }))
+        }
+        onClose={() => setProjecting(false)}
+      />
       {settings && (
         <Settings
           api={api}

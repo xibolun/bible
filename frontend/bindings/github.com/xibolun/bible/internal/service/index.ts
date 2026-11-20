@@ -12,6 +12,8 @@ export type {
     CopyOptions,
     Preferences,
     Problem,
+    ProjectionState,
+    ProjectionStyle,
     Result,
     Saved,
     SearchHistoryEntry,

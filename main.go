@@ -30,9 +30,86 @@ var appIcon []byte
 var version = "dev"
 
 type desktop struct {
-	app      *application.App
-	window   *application.WebviewWindow
-	smokeDir string
+	app        *application.App
+	window     *application.WebviewWindow
+	smokeDir   string
+	projection *application.WebviewWindow
+}
+
+func (d *desktop) ProjectionChanged(state service.ProjectionState) {
+	d.app.Event.Emit("bible:projection", state)
+}
+
+func (d *desktop) ProjectionWindow(action string) error {
+	if d.app == nil {
+		return fmt.Errorf("desktop unavailable")
+	}
+	application.InvokeSync(func() {
+		if action == "controls" {
+			d.window.Show().Focus()
+			d.window.ExecJS("window.dispatchEvent(new Event('bible:projection-controls'))")
+			return
+		}
+		if action == "stop" {
+			if d.projection != nil {
+				d.projection.Close()
+				d.projection = nil
+			}
+			return
+		}
+		if action == "escape" {
+			if d.projection != nil && d.projection.IsFullscreen() {
+				d.projection.UnFullscreen()
+			}
+			return
+		}
+		if d.projection == nil {
+			win := d.app.Window.NewWithOptions(application.WebviewWindowOptions{
+				Name: "projection", Title: "圣经投影 · Bible", URL: "/?projection=1",
+				Width: 1280, Height: 720, MinWidth: 640, MinHeight: 360,
+				BackgroundColour: application.NewRGB(255, 255, 255),
+				Linux:            application.LinuxWindow{Icon: appIcon},
+				KeyBindings: map[string]func(application.Window){
+					"F8":     func(_ application.Window) { go d.ProjectionWindow("controls") },
+					"F11":    func(w application.Window) { w.(*application.WebviewWindow).ToggleFullscreen() },
+					"Escape": func(_ application.Window) { go d.ProjectionWindow("escape") },
+				},
+			})
+			d.projection = win
+			win.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+				application.InvokeAsync(func() {
+					if d.projection == win {
+						d.projection = nil
+					}
+				})
+			})
+			if readerScreen, err := d.window.GetScreen(); err == nil {
+				for _, screen := range d.app.Screen.GetAll() {
+					if screen.ID != readerScreen.ID {
+						win.SetScreen(screen)
+						win.Center()
+						break
+					}
+				}
+			}
+		}
+		switch action {
+		case "fullscreen":
+			d.projection.Fullscreen()
+		case "window":
+			d.projection.UnFullscreen()
+		case "toggle-fullscreen":
+			d.projection.ToggleFullscreen()
+		}
+		d.projection.Show()
+		// Leave keyboard focus with the operator when publishing a passage.
+		if action == "show" {
+			d.window.Focus()
+		} else {
+			d.projection.Focus()
+		}
+	})
+	return nil
 }
 
 func (d *desktop) Copy(text string) error {
@@ -154,6 +231,9 @@ func main() {
 		MinWidth: 1024, MinHeight: 640, URL: url, StartState: state,
 		BackgroundColour: application.NewRGB(255, 255, 255), Linux: application.LinuxWindow{Icon: appIcon},
 		KeyBindings: map[string]func(application.Window){
+			"F8": func(window application.Window) {
+				window.(*application.WebviewWindow).ExecJS("window.dispatchEvent(new Event('bible:projection-controls'))")
+			},
 			"CmdOrCtrl+f": func(window application.Window) {
 				if webview, ok := window.(*application.WebviewWindow); ok {
 					webview.ExecJS("window.dispatchEvent(new Event('bible:search'))")
@@ -228,6 +308,9 @@ func main() {
 	win.OnWindowEvent(events.Common.WindowDidMove, saveWindow)
 	win.OnWindowEvent(events.Common.WindowDidResize, saveWindow)
 	win.OnWindowEvent(events.Common.WindowClosing, saveWindow)
+	win.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+		go desk.ProjectionWindow("stop")
+	})
 	// Native CI smoke mode starts the real WebView and runs bridge checks after the page loads.
 	if slices.Contains(os.Args, "--smoke-test") {
 		go func() { time.Sleep(30 * time.Second); log.Print("NATIVE_SMOKE_TIMEOUT"); app.Quit() }()
