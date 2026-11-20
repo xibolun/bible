@@ -10,7 +10,7 @@ func TestBundledCanonAndSourceSamples(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(d.Books) != 66 || len(d.Translations) != 3 || len(d.Chapters) != 1189*len(d.Translations) {
+	if len(d.Books) != 66 || len(d.Translations) != 4 || len(d.Chapters) != 1189*len(d.Translations) {
 		t.Fatal("incomplete canon")
 	}
 	for _, tr := range d.Translations {
@@ -39,6 +39,47 @@ func TestBundledCanonAndSourceSamples(t *testing.T) {
 		if !ok || !strings.Contains(v.Text, sample.want) {
 			t.Fatalf("source sample mismatch: %+v %q", sample, v.Text)
 		}
+	}
+}
+
+func TestDarbySourceTextAndMissingVerse(t *testing.T) {
+	d, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr, ok := d.Translation("dby")
+	if !ok || tr.Language != "en" || tr.Abbreviation != "DBY" || tr.License != "Public Domain" {
+		t.Fatalf("incorrect Darby identity: %+v", tr)
+	}
+	for _, sample := range []struct {
+		book        string
+		chapter     int
+		label, text string
+	}{
+		{"GEN", 1, "1", "In the beginning God created the heavens and the earth."},
+		{"JHN", 3, "16", "For God so loved the world, that he gave his only-begotten Son, that whosoever believes on him may not perish, but have life eternal."},
+		{"REV", 22, "21", "The grace of the Lord Jesus Christ [be] with all the saints."},
+	} {
+		verse, found := d.Verse("dby", sample.book, sample.chapter, sample.label)
+		if !found || verse.Text != sample.text {
+			t.Fatalf("DBY source changed: %+v %q", sample, verse.Text)
+		}
+	}
+	aligned, err := d.Align([]string{"kjv", "dby"}, "ACT", 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gap, next bool
+	for _, row := range aligned.Rows {
+		if row.Label == "37" {
+			gap = row.Cells[1].Missing && !row.Cells[0].Missing
+		}
+		if row.Label == "38" {
+			next = !row.Cells[1].Missing && strings.Contains(row.Cells[1].Text, "chariot")
+		}
+	}
+	if !gap || !next {
+		t.Fatal("Darby source omission shifted the next verse")
 	}
 }
 

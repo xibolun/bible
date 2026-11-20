@@ -121,7 +121,7 @@ back to Mock success when the Go bridge is unavailable.
 
 ## Data, fonts and user files
 
-Three complete translations (CUV, WEBP and SWORD KJV 3.1) and a CJK font are bundled. Source versions, hashes
+Four complete translations (CUV, WEBP, SWORD KJV 3.1 and English Darby DBY) and a CJK font are bundled. Source versions, hashes
 and conversion details are in `data/manifest.json` and `data/font.json`.
 `tools/import_data.py` rebuilds text from the pinned publisher archives and a
 CUV plain export and KJV raw per-verse OSIS export; it rejects unknown lines and duplicate references. Run
