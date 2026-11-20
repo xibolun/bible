@@ -1,0 +1,144 @@
+{
+  "book": {
+    "id": "JHN",
+    "name": "约翰福音",
+    "abbreviation": "约",
+    "englishName": "John",
+    "testament": "NT",
+    "chapters": 21
+  },
+  "chapter": 3,
+  "translation": {
+    "id": "cuv",
+    "name": "和合本",
+    "language": "zh-CN",
+    "abbreviation": "CUV",
+    "dataVersion": "test",
+    "license": "test",
+    "sourceUrl": ""
+  },
+  "verses": [
+    { "label": "1", "text": "正文一。" },
+    { "label": "2", "text": "正文二。" }
+  ],
+  "chapterCases": [
+    [1, "一"],
+    [3, "三"],
+    [9, "九"],
+    [10, "十"],
+    [11, "十一"],
+    [19, "十九"],
+    [20, "二十"],
+    [21, "二十一"],
+    [50, "五十"],
+    [99, "九十九"],
+    [100, "一百"],
+    [101, "一百零一"],
+    [109, "一百零九"],
+    [110, "一百一十"],
+    [111, "一百一十一"],
+    [120, "一百二十"],
+    [150, "一百五十"]
+  ],
+  "cases": [
+    {
+      "name": "legacy defaults",
+      "options": {
+        "referenceStyle": "full-version",
+        "referencePosition": "after",
+        "uiLanguage": "zh-CN"
+      },
+      "expected": "正文一。\n正文二。\n— 约翰福音3:1–2·CUV"
+    },
+    {
+      "name": "single Chinese chapter and book brackets",
+      "single": true,
+      "options": {
+        "referenceStyle": "short",
+        "referencePosition": "before",
+        "uiLanguage": "zh-CN",
+        "chapterNumerals": "chinese",
+        "referenceBrackets": "book"
+      },
+      "expected": "【约三:1】\n正文一。"
+    },
+    {
+      "name": "edition inside corner brackets",
+      "options": {
+        "referenceStyle": "short-version",
+        "referencePosition": "after",
+        "uiLanguage": "zh-CN",
+        "chapterNumerals": "chinese",
+        "referenceBrackets": "corner"
+      },
+      "expected": "正文一。\n正文二。\n— 「约三:1–2·CUV」"
+    },
+    {
+      "name": "Arabic square brackets",
+      "options": {
+        "referenceStyle": "short",
+        "referencePosition": "after",
+        "uiLanguage": "zh-CN",
+        "chapterNumerals": "arabic",
+        "referenceBrackets": "square"
+      },
+      "expected": "正文一。\n正文二。\n— [约3:1–2]"
+    },
+    {
+      "name": "inline book brackets",
+      "options": {
+        "referenceStyle": "inline",
+        "referencePosition": "after",
+        "uiLanguage": "zh-CN",
+        "chapterNumerals": "chinese",
+        "referenceBrackets": "book"
+      },
+      "expected": "【约三:1-2】: 正文一。\n正文二。"
+    },
+    {
+      "name": "per-verse corner brackets",
+      "options": {
+        "referenceStyle": "verses-short",
+        "referencePosition": "before",
+        "uiLanguage": "zh-CN",
+        "chapterNumerals": "chinese",
+        "referenceBrackets": "corner"
+      },
+      "expected": "「约三:1」: 正文一。\n「约三:2」: 正文二。"
+    },
+    {
+      "name": "per-verse full name square brackets",
+      "options": {
+        "referenceStyle": "verses-full",
+        "referencePosition": "after",
+        "uiLanguage": "zh-CN",
+        "chapterNumerals": "chinese",
+        "referenceBrackets": "square"
+      },
+      "expected": "[约翰福音三:1]: 正文一。\n[约翰福音三:2]: 正文二。"
+    },
+    {
+      "name": "English interface with explicit Chinese chapter",
+      "options": {
+        "referenceStyle": "full",
+        "referencePosition": "before",
+        "uiLanguage": "en",
+        "chapterNumerals": "chinese",
+        "referenceBrackets": "none"
+      },
+      "expected": "John 三:1–2\n正文一。\n正文二。"
+    },
+    {
+      "name": "English edition and brackets",
+      "single": true,
+      "options": {
+        "referenceStyle": "short-version",
+        "referencePosition": "after",
+        "uiLanguage": "en",
+        "chapterNumerals": "arabic",
+        "referenceBrackets": "book"
+      },
+      "expected": "正文一。\n— 【JHN 3:1·CUV】"
+    }
+  ]
+}

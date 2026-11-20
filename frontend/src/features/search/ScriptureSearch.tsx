@@ -10,6 +10,7 @@ import {
   Spin,
 } from "antd";
 import { errorText, translator, type Language } from "../../shared/locale";
+import type { InputRef } from "antd";
 import type {
   API,
   SearchHit,
@@ -23,6 +24,7 @@ export function ScriptureSearch({
   translations,
   initialTranslation,
   language,
+  focusRequest,
   history,
   onRemember,
   onClearHistory,
@@ -33,6 +35,7 @@ export function ScriptureSearch({
   translations: Translation[];
   initialTranslation: string;
   language: Language;
+  focusRequest: number;
   history: SearchHistoryEntry[];
   onRemember: (entry: SearchHistoryEntry) => void;
   onClearHistory: () => void;
@@ -50,6 +53,10 @@ export function ScriptureSearch({
   const [retry, setRetry] = useState(0);
   const request = useRef(0);
   const list = useRef<HTMLOListElement>(null);
+  const input = useRef<InputRef>(null);
+  useEffect(() => {
+    input.current?.focus({ cursor: "all" });
+  }, [focusRequest]);
   useEffect(() => {
     if (!pattern) return;
     const n = ++request.current;
@@ -118,6 +125,7 @@ export function ScriptureSearch({
           }}
         />
         <Input.Search
+          ref={input}
           autoFocus
           aria-label={t("搜索条件", "Search pattern")}
           placeholder={t("例如：起%神", "For example: beginning%God")}

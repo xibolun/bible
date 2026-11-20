@@ -15,10 +15,34 @@ import (
 )
 
 type fakeDesktop struct {
+	quit   bool
 	text   string
 	fail   bool
 	cancel bool
 	bytes  []byte
+}
+
+func (f *fakeDesktop) Quit() error {
+	if f.fail {
+		return errors.New("desktop unavailable")
+	}
+	f.quit = true
+	return nil
+}
+
+func TestQuitRequestsDesktopAndReportsUnavailableService(t *testing.T) {
+	s, desktop := fixture(t)
+	if result := s.Quit(); !result.OK || !desktop.quit {
+		t.Fatal("quit was not requested")
+	}
+	desktop.fail = true
+	if result := s.Quit(); result.OK || result.Error.Code != "BRIDGE_UNAVAILABLE" {
+		t.Fatal("failed quit reported success")
+	}
+	s.Desktop = nil
+	if result := s.Quit(); result.OK || result.Error.Code != "BRIDGE_UNAVAILABLE" {
+		t.Fatal("missing desktop reported success")
+	}
 }
 
 func (f *fakeDesktop) Copy(s string) error {
@@ -158,6 +182,9 @@ func TestLegacyPreferencesAndNewSettingsPersistWithoutLosingAnnotations(t *testi
 		t.Fatalf("legacy preferences reset: %+v", result)
 	}
 	p := *result.Data
+	if p.GlobalFontSize != 13 || p.ChapterNumerals != "arabic" || p.ReferenceBrackets != "none" {
+		t.Fatal("legacy typography/reference defaults lost")
+	}
 	if p.SearchHistory == nil || len(p.SearchHistory) != 0 {
 		t.Fatal("legacy preferences did not default to empty history")
 	}
@@ -165,6 +192,9 @@ func TestLegacyPreferencesAndNewSettingsPersistWithoutLosingAnnotations(t *testi
 	p.UILanguage = "en"
 	p.FontSize = 32
 	p.ReadingTheme = "sage"
+	p.GlobalFontSize = 20
+	p.ChapterNumerals = "chinese"
+	p.ReferenceBrackets = "book"
 	p.SearchHistory = []SearchHistoryEntry{{TranslationID: "webp", Pattern: "God%world"}}
 	if !s.SavePreferences(p).OK {
 		t.Fatal("new settings rejected")
@@ -174,6 +204,9 @@ func TestLegacyPreferencesAndNewSettingsPersistWithoutLosingAnnotations(t *testi
 		t.Fatal("settings not persisted")
 	}
 	marks := s.ListHighlights([]string{"cuv"}, "GEN", 1)
+	if read.Data.GlobalFontSize != 20 || read.Data.ChapterNumerals != "chinese" || read.Data.ReferenceBrackets != "book" {
+		t.Fatal("typography/reference settings not persisted")
+	}
 	if !marks.OK || len(*marks.Data) != 1 || (*marks.Data)[0].Color != "green" {
 		t.Fatal("settings changed annotations")
 	}
@@ -211,6 +244,17 @@ func TestSearchHistoryValidationAndClearing(t *testing.T) {
 	p.SearchHistory = []SearchHistoryEntry{}
 	if !s.SavePreferences(p).OK || len(s.GetPreferences().Data.SearchHistory) != 0 {
 		t.Fatal("history clear not persisted")
+	}
+}
+
+func TestTypographyAndReferencePreferencesValidate(t *testing.T) {
+	s, _ := fixture(t)
+	for _, change := range []func(*Preferences){func(p *Preferences) { p.GlobalFontSize = 10 }, func(p *Preferences) { p.GlobalFontSize = 21 }, func(p *Preferences) { p.ChapterNumerals = "roman" }, func(p *Preferences) { p.ReferenceBrackets = "angle" }} {
+		p := Defaults()
+		change(&p)
+		if s.SavePreferences(p).OK {
+			t.Fatal("invalid typography/reference preferences accepted")
+		}
 	}
 }
 

@@ -34,6 +34,7 @@ async function invoke<T>(request: PromiseLike<Result>): Promise<T> {
   return r.data as T;
 }
 export const native: API = {
+  Quit: () => invoke<boolean>(bridge.Quit()),
   SearchScripture: (translation, pattern, offset, limit) =>
     invoke<SearchPage>(
       bridge.SearchScripture(translation, pattern, offset, limit),
@@ -52,9 +53,21 @@ export const native: API = {
   ApplyHighlight: (request, sel, color) =>
     invoke<Highlight[]>(bridge.ApplyHighlight(request, sel, color)),
   CopySelection: (sel, mode, ids, options) =>
-    invoke<boolean>(bridge.CopySelection(sel, mode, ids, options)),
+    invoke<boolean>(
+      bridge.CopySelection(sel, mode, ids, {
+        ...options,
+        chapterNumerals: options.chapterNumerals || "arabic",
+        referenceBrackets: options.referenceBrackets || "none",
+      }),
+    ),
   GetCard: (sel, ids, full, options) =>
-    invoke<CardContent>(bridge.GetCard(sel, ids, full, options)),
+    invoke<CardContent>(
+      bridge.GetCard(sel, ids, full, {
+        ...options,
+        chapterNumerals: options.chapterNumerals || "arabic",
+        referenceBrackets: options.referenceBrackets || "none",
+      }),
+    ),
   OpenSource: async () => {
     await Browser.OpenURL(sourceRepository);
     return true;

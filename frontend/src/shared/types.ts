@@ -96,6 +96,9 @@ export interface Preferences {
   translations: string[];
   parallel: boolean;
   fontSize: number;
+  globalFontSize: number;
+  chapterNumerals: "arabic" | "chinese";
+  referenceBrackets: "none" | "book" | "corner" | "square";
   referencePosition: "before" | "after";
   referenceStyle: ReferenceStyle;
   uiLanguage: "zh-CN" | "en";
@@ -124,7 +127,8 @@ export type ReferenceStyle =
 export type FormatOptions = Pick<
   Preferences,
   "referencePosition" | "referenceStyle" | "uiLanguage"
->;
+> &
+  Partial<Pick<Preferences, "chapterNumerals" | "referenceBrackets">>;
 export interface CardContent {
   lines: CardLine[];
   fileName: string;
@@ -150,6 +154,9 @@ export const defaults: Preferences = {
   translations: ["cuv", "webp"],
   parallel: false,
   fontSize: 18,
+  globalFontSize: 13,
+  chapterNumerals: "arabic",
+  referenceBrackets: "none",
   referencePosition: "after",
   referenceStyle: "full-version",
   uiLanguage: "zh-CN",
@@ -168,6 +175,7 @@ export const colors: Record<string, { name: string; value: string }> = {
   purple: { name: "紫色", value: "#e8d9ff" },
 };
 export interface API {
+  Quit(): Promise<boolean>;
   SearchScripture(
     translation: string,
     pattern: string,
