@@ -11,6 +11,7 @@ import {
 import { codepoints } from "./selection";
 import { formatPassage, passageText } from "./formatting";
 import { sourceRepository } from "./build";
+import { mockProjection } from "../features/projection/mock";
 let loading: Promise<Dataset> | undefined;
 function data() {
   return (loading ??= fetch("/dataset.json").then((r) => {
@@ -80,6 +81,10 @@ async function formatted(
   );
 }
 export const mock: API = {
+  ...mockProjection,
+  async SetProjection(reference, translation, style) {
+    return mockProjection.set(await data(), reference, translation, style);
+  },
   async Quit() {
     return false;
   },

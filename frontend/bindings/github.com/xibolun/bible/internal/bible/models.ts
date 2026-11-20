@@ -41,6 +41,13 @@ export interface OriginalWord {
     "strongs": string[] | null;
 }
 
+export interface Passage {
+    "book": Book;
+    "chapter": number;
+    "verses": Verse[] | null;
+    "translation": Translation;
+}
+
 export interface Row {
     "label": string;
     "cells": Cell[] | null;
@@ -69,6 +76,11 @@ export interface Translation {
     "dataVersion": string;
     "sourceUrl": string;
     "license": string;
+}
+
+export interface Verse {
+    "label": string;
+    "text": string;
 }
 
 export interface VerseStudy {

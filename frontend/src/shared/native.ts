@@ -1,5 +1,6 @@
 import * as bridge from "../../bindings/github.com/xibolun/bible/internal/service/service";
-import { Browser } from "@wailsio/runtime";
+import { Browser, Events } from "@wailsio/runtime";
+import type { ProjectionState } from "../features/projection/model";
 import { sourceRepository } from "./build";
 import type {
   API,
@@ -34,6 +35,21 @@ async function invoke<T>(request: PromiseLike<Result>): Promise<T> {
   return r.data as T;
 }
 export const native: API = {
+  GetProjection: () => invoke<ProjectionState>(bridge.GetProjection()),
+  SetProjection: (reference, translation, style) =>
+    invoke<ProjectionState>(
+      bridge.SetProjection(reference, translation, {
+        ...style,
+        chapterNumerals: style.chapterNumerals || "arabic",
+        referenceBrackets: style.referenceBrackets || "none",
+      }),
+    ),
+  ControlProjection: (action) =>
+    invoke<ProjectionState>(bridge.ControlProjection(action)),
+  ProjectionWindow: (action) =>
+    invoke<boolean>(bridge.ProjectionWindow(action)),
+  WatchProjection: (fn) =>
+    Events.On("bible:projection", (event) => fn(event.data as ProjectionState)),
   Quit: () => invoke<boolean>(bridge.Quit()),
   SearchScripture: (translation, pattern, offset, limit) =>
     invoke<SearchPage>(

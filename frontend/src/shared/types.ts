@@ -1,4 +1,9 @@
 import type { ReadingTheme } from "./themes";
+import {
+  defaultProjectionStyle,
+  type ProjectionStyle,
+  type ProjectionState,
+} from "../features/projection/model";
 
 export interface Translation {
   id: string;
@@ -87,6 +92,7 @@ export interface Highlight {
   color: string;
 }
 export interface Preferences {
+  projectionStyle: ProjectionStyle;
   searchHistory: SearchHistoryEntry[];
   readingTheme: ReadingTheme;
   bookId: string;
@@ -145,6 +151,7 @@ export interface Dataset {
   chapters: Record<string, Verse[]>;
 }
 export const defaults: Preferences = {
+  projectionStyle: { ...defaultProjectionStyle },
   searchHistory: [],
   readingTheme: "light",
   bookId: "GEN",
@@ -175,6 +182,15 @@ export const colors: Record<string, { name: string; value: string }> = {
   purple: { name: "紫色", value: "#e8d9ff" },
 };
 export interface API {
+  GetProjection(): Promise<ProjectionState>;
+  SetProjection(
+    reference: string,
+    translation: string,
+    style: ProjectionStyle,
+  ): Promise<ProjectionState>;
+  ControlProjection(action: string): Promise<ProjectionState>;
+  ProjectionWindow(action: string): Promise<boolean>;
+  WatchProjection(fn: (state: ProjectionState) => void): () => void;
   Quit(): Promise<boolean>;
   SearchScripture(
     translation: string,

@@ -4,9 +4,17 @@ async function submit(page: Page, pattern: string) {
   const input = page.getByRole("searchbox", { name: "搜索条件", exact: true });
   await input.fill(pattern);
   await input.press("Enter");
-  await expect(
-    page.locator(".scripture-search .ant-spin-spinning"),
-  ).toHaveCount(0);
+  // Spin delays its indicator; absence alone does not mean the request completed.
+  if (pattern.endsWith("\\")) {
+    await expect(page.locator(".scripture-search [role=alert]")).toBeVisible();
+  } else {
+    await expect(
+      page
+        .locator(".search-history-items button")
+        .filter({ hasText: pattern })
+        .first(),
+    ).toBeVisible();
+  }
 }
 test("offline LIKE search paginates and jumps to verses in the same or another chapter", async ({
   page,
