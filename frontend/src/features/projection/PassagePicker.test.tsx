@@ -81,6 +81,7 @@ it("does not overwrite the latest translation's verse labels with a stale chapte
       translation="cuv"
       language="zh-CN"
       onAdd={onAdd}
+      onProject={vi.fn()}
       disabled={false}
     />,
   );
@@ -93,6 +94,7 @@ it("does not overwrite the latest translation's verse labels with a stale chapte
       translation="webp"
       language="zh-CN"
       onAdd={onAdd}
+      onProject={vi.fn()}
       disabled={false}
     />,
   );
@@ -103,7 +105,7 @@ it("does not overwrite the latest translation's verse labels with a stale chapte
     finish(chapter("cuv", "1"));
   });
   fireEvent.click(screen.getByRole("button", { name: "加入投影清单" }));
-  expect(onAdd).toHaveBeenCalledWith("GEN1:2");
+  await waitFor(() => expect(onAdd).toHaveBeenCalledWith("GEN1:2"));
 });
 it("keeps failed chapter selections unavailable and retries without adding stale scripture", async () => {
   const get = vi
@@ -118,6 +120,7 @@ it("keeps failed chapter selections unavailable and retries without adding stale
       translation="cuv"
       language="zh-CN"
       onAdd={onAdd}
+      onProject={vi.fn()}
       disabled={false}
     />,
   );
@@ -128,10 +131,72 @@ it("keeps failed chapter selections unavailable and retries without adding stale
     expect(screen.getByRole("button", { name: "加入投影清单" })).toBeEnabled(),
   );
   fireEvent.click(screen.getByRole("button", { name: "加入投影清单" }));
-  expect(onAdd).toHaveBeenCalledWith("GEN1:1");
+  await waitFor(() => expect(onAdd).toHaveBeenCalledWith("GEN1:1"));
 });
 it("restricts end choices to contiguous source labels", () => {
   expect(rangeEndLabels(["1", "2", "4", "5"], "1")).toEqual(["1", "2"]);
   expect(rangeEndLabels(["1", "2", "4", "5"], "4")).toEqual(["4", "5"]);
   expect(rangeEndLabels(["1", "2"], "3")).toEqual([]);
+});
+it("waits for the matching source and cancels a pending projection when text changes", async () => {
+  let finish!: (value: Chapter) => void;
+  const get = vi.fn(
+    () =>
+      new Promise<Chapter>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const onProject = vi.fn();
+  render(
+    <PassagePicker
+      api={{ GetChapter: get } as unknown as API}
+      books={books}
+      translation="cuv"
+      language="zh-CN"
+      onAdd={vi.fn()}
+      onProject={onProject}
+      disabled={false}
+    />,
+  );
+  await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+  const start = screen.getByRole("combobox", { name: "投影起始节" });
+  fireEvent.change(start, { target: { value: "2" } });
+  fireEvent.keyDown(start, { key: "Enter" });
+  fireEvent.change(start, { target: { value: "1" } });
+  await act(async () => {
+    finish(chapter("cuv", "1"));
+  });
+  expect(onProject).not.toHaveBeenCalled();
+  fireEvent.keyDown(start, { key: "Enter" });
+  await waitFor(() => expect(onProject).toHaveBeenCalledWith("GEN1:1"));
+});
+it("retains a verse typed during loading and publishes only after its source arrives", async () => {
+  let finish!: (value: Chapter) => void;
+  const get = vi.fn(
+    () =>
+      new Promise<Chapter>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const onProject = vi.fn();
+  render(
+    <PassagePicker
+      api={{ GetChapter: get } as unknown as API}
+      books={books}
+      translation="cuv"
+      language="zh-CN"
+      onAdd={vi.fn()}
+      onProject={onProject}
+      disabled={false}
+    />,
+  );
+  await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+  const start = screen.getByRole("combobox", { name: "投影起始节" });
+  fireEvent.change(start, { target: { value: "16" } });
+  fireEvent.keyDown(start, { key: "Enter" });
+  expect(onProject).not.toHaveBeenCalled();
+  await act(async () => {
+    finish(chapter("cuv", "16"));
+  });
+  await waitFor(() => expect(onProject).toHaveBeenCalledWith("GEN1:16"));
 });

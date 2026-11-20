@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { entry, setPassage } from "./projection-helpers";
 
 async function controls(page: Page) {
   await expect(page.locator(".verse-scroll")).toHaveAttribute(
@@ -11,9 +12,7 @@ async function controls(page: Page) {
     exact: true,
   });
   await expect(panel).toBeVisible();
-  await expect(
-    panel.getByRole("searchbox", { name: "投影经文", exact: true }),
-  ).toBeFocused();
+  await expect(entry(page, "book")).toBeFocused();
   return panel;
 }
 async function choose(page: Page, label: string, text: string) {
@@ -29,8 +28,7 @@ test("F8 projects full-width references offline in a separate audience window, r
 }) => {
   await page.goto("/");
   const panel = await controls(page);
-  const input = panel.getByRole("searchbox", { name: "投影经文", exact: true });
-  await input.fill("创３：１５－１６");
+  let input = await setPassage(page, "ＧＥＮ", "３", "１５", "１６");
   const popup = page.waitForEvent("popup");
   await input.press("Enter");
   const audience = await popup;
@@ -47,17 +45,17 @@ test("F8 projects full-width references offline in a separate audience window, r
   await expect(audience.getByRole("button")).toHaveCount(0);
   await expect(panel).toBeVisible();
   const before = await audience.locator(".projection-content").textContent();
-  await input.fill("创3:16-15");
+  input = await setPassage(page, "GEN", "3", "16", "15");
   await input.press("Enter");
   await expect(panel.getByRole("alert")).toContainText("无效");
   await expect(audience.locator(".projection-content")).toHaveText(before!);
   await page.keyboard.press("F8");
-  await expect(input).toBeFocused();
-  await expect(input).toHaveJSProperty("selectionStart", 0);
+  await expect(entry(page, "book")).toBeFocused();
+  await expect(entry(page, "book")).toHaveJSProperty("selectionStart", 0);
   await panel.getByRole("button", { name: "停止投影", exact: true }).click();
   await expect.poll(() => audience.isClosed()).toBe(true);
   await context.setOffline(false); // A new browser document still needs the local preview server.
-  await input.fill("GEN1:1");
+  input = await setPassage(page, "GEN", "1", "1");
   const second = page.waitForEvent("popup");
   await input.press("Enter");
   const reopened = await second;
@@ -71,8 +69,7 @@ test("projection styles update live, paging and blanking synchronize in both dir
 }) => {
   await page.goto("/");
   const panel = await controls(page);
-  const input = panel.getByRole("searchbox", { name: "投影经文", exact: true });
-  await input.fill("诗150");
+  const input = await setPassage(page, "PSA", "150", "");
   const popup = page.waitForEvent("popup");
   await input.press("Enter");
   const audience = await popup;
@@ -117,7 +114,7 @@ test("projection styles update live, paging and blanking synchronize in both dir
     "— 【诗一百五十:5–6】",
   );
   await audience.keyboard.press("F8");
-  await expect(input).toBeFocused();
+  await expect(entry(page, "book")).toBeFocused();
   await expect
     .poll(() =>
       page.evaluate(
@@ -150,9 +147,7 @@ test("long pages fit the audience and preview at small viewports without clippin
   await expect(
     panel.getByRole("button", { name: "投放", exact: true }),
   ).toBeEnabled();
-  await panel
-    .getByRole("searchbox", { name: "投影经文", exact: true })
-    .fill("诗119:1-6");
+  await setPassage(page, "PSA", "119", "1", "6");
   const popup = page.waitForEvent("popup");
   await panel.getByRole("button", { name: "投放", exact: true }).click();
   const audience = await popup;

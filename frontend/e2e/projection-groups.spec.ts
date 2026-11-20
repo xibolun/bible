@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { entry, setPassage, addPassage } from "./projection-helpers";
 
 async function open(page: Page) {
   await page.goto("/");
@@ -13,20 +14,6 @@ async function open(page: Page) {
   });
   await expect(panel).toBeVisible();
   return panel;
-}
-async function number(page: Page, label: string, value: string) {
-  const input = page.getByRole("combobox", { name: label, exact: true });
-  await expect(input).toBeEnabled();
-  await input.fill(value);
-  await input.press("Enter");
-}
-async function book(page: Page, query: string, name: string) {
-  const input = page.getByRole("combobox", { name: "投影书卷", exact: true });
-  await input.fill(query);
-  await page
-    .locator(".ant-select-dropdown:visible")
-    .getByText(name, { exact: true })
-    .click();
 }
 async function pageSize(page: Page, value: string) {
   await page
@@ -43,20 +30,8 @@ test("searchable dropdowns prepare, reorder and remove passages from different b
   context,
 }) => {
   const panel = await open(page);
-  await panel.getByRole("tab", { name: "下拉选择", exact: true }).click();
-  await book(page, "csj", "创世记");
-  await number(page, "投影章节", "３");
-  await number(page, "投影起始节", "15");
-  await number(page, "投影结束节", "16");
-  await panel
-    .getByRole("button", { name: "加入投影清单", exact: true })
-    .click();
-  await book(page, "yuehan", "约翰福音");
-  await number(page, "投影章节", "3");
-  await number(page, "投影起始节", "16");
-  await panel
-    .getByRole("button", { name: "加入投影清单", exact: true })
-    .click();
+  await addPassage(page, "csj", "3", "15", "16");
+  await addPassage(page, "yuehan", "3", "16");
   const list = panel.getByRole("region", { name: "投影清单", exact: true });
   await expect(list.locator("li > span")).toHaveText(["GEN3:15-16", "JHN3:16"]);
   await list.getByRole("button", { name: "上移第2段", exact: true }).click();
@@ -95,9 +70,7 @@ test("searchable dropdowns prepare, reorder and remove passages from different b
     panel.getByRole("button", { name: "下一页", exact: true }),
   ).toBeDisabled();
   const before = await audience.locator(".projection-content").textContent();
-  await panel.getByRole("tab", { name: "快速输入", exact: true }).click();
-  const input = panel.getByRole("searchbox", { name: "投影经文", exact: true });
-  await input.fill("GEN3:15;JHN99:16");
+  const input = await setPassage(page, "GEN", "3", "16", "15");
   await input.press("Enter");
   await expect(panel.getByRole("alert")).toContainText("无效");
   await expect(audience.locator(".projection-content")).toHaveText(before!);
@@ -117,8 +90,7 @@ test("compact unlabeled passage row supports English and Pinyin at minimum bound
   });
   await page.setViewportSize({ width: 1024, height: 640 });
   const panel = await open(page);
-  await panel.getByRole("tab", { name: "下拉选择", exact: true }).click();
-  const row = panel.getByRole("group", { name: "经文定位", exact: true });
+  const row = panel.getByRole("group", { name: "快速经文", exact: true });
   await expect(row.locator("label")).toHaveCount(0);
   for (const [query, name] of [
     ["John", "约翰福音"],
@@ -126,13 +98,16 @@ test("compact unlabeled passage row supports English and Pinyin at minimum bound
     ["yhfy", "约翰福音"],
     ["1 John", "约翰一书"],
     ["tie sa luo ni jia qian shu", "帖撒罗尼迦前书"],
-  ])
-    await book(page, query, name);
-  await number(page, "投影章节", "3");
-  await number(page, "投影起始节", "5");
-  await number(page, "投影结束节", "6");
+  ]) {
+    await entry(page, "book").fill(query);
+    await page
+      .locator(".ant-select-dropdown:visible")
+      .getByText(name, { exact: true })
+      .click();
+  }
+  await setPassage(page, "1TH", "3", "5", "6");
   const controls = row.locator(".ant-select,button");
-  await expect(controls).toHaveCount(5);
+  await expect(controls).toHaveCount(6);
   const bounds = await controls.evaluateAll((elements) =>
     elements.map((element) => {
       const r = element.getBoundingClientRect();
@@ -163,21 +138,28 @@ test("compact unlabeled passage row supports English and Pinyin at minimum bound
   });
 });
 
-test("quick compound references retain both citations and grouped long text fits a small screen", async ({
+test("prepared passages retain both citations and grouped long text fits a small screen", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1024, height: 640 });
   const panel = await open(page);
-  const input = panel.getByRole("searchbox", { name: "投影经文", exact: true });
-  await input.fill("创３:１５-１６＋约３:１６");
+  await addPassage(page, "GEN", "3", "15", "16");
+  await addPassage(page, "JHN", "3", "16");
+  const list = panel.getByRole("region", { name: "投影清单", exact: true });
   const popup = page.waitForEvent("popup");
-  await input.press("Enter");
+  await list.getByRole("button", { name: "投放清单", exact: true }).click();
   const audience = await popup;
   await audience.setViewportSize({ width: 640, height: 360 });
   await expect(audience.locator(".projection-reference")).toHaveCount(2);
   await pageSize(page, "6");
-  await input.fill("GEN3:15-20;PSA119:1-6;JHN3:16-21");
-  await input.press("Enter");
+  await list.getByRole("button", { name: "清空清单", exact: true }).click();
+  for (const [book, ch, start, end] of [
+    ["GEN", "3", "15", "20"],
+    ["PSA", "119", "1", "6"],
+    ["JHN", "3", "16", "21"],
+  ])
+    await addPassage(page, book, ch, start, end);
+  await list.getByRole("button", { name: "投放清单", exact: true }).click();
   await expect(audience.locator(".projection-reference")).toHaveCount(3);
   await expect(audience.locator(".projection-reference").nth(2)).toContainText(
     "约3:16–21",
@@ -200,8 +182,14 @@ test("quick compound references retain both citations and grouped long text fits
   await audience.screenshot({
     path: test.info().outputPath("projection-multiple-books.png"),
   });
-  await input.fill(Array(4).fill("GEN3:15-20;PSA119:1-6;JHN3:16-21").join(";"));
-  await input.press("Enter");
+  for (let n = 0; n < 3; n++)
+    for (const [book, ch, start, end] of [
+      ["GEN", "3", "15", "20"],
+      ["PSA", "119", "1", "6"],
+      ["JHN", "3", "16", "21"],
+    ])
+      await addPassage(page, book, ch, start, end);
+  await list.getByRole("button", { name: "投放清单", exact: true }).click();
   await expect(audience.locator(".projection-passage")).toHaveCount(12);
   await expect
     .poll(() =>
@@ -239,10 +227,10 @@ test("themes update the audience live, preserve citation settings and font size,
   await expect(panel.getByLabel("背景颜色", { exact: true })).toHaveValue(
     "#123456",
   );
-  const input = panel.getByRole("searchbox", { name: "投影经文", exact: true });
-  await input.fill("JHN3:16;GEN1:1");
+  await addPassage(page, "JHN", "3", "16");
+  await addPassage(page, "GEN", "1", "1");
   const popup = page.waitForEvent("popup");
-  await input.press("Enter");
+  await panel.getByRole("button", { name: "投放清单", exact: true }).click();
   const audience = await popup;
   await expect(audience.locator(".projection-board")).toHaveAttribute(
     "data-theme",
