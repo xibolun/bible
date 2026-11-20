@@ -39,6 +39,7 @@ import { WordStudy } from "./features/word-study/WordStudy";
 import { ScriptureSearch } from "./features/search/ScriptureSearch";
 import { adjacentChapter } from "./shared/navigation";
 import { keywordRanges, rememberSearch } from "./shared/search";
+import { commandShortcut, saveAndQuit } from "./shared/shortcuts";
 import { palettes, type ReadingTheme } from "./shared/themes";
 import {
   SelectionToolbar,
@@ -95,9 +96,11 @@ function MarkedText({
 function Reader({
   onLanguage,
   onTheme,
+  onGlobalFontSize,
 }: {
   onLanguage: (language: Language) => void;
   onTheme: (theme: ReadingTheme) => void;
+  onGlobalFontSize: (size: number) => void;
 }) {
   const { message } = AntApp.useApp();
   const [api, setAPI] = useState<API>(),
@@ -122,6 +125,8 @@ function Reader({
     hit: SearchHit;
     pattern: string;
   }>();
+  const [searchFocus, setSearchFocus] = useState(0);
+  const quitting = useRef(false);
   const scroll = useRef<HTMLDivElement>(null),
     request = useRef(0),
     scrollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
@@ -159,6 +164,20 @@ function Reader({
     });
   }, []);
   const t = translator(prefs.uiLanguage);
+  const openSearch = useCallback(() => {
+    setSelection(null);
+    setSettings(false);
+    setStudyVerse(null);
+    setSearching(true);
+    setSearchFocus((n) => n + 1);
+  }, []);
+  useEffect(() => {
+    onGlobalFontSize(prefs.globalFontSize);
+    document.documentElement.style.setProperty(
+      "--font-scale",
+      String(prefs.globalFontSize / 13),
+    );
+  }, [onGlobalFontSize, prefs.globalFontSize]);
   const previousChapter = adjacentChapter(
     books,
     prefs.bookId,
@@ -275,7 +294,7 @@ function Reader({
     document
       .querySelector<HTMLElement>('.book-button[aria-current="page"]')
       ?.scrollIntoView({ block: "nearest" });
-  }, [prefs.bookId, prefs.chapter]);
+  }, [prefs.bookId, prefs.chapter, prefs.globalFontSize, searching]);
   const navigate = useCallback((bookId: string, ch: number) => {
     setSearchTarget(undefined);
     setStudyVerse(null);
@@ -393,7 +412,13 @@ function Reader({
       if (value) {
         setSelection(value);
         placeToolbar(value, point);
-      } else if (point) setSelection(null);
+      } else if (
+        point &&
+        !(
+          point.target instanceof Element && point.target.closest(".verse-cell")
+        )
+      )
+        setSelection(null);
     } catch (e) {
       setSelection(null);
       message.warning(errorText(e, prefs.uiLanguage));
@@ -422,6 +447,8 @@ function Reader({
         await api.CopySelection(value, mode, idsKey.split(","), {
           referencePosition: prefs.referencePosition,
           referenceStyle: prefs.referenceStyle,
+          chapterNumerals: prefs.chapterNumerals,
+          referenceBrackets: prefs.referenceBrackets,
           uiLanguage: prefs.uiLanguage,
         });
         message.success(
@@ -437,6 +464,8 @@ function Reader({
       idsKey,
       prefs.referencePosition,
       prefs.referenceStyle,
+      prefs.chapterNumerals,
+      prefs.referenceBrackets,
       prefs.uiLanguage,
       message,
     ],
@@ -444,13 +473,19 @@ function Reader({
   useEffect(() => {
     const interceptCopy = (event: ClipboardEvent) => {
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest("input, textarea, [contenteditable='true']")) return;
+      if (
+        target?.closest(
+          "input, textarea, [contenteditable]:not([contenteditable='false'])",
+        )
+      )
+        return;
       const browserSelection = window.getSelection();
       const start = browserSelection?.anchorNode;
       const element = start instanceof Element ? start : start?.parentElement;
       if (
         !element?.closest(".verses") &&
-        !target?.closest(".verses, .selection-toolbar")
+        !target?.closest(".verses, .selection-toolbar") &&
+        (!selection || browserSelection?.isCollapsed === false)
       )
         return;
       event.preventDefault();
@@ -467,6 +502,66 @@ function Reader({
     document.addEventListener("copy", interceptCopy);
     return () => document.removeEventListener("copy", interceptCopy);
   }, [chapter, versions, selection, copy, message, prefs.uiLanguage]);
+  const quit = useCallback(async () => {
+    if (!api || quitting.current) return;
+    quitting.current = true;
+    try {
+      if (!(await saveAndQuit(api, currentPrefs.current)))
+        message.info(
+          translator(currentPrefs.current.uiLanguage)(
+            "浏览器预览请直接关闭标签页",
+            "Close this tab to leave the browser preview",
+          ),
+        );
+    } catch (error) {
+      message.error(errorText(error, currentPrefs.current.uiLanguage));
+    } finally {
+      quitting.current = false;
+    }
+  }, [api, message]);
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      const command = commandShortcut(event);
+      if (command === "search" && !card) {
+        event.preventDefault();
+        openSearch();
+      }
+      if (command === "quit") {
+        event.preventDefault();
+        void quit();
+      }
+      if (
+        command === "copy" &&
+        selection &&
+        window.getSelection()?.isCollapsed !== false
+      ) {
+        const target = event.target instanceof Element ? event.target : null;
+        if (
+          !target?.closest(
+            "input, textarea, [contenteditable]:not([contenteditable='false'])",
+          )
+        ) {
+          event.preventDefault();
+          void copy("textWithReference");
+        }
+      }
+    };
+    const nativeQuit = () => {
+      void quit();
+    };
+    const nativeSearch = () => {
+      if (!card) openSearch();
+    };
+    window.addEventListener("keydown", key);
+    window.addEventListener("bible:quit", nativeQuit);
+    window.addEventListener("bible:search", nativeSearch);
+    return () => {
+      window.removeEventListener("keydown", key);
+      window.removeEventListener("bible:quit", nativeQuit);
+      window.removeEventListener("bible:search", nativeSearch);
+    };
+  }, [openSearch, quit, copy, selection, card]);
   async function paint(color: string) {
     if (!api || !selection) return;
     setPainting(true);
@@ -746,12 +841,7 @@ function Reader({
             </p>
           </div>
           <div className="reader-actions">
-            <Button
-              onClick={() => {
-                setSelection(null);
-                setSearching(true);
-              }}
-            >
+            <Button onClick={openSearch}>
               {t("经文搜索", "Search scripture")}
             </Button>
             <Button
@@ -950,7 +1040,9 @@ function Reader({
             <Spin spinning={busy}>
               <div
                 className="verses"
-                style={{ fontSize: prefs.fontSize }}
+                style={{
+                  fontSize: (prefs.fontSize * prefs.globalFontSize) / 13,
+                }}
                 onMouseUp={selectText}
                 onClick={(e) => {
                   const cell = (e.target as Element).closest(".verse-cell");
@@ -972,6 +1064,35 @@ function Reader({
                     {row.cells.map((cell) => (
                       <div
                         key={cell.translationId}
+                        tabIndex={-1}
+                        onMouseDown={(event) => {
+                          if (event.shiftKey && event.button === 0)
+                            event.preventDefault();
+                        }}
+                        onClick={(event) => {
+                          const target = event.target as Element;
+                          if (
+                            busy ||
+                            cell.missing ||
+                            event.button !== 0 ||
+                            event.detail > 1 ||
+                            event.ctrlKey ||
+                            event.metaKey ||
+                            event.altKey ||
+                            target.closest(
+                              "button, a, input, textarea, select",
+                            ) ||
+                            window.getSelection()?.isCollapsed === false
+                          )
+                            return;
+                          event.currentTarget.focus({ preventScroll: true });
+                          selectVerse(
+                            cell.translationId,
+                            row.label,
+                            event.shiftKey,
+                            event,
+                          );
+                        }}
                         className={`verse-cell ${translations.find((t) => t.id === cell.translationId)?.language.startsWith("en") ? "english" : ""} ${selection?.translationId === cell.translationId && selection.spans.some((p) => p.verseKey === row.label) ? "is-selected" : ""}`}
                       >
                         <button
@@ -1054,8 +1175,8 @@ function Reader({
           </span>
           <span>
             {t(
-              "拖选文字或点击节号；Shift 连选；← / → 翻章",
-              "Select text or verse numbers; Shift for a range; ← / → for chapters",
+              "单击经文选整节；拖选文字；Shift 连选；← / → 翻章",
+              "Click a verse to select; drag for text; Shift for a range; ← / → chapters",
             )}
           </span>
           <Space size={4}>
@@ -1181,6 +1302,7 @@ function Reader({
           api={api}
           translations={translations}
           initialTranslation={prefs.translations[0]}
+          focusRequest={searchFocus}
           language={prefs.uiLanguage}
           history={prefs.searchHistory}
           onRemember={remember}
@@ -1239,6 +1361,7 @@ function Reader({
 export default function BibleApp() {
   const [language, setLanguage] = useState<Language>("zh-CN");
   const [readingTheme, setReadingTheme] = useState<ReadingTheme>("light");
+  const [globalFontSize, setGlobalFontSize] = useState(defaults.globalFontSize);
   const palette = palettes[readingTheme];
   return (
     <ConfigProvider
@@ -1258,14 +1381,19 @@ export default function BibleApp() {
           colorTextSecondary: palette.secondary,
           colorBorder: palette.border,
           borderRadius: 5,
-          fontSize: 13,
+          fontSize: globalFontSize,
           fontFamily: '"Bible Sans", sans-serif',
-          controlHeight: 32,
+          controlHeight: Math.round((32 * globalFontSize) / 13),
+          controlHeightSM: Math.round((24 * globalFontSize) / 13),
         },
       }}
     >
       <AntApp>
-        <Reader onLanguage={setLanguage} onTheme={setReadingTheme} />
+        <Reader
+          onLanguage={setLanguage}
+          onTheme={setReadingTheme}
+          onGlobalFontSize={setGlobalFontSize}
+        />
       </AntApp>
     </ConfigProvider>
   );

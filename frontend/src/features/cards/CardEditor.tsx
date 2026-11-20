@@ -21,6 +21,7 @@ import type {
 import { drawCard, type CardStyle } from "./layout";
 import { translator, errorText, type Language } from "../../shared/locale";
 import { referenceStyles, inlineReferences } from "../../shared/formatting";
+import { ReferenceOptions } from "../../shared/ReferenceOptions";
 
 const templates = [
   { name: "素白", background: "#f7f5ef", color: "#263747" },
@@ -179,6 +180,14 @@ export function CardEditor({
               }))}
             />
           </label>
+          <ReferenceOptions
+            options={format}
+            language={language}
+            onChange={(value) => {
+              setReady(false);
+              setFormat({ ...format, ...value });
+            }}
+          />
           {!inlineReferences(format.referenceStyle) && (
             <label>
               {t("引用位置", "Reference position")}

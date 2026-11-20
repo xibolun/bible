@@ -56,6 +56,10 @@ export function LookupWord(code: string): $CancellablePromise<$models.Result<bib
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.LookupWord", code);
 }
 
+export function Quit(): $CancellablePromise<$models.Result<boolean>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.Quit");
+}
+
 export function ReportSmoke(passed: boolean, frontendVersion: string): $CancellablePromise<$models.Result<boolean>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ReportSmoke", passed, frontendVersion);
 }

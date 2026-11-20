@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/xibolun/bible/internal/bible"
@@ -12,6 +13,15 @@ import (
 var referenceStyles = []string{"full-version", "short-version", "full", "short", "inline", "verses-short", "verses-full"}
 
 func (o CopyOptions) normalized() (CopyOptions, error) {
+	if o.ChapterNumerals == "" {
+		o.ChapterNumerals = "arabic"
+	}
+	if o.ReferenceBrackets == "" {
+		o.ReferenceBrackets = "none"
+	}
+	if !slices.Contains([]string{"arabic", "chinese"}, o.ChapterNumerals) || !slices.Contains([]string{"none", "book", "corner", "square"}, o.ReferenceBrackets) {
+		return o, errors.New("INVALID_SETTINGS")
+	}
 	if o.ReferencePosition == "" {
 		o.ReferencePosition = "after"
 	}
@@ -27,8 +37,54 @@ func (o CopyOptions) normalized() (CopyOptions, error) {
 	return o, nil
 }
 
+func chineseChapter(value int) string {
+	digits := []rune("零一二三四五六七八九")
+	if value < 10 {
+		return string(digits[value])
+	}
+	if value < 20 {
+		if value == 10 {
+			return "十"
+		}
+		return "十" + string(digits[value%10])
+	}
+	if value < 100 {
+		result := string(digits[value/10]) + "十"
+		if value%10 != 0 {
+			result += string(digits[value%10])
+		}
+		return result
+	}
+	result := string(digits[value/100]) + "百"
+	if rest := value % 100; rest != 0 {
+		if rest < 10 {
+			result += "零"
+		} else if rest < 20 {
+			result += "一"
+		}
+		result += chineseChapter(rest)
+	}
+	return result
+}
+
 // formatPassage keeps source verse labels separate from selected text offsets.
 func formatPassage(book bible.Book, chapter int, verses []bible.Verse, translation bible.Translation, options CopyOptions) CardLine {
+	chapterText := strconv.Itoa(chapter)
+	if options.ChapterNumerals == "chinese" {
+		chapterText = chineseChapter(chapter)
+	}
+	wrap := func(reference string) string {
+		switch options.ReferenceBrackets {
+		case "book":
+			return "【" + reference + "】"
+		case "corner":
+			return "「" + reference + "」"
+		case "square":
+			return "[" + reference + "]"
+		default:
+			return reference
+		}
+	}
 	short := slices.Contains([]string{"short-version", "short", "inline", "verses-short"}, options.ReferenceStyle)
 	name, space := book.Name, ""
 	if short {
@@ -40,12 +96,12 @@ func formatPassage(book bible.Book, chapter int, verses []bible.Verse, translati
 			name = book.ID
 		}
 	}
-	ref := func(label string) string { return fmt.Sprintf("%s%s%d:%s", name, space, chapter, label) }
+	ref := func(label string) string { return fmt.Sprintf("%s%s%s:%s", name, space, chapterText, label) }
 	parts := make([]string, 0, len(verses))
 	for _, verse := range verses {
 		text := verse.Text
 		if strings.HasPrefix(options.ReferenceStyle, "verses-") {
-			text = ref(verse.Label) + ": " + text
+			text = wrap(ref(verse.Label)) + ": " + text
 		}
 		parts = append(parts, text)
 	}
@@ -63,12 +119,13 @@ func formatPassage(book bible.Book, chapter int, verses []bible.Verse, translati
 	}
 	reference := ref(label)
 	if options.ReferenceStyle == "inline" {
-		line.Text = reference + ": " + line.Text
+		line.Text = wrap(reference) + ": " + line.Text
 		return line
 	}
 	if strings.HasSuffix(options.ReferenceStyle, "-version") {
 		reference += "·" + translation.Abbreviation
 	}
+	reference = wrap(reference)
 	line.ReferenceBefore = options.ReferencePosition == "before"
 	if !line.ReferenceBefore {
 		reference = "— " + reference

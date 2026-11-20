@@ -16,6 +16,8 @@ export interface CardLine {
 }
 
 export interface CopyOptions {
+    "chapterNumerals": string;
+    "referenceBrackets": string;
     "referenceStyle": string;
     "referencePosition": string;
     "uiLanguage": string;
@@ -31,6 +33,9 @@ export interface Preferences {
     "translations": string[] | null;
     "parallel": boolean;
     "fontSize": number;
+    "globalFontSize": number;
+    "chapterNumerals": string;
+    "referenceBrackets": string;
     "referencePosition": string;
     "referenceStyle": string;
     "uiLanguage": string;

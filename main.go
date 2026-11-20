@@ -41,6 +41,13 @@ func (d *desktop) Copy(text string) error {
 	}
 	return nil
 }
+func (d *desktop) Quit() error {
+	if d.app == nil {
+		return fmt.Errorf("desktop unavailable")
+	}
+	go d.app.Quit()
+	return nil
+}
 func (d *desktop) Save(b []byte, name string) (string, error) {
 	var path string
 	var e error
@@ -142,8 +149,39 @@ func main() {
 	if desk.smokeDir != "" {
 		url = "/?nativeSmoke=1"
 	}
-	win := app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "reader", Title: "圣经 · Bible", Width: p.WindowWidth, Height: p.WindowHeight, MinWidth: 1024, MinHeight: 640, URL: url, StartState: state, BackgroundColour: application.NewRGB(255, 255, 255), Linux: application.LinuxWindow{Icon: appIcon}})
+	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name: "reader", Title: "圣经 · Bible", Width: p.WindowWidth, Height: p.WindowHeight,
+		MinWidth: 1024, MinHeight: 640, URL: url, StartState: state,
+		BackgroundColour: application.NewRGB(255, 255, 255), Linux: application.LinuxWindow{Icon: appIcon},
+		KeyBindings: map[string]func(application.Window){
+			"CmdOrCtrl+f": func(window application.Window) {
+				if webview, ok := window.(*application.WebviewWindow); ok {
+					webview.ExecJS("window.dispatchEvent(new Event('bible:search'))")
+				}
+			},
+			"CmdOrCtrl+q": func(window application.Window) {
+				if webview, ok := window.(*application.WebviewWindow); ok {
+					webview.ExecJS("window.dispatchEvent(new Event('bible:quit'))")
+				}
+			},
+		},
+	})
 	desk.window = win
+	if runtime.GOOS == "darwin" {
+		menu := application.NewMenu()
+		appMenu := menu.AddSubmenu("Bible")
+		appMenu.AddRole(application.About)
+		appMenu.AddSeparator()
+		quitLabel := "退出圣经"
+		if p.UILanguage == "en" {
+			quitLabel = "Quit Bible"
+		}
+		appMenu.Add(quitLabel).SetAccelerator("CmdOrCtrl+q").OnClick(func(_ *application.Context) {
+			win.ExecJS("window.dispatchEvent(new Event('bible:quit'))")
+		})
+		menu.AddRole(application.EditMenu)
+		app.Menu.Set(menu)
+	}
 	normal := application.Rect{X: p.WindowX, Y: p.WindowY, Width: p.WindowWidth, Height: p.WindowHeight}
 	// Clamp saved normal bounds to a currently connected work area.
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(event *application.ApplicationEvent) {

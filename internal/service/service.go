@@ -59,6 +59,9 @@ type Preferences struct {
 	Translations      []string             `json:"translations"`
 	Parallel          bool                 `json:"parallel"`
 	FontSize          int                  `json:"fontSize"`
+	GlobalFontSize    int                  `json:"globalFontSize"`
+	ChapterNumerals   string               `json:"chapterNumerals"`
+	ReferenceBrackets string               `json:"referenceBrackets"`
 	ReferencePosition string               `json:"referencePosition"`
 	ReferenceStyle    string               `json:"referenceStyle"`
 	UILanguage        string               `json:"uiLanguage"`
@@ -71,11 +74,12 @@ type Preferences struct {
 }
 
 func Defaults() Preferences {
-	return Preferences{SearchHistory: []SearchHistoryEntry{}, ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
+	return Preferences{SearchHistory: []SearchHistoryEntry{}, ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, GlobalFontSize: 13, ChapterNumerals: "arabic", ReferenceBrackets: "none", ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
 }
 
 type Desktop interface {
 	Copy(string) error
+	Quit() error
 	Save([]byte, string) (string, error)
 }
 type smokeReporter interface{ FinishSmoke(bool, string) error }
@@ -90,6 +94,12 @@ func New(data *bible.Dataset, store *storage.Store, desktop Desktop) *Service {
 }
 
 func (s *Service) ListTranslations() Result[[]bible.Translation] { return success(s.Data.Translations) }
+func (s *Service) Quit() Result[bool] {
+	if s.Desktop == nil || s.Desktop.Quit() != nil {
+		return failure[bool]("BRIDGE_UNAVAILABLE")
+	}
+	return success(true)
+}
 func (s *Service) SearchScripture(translation, pattern string, offset, limit int) Result[bible.SearchPage] {
 	page, err := s.Data.Search(translation, pattern, offset, limit)
 	if err != nil {
@@ -139,6 +149,9 @@ func (s *Service) GetPreferences() Result[Preferences] {
 	return success(p)
 }
 func (s *Service) validPreferences(p Preferences) bool {
+	if p.GlobalFontSize < 11 || p.GlobalFontSize > 20 || !slices.Contains([]string{"arabic", "chinese"}, p.ChapterNumerals) || !slices.Contains([]string{"none", "book", "corner", "square"}, p.ReferenceBrackets) {
+		return false
+	}
 	if len(p.SearchHistory) > 20 {
 		return false
 	}
@@ -260,6 +273,8 @@ func (s *Service) ApplyHighlight(request string, sel Selection, color string) Re
 }
 
 type CopyOptions struct {
+	ChapterNumerals   string `json:"chapterNumerals"`
+	ReferenceBrackets string `json:"referenceBrackets"`
 	ReferenceStyle    string `json:"referenceStyle"`
 	ReferencePosition string `json:"referencePosition"`
 	UILanguage        string `json:"uiLanguage"`

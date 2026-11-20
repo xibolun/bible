@@ -13,6 +13,7 @@ import type { API, Preferences, Translation } from "../../shared/types";
 import { translator, errorText } from "../../shared/locale";
 import { appVersion } from "../../shared/build";
 import { palettes, readingThemes } from "../../shared/themes";
+import { ReferenceOptions } from "../../shared/ReferenceOptions";
 import {
   referenceStyles,
   inlineReferences,
@@ -106,6 +107,11 @@ export function Settings({
                     onChange={(referenceStyle) => onChange({ referenceStyle })}
                   />
                 </label>
+                <ReferenceOptions
+                  options={preferences}
+                  language={preferences.uiLanguage}
+                  onChange={onChange}
+                />
                 {preview && (
                   <div>
                     <div className="muted">
@@ -149,6 +155,27 @@ export function Settings({
                   )}
                 </p>
                 <label>
+                  {t("全局字号", "Global font size")}
+                  <InputNumber
+                    aria-label={t("全局字号", "Global font size")}
+                    min={11}
+                    max={20}
+                    step={1}
+                    precision={0}
+                    value={preferences.globalFontSize}
+                    onChange={(value) => {
+                      if (value !== null && value >= 11 && value <= 20)
+                        onChange({ globalFontSize: Math.round(value) });
+                    }}
+                  />
+                </label>
+                <p className="muted">
+                  {t(
+                    "同步缩放界面和经文；卡片导出字号单独设置。",
+                    "Scales the interface and scripture together. Exported cards retain their own font size.",
+                  )}
+                </p>
+                <label>
                   {t("阅读字号", "Reading font size")}
                   <InputNumber
                     aria-label={t("阅读字号", "Reading font size")}
@@ -181,6 +208,25 @@ export function Settings({
                     "Interface language does not change scripture translations. Settings are saved locally.",
                   )}
                 </p>
+                <fieldset className="shortcut-settings">
+                  <legend>{t("通用快捷键", "Keyboard shortcuts")}</legend>
+                  <dl className="shortcut-list">
+                    <dt>{t("经文搜索", "Scripture search")}</dt>
+                    <dd>Ctrl / ⌘ + F</dd>
+                    <dt>{t("复制", "Copy")}</dt>
+                    <dd>Ctrl / ⌘ + C</dd>
+                    <dt>{t("粘贴", "Paste")}</dt>
+                    <dd>Ctrl / ⌘ + V</dd>
+                    <dt>{t("退出应用", "Quit application")}</dt>
+                    <dd>Ctrl / ⌘ + Q</dd>
+                  </dl>
+                  <p className="muted">
+                    {t(
+                      "macOS 使用 ⌘；Windows、Linux 使用 Ctrl。输入框保留标准复制和粘贴。",
+                      "Use ⌘ on macOS and Ctrl on Windows/Linux. Inputs retain standard copy and paste.",
+                    )}
+                  </p>
+                </fieldset>
               </div>
             ),
           },

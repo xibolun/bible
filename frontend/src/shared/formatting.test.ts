@@ -1,6 +1,12 @@
 import fixture from "../../../testdata/passage-formats.json" with { type: "json" };
-import { formatPassage, passageText, type Passage } from "./formatting";
-import type { ReferenceStyle } from "./types";
+import {
+  chineseChapter,
+  formatPassage,
+  passageText,
+  type Passage,
+} from "./formatting";
+import type { FormatOptions, ReferenceStyle } from "./types";
+import referenceOptions from "../../../testdata/reference-options.json";
 
 it.each(fixture.cases)(
   "matches the user's $style example for copy and cards",
@@ -23,4 +29,41 @@ it("formats a single verse, English abbreviation and explicit position", () => {
     uiLanguage: "en",
   });
   expect(passageText(line)).toBe(`ECC 1:6·CUV\n${fixture.verses[0].text}`);
+});
+it.each(referenceOptions.chapterCases)(
+  "formats Chinese chapter %s",
+  (value, expected) => {
+    expect(chineseChapter(Number(value))).toBe(expected);
+  },
+);
+it.each(referenceOptions.cases)(
+  "formats reference options: $name",
+  (sample) => {
+    const passage = {
+      ...referenceOptions,
+      verses: sample.single
+        ? referenceOptions.verses.slice(0, 1)
+        : referenceOptions.verses,
+    } as Passage;
+    expect(
+      passageText(formatPassage(passage, sample.options as FormatOptions)),
+    ).toBe(sample.expected);
+  },
+);
+it("rejects unknown chapter and bracket formats", () => {
+  for (const options of [
+    { chapterNumerals: "roman" },
+    { referenceBrackets: "angle" },
+  ])
+    expect(() =>
+      formatPassage(
+        fixture as Passage,
+        {
+          referenceStyle: "short",
+          referencePosition: "before",
+          uiLanguage: "zh-CN",
+          ...options,
+        } as FormatOptions,
+      ),
+    ).toThrow("INVALID_SETTINGS");
 });

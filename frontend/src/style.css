@@ -100,12 +100,12 @@ mark.search-keyword {
   flex-direction: column;
 }
 .brand strong {
-  font-size: 19px;
+  font-size: calc(19px * var(--font-scale, 1));
   letter-spacing: 4px;
   font-weight: 600;
 }
 .brand div span {
-  font-size: 9px;
+  font-size: calc(9px * var(--font-scale, 1));
   letter-spacing: 2px;
   color: var(--muted);
   margin-top: 2px;
@@ -127,14 +127,14 @@ mark.search-keyword {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
   font-weight: 600;
   padding: 12px 10px 8px;
   margin: 0;
   color: #728591;
 }
 .book-list h2 span {
-  font-size: 8px;
+  font-size: calc(8px * var(--font-scale, 1));
   letter-spacing: 0.4px;
   color: #98a5ae;
 }
@@ -150,7 +150,7 @@ mark.search-keyword {
   background: transparent;
   padding: 0 12px;
   color: #4d6270;
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale, 1));
   text-align: left;
 }
 .book-button:hover {
@@ -163,7 +163,7 @@ mark.search-keyword {
   font-weight: 600;
 }
 .book-abbreviation {
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   color: #8a9aa4;
   min-width: 25px;
   text-align: center;
@@ -176,7 +176,7 @@ mark.search-keyword {
   align-items: center;
   justify-content: space-between;
   color: var(--muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--font-scale, 1));
 }
 .reading-main {
   flex: 1;
@@ -195,11 +195,16 @@ mark.search-keyword {
   flex-shrink: 0;
 }
 .chapter-strip {
+  max-height: min(35vh, calc(200px / var(--font-scale, 1)));
+  overflow-y: auto;
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
   flex: 1;
   align-items: center;
+}
+.has-search .chapter-strip {
+  max-height: min(22vh, calc(160px / var(--font-scale, 1)));
 }
 .chapter-button {
   border: 0;
@@ -208,7 +213,7 @@ mark.search-keyword {
   border-radius: 3px;
   background: transparent;
   color: #667e8c;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
 }
 .chapter-button:hover {
   background: #e0eaf0;
@@ -228,14 +233,14 @@ mark.search-keyword {
   flex-shrink: 0;
 }
 .chapter-title h1 {
-  font-size: 21px;
+  font-size: calc(21px * var(--font-scale, 1));
   font-weight: 600;
   margin: 0;
   letter-spacing: 1px;
   white-space: nowrap;
 }
 .chapter-title h1 span {
-  font-size: 15px;
+  font-size: calc(15px * var(--font-scale, 1));
   letter-spacing: 0;
   margin-left: 13px;
   color: #617987;
@@ -243,7 +248,7 @@ mark.search-keyword {
 }
 .chapter-title p {
   margin: 7px 0 0;
-  font-size: 10px;
+  font-size: calc(10px * var(--font-scale, 1));
   letter-spacing: 0.5px;
   color: var(--muted);
 }
@@ -261,7 +266,7 @@ mark.search-keyword {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
   white-space: nowrap;
 }
 .font-controls {
@@ -269,7 +274,7 @@ mark.search-keyword {
   gap: 3px;
 }
 .font-controls .ant-btn {
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   padding: 0 8px;
 }
 .version-headings {
@@ -280,7 +285,7 @@ mark.search-keyword {
   min-height: 32px;
   background: #fafbfc;
   border-bottom: 1px solid var(--border);
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   color: #708594;
   flex-shrink: 0;
   gap: 6px 20px;
@@ -295,11 +300,11 @@ mark.search-keyword {
 }
 .version-headings span {
   color: #94a2ad;
-  font-size: 9px;
+  font-size: calc(9px * var(--font-scale, 1));
   letter-spacing: 1px;
 }
 .reference-heading {
-  font-size: 9px;
+  font-size: calc(9px * var(--font-scale, 1));
   color: #93a1aa;
 }
 .verse-scroll {
@@ -347,7 +352,7 @@ mark.search-keyword {
 .verse-select {
   border: 0;
   background: transparent;
-  font-size: 10px;
+  font-size: calc(10px * var(--font-scale, 1));
   color: #728b9b;
   padding: 3px 2px;
   width: 38px;
@@ -362,7 +367,7 @@ mark.search-keyword {
 }
 .missing-verse {
   font-style: italic;
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale, 1));
   color: #9aa7ae;
 }
 .reader-footer {
@@ -372,14 +377,17 @@ mark.search-keyword {
   justify-content: space-between;
   align-items: center;
   padding: 0 23px;
-  font-size: 10px;
+  font-size: calc(10px * var(--font-scale, 1));
   color: #8b9ca6;
   flex-shrink: 0;
   background: #fafbfc;
 }
 .reader-footer .ant-btn {
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   color: #6a8393;
+}
+.has-search .reader-footer > span:nth-child(2) {
+  display: none;
 }
 .selection-toolbar {
   position: fixed;
@@ -398,7 +406,7 @@ mark.search-keyword {
   max-width: calc(100vw - 16px);
 }
 .selection-label {
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   color: #6b8290;
 }
 .highlight-colors {
@@ -419,11 +427,11 @@ mark.search-keyword {
 }
 .prototype-banner {
   flex-shrink: 0;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--font-scale, 1)) !important;
 }
 .muted {
   color: #82949f;
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   line-height: 1.8;
 }
 .card-editor {
@@ -441,7 +449,7 @@ mark.search-keyword {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
   color: #5b7280;
 }
 .card-controls .switch-label {
@@ -461,7 +469,7 @@ mark.search-keyword {
   align-items: center;
   gap: 10px;
   color: #5b7280;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
 }
 .card-preview {
   padding: 20px;
@@ -485,7 +493,7 @@ mark.search-keyword {
   text-align: center;
   margin-top: 12px;
   color: #85949f;
-  font-size: 10px;
+  font-size: calc(10px * var(--font-scale, 1));
 }
 .settings-fields {
   display: flex;
@@ -530,7 +538,7 @@ mark.search-keyword {
 }
 .study-source {
   color: #617786;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
   line-height: 1.6;
   margin: 0;
 }
@@ -557,7 +565,7 @@ mark.search-keyword {
 .study-word small {
   display: block;
   color: #617786;
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
 }
 .study-word[aria-pressed="true"] {
   border-color: var(--blue);
@@ -641,7 +649,7 @@ mark.search-keyword {
 }
 .dictionary-entry h2 {
   font-family: "Times New Roman", serif;
-  font-size: 36px;
+  font-size: calc(36px * var(--font-scale, 1));
   line-height: 1.5;
   margin: 12px 0;
   text-align: start;
@@ -666,8 +674,22 @@ mark.search-keyword {
   color: var(--blue);
 }
 .settings-about {
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale, 1));
   line-height: 1.6;
+}
+.shortcut-settings {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.shortcut-list {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 16px;
+}
+.shortcut-list dd {
+  margin: 0;
 }
 .about-edition {
   padding: 12px 0;
@@ -802,7 +824,7 @@ mark.search-keyword {
   border: 1px solid var(--border);
   border-radius: 5px;
   background: transparent;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
 }
 .theme-picker button[aria-pressed="true"] {
   border-color: var(--blue);
@@ -814,5 +836,5 @@ mark.search-keyword {
   border: 1px solid;
   border-radius: 3px;
   font-family: Georgia, serif;
-  font-size: 21px;
+  font-size: calc(21px * var(--font-scale, 1));
 }
