@@ -36,8 +36,16 @@ fail before build checks/output writes, including under Python `-O`, while all
 six native targets and Windows binary cross-compilation remain allowed.
 SWORD conversion cases preserve verse wording, divine-name capitalization and
 layout boundaries while removing notes/titles. Data checks require complete
-CUV/WEBP/KJV catalogs; KJV source samples and selected-pair copy/card service
+CUV/WEBP/KJV/DBY catalogs; KJV source samples and selected-pair copy/card service
 cases guard against silently using WEBP or including an unselected translation.
+
+DBY checks verify all 66 books/1189 chapters, exact source samples and the
+Acts 8:37 omission without shifting verse 38. Importer regressions reject
+malformed/duplicate records; complete corpus fingerprints preserve every legacy
+verse and data version. The native service test exercises genuine DBY chapter,
+LIKE search, highlighting, clipboard, card, preferences and projection data.
+Browser cases exercise DBY offline reading, comparison, copying, PNG export,
+highlight persistence, source-specific search and separate-window projection.
 
 Browser end-to-end tests use a production build of the explicit Mock adapter.
 They exercise book/chapter navigation, Chinese/English and KJV/WEBP comparison, offline

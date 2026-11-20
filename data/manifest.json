@@ -1,5 +1,5 @@
 {
-  "retrieved": "2026-11-17",
+  "retrieved": "2026-11-20",
   "sources": [
     {
       "id": "cuv",
@@ -23,15 +23,23 @@
       "version": "3.1",
       "exportSha256": "0530658ddc2f0ea6a570ce8df1a45d7e690759f1d22492093e6838385e02a257",
       "conversion": "SWORD 1.9.0 mod2vpl raw OSIS; strip notes/titles/attributes, preserve divine-name capitals, normalize layout whitespace"
+    },
+    {
+      "id": "dby",
+      "url": "https://ebible.org/Scriptures/engDBY_vpl.zip",
+      "sha256": "7eb1df2a434f5bbd831591aa96c08e94b900b1458fda74ccf1d1739d5af73619",
+      "version": "2019-11-15",
+      "conversion": "publisher VPL plain text; preserve source verse labels and punctuation"
     }
   ],
-  "datasetSha256": "273fd5421dc310e6c2a8740066a852f86953d9cab4fb83a0ccf482ea0a474606",
-  "plainSha256": "d467f26eda3d7ece090ff2c8282d049b70b76d182d32cf1a0e10a3cab380a83c",
+  "datasetSha256": "223d76e497ed4a0a117cc7ccb7dbc2699bc7d2436ddc01f4557c30dbd07b9258",
+  "plainSha256": "0096b0c5ea8ed612801834df6a4b9ef806700977f92a0f4beef3d6e086e2d69c",
   "books": 66,
-  "chapters": 3567,
+  "chapters": 4756,
   "verses": {
     "cuv": 31103,
     "webp": 31098,
-    "kjv": 31102
+    "kjv": 31102,
+    "dby": 31099
   }
 }

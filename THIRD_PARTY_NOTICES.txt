@@ -28,6 +28,13 @@ Publisher designation: Public Domain. Preserve the translation name only for
 unaltered scripture text. The source publisher's notice is in
 licenses/scripture-WEBP-source.html.
 
+English scripture: Darby Translation (DBY / engDBY), text dated 2019-11-15.
+Source: https://ebible.org/find/details.php?id=engDBY
+Publisher designation: Public Domain. The unchanged publisher notice is in
+licenses/scripture-DBY-source.html. Source wording, punctuation, bracketed
+supplied words and verse labels are preserved. This is the English translation;
+it is not a Chinese retranslation or an official Chinese Darby edition.
+
 Chinese dictionary: FHL Information Center / CBOL contributors, Old and New
 Testament original-language dictionaries. GNU Free Documentation License 1.1
 or any later version. The independent Bible Chinese Dictionary Edition retains

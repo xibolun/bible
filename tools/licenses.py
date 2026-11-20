@@ -20,7 +20,7 @@ def main():
     while source.strip():
         obj,offset=decoder.raw_decode(source.lstrip());source=source.lstrip()[offset:];modules.append(obj)
     records=[]
-    for name in ['ChiUns-source.conf','WEBP-source.html','KJV-source.conf']:
+    for name in ['ChiUns-source.conf','WEBP-source.html','KJV-source.conf','DBY-source.html']:
         shutil.copy2(ROOT/'data'/name,LICENSES/('scripture-'+name))
     for module in modules:
         if module.get('Main') or not module.get('Dir'):continue

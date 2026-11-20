@@ -123,6 +123,36 @@ def osis_plain(text):
     return re.sub(r'\s+',' ',''.join(parser.parts)).strip()
 
 
+def publisher_vpl(archive, member, skip_books=()):
+    """Read publisher VPL without altering scripture or renumbering gaps."""
+    aliases = {'SOL': 'SNG', 'EZE': 'EZK', 'JOE': 'JOL', 'NAH': 'NAM',
+               'MAR': 'MRK', 'JOH': 'JHN', 'PHI': 'PHP', 'JAM': 'JAS',
+               '1JO': '1JN', '2JO': '2JN', '3JO': '3JN'}
+    canon = {book['id']: book['chapters'] for book in books()}
+    seen = set()
+    with zipfile.ZipFile(archive) as source:
+        for line in source.read(member).decode('utf-8-sig').splitlines():
+            if not line.strip():
+                continue
+            match = re.fullmatch(r'([A-Z0-9]{3}) (\d+):(\d+[a-z]?) (.*)', line)
+            if not match:
+                raise ValueError(f'Unrecognized {member} source line: {line[:80]}')
+            book, ch, verse, text = match.groups()
+            if book in skip_books:
+                continue
+            book = aliases.get(book, book)
+            chapter = int(ch)
+            if book not in canon or not 1 <= chapter <= canon[book] or int(re.match(r'\d+', verse).group()) < 1:
+                raise ValueError(f'Invalid {member} reference: {book} {ch}:{verse}')
+            identity = (book, chapter, verse)
+            if identity in seen:
+                raise ValueError(f'Duplicate {member} reference: {identity}')
+            seen.add(identity)
+            if not text.strip():
+                continue  # An empty publisher record marks an omitted verse.
+            yield book, chapter, verse, text
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--chinese-archive', type=Path, required=True)
@@ -130,12 +160,15 @@ def main():
     p.add_argument('--english-archive', type=Path, required=True)
     p.add_argument('--kjv-archive', type=Path, required=True)
     p.add_argument('--kjv-export', type=Path, required=True)
+    p.add_argument('--darby-archive', type=Path, required=True)
     args = p.parse_args()
     pinned = [(args.chinese_archive,'37fcef08bd3b5f42f5d7b8e0a9326075f9f41e6aa39906711b092f105ae4857e'),
               (args.chinese_export,'6d6b67c46231adba2e516ad8277e08b2f08c2f86a54c96e0e6ddc477dd974dcf'),
               (args.english_archive,'7ebe6b7dc416ce63691d1a3889a06f841ccb7f414ada69be82da891f4b9be44f')]
     if any(digest(path)!=expected for path,expected in pinned):
         raise ValueError('Use the pinned CUV and WEBP inputs to preserve existing annotation data versions')
+    if digest(args.darby_archive) != '7eb1df2a434f5bbd831591aa96c08e94b900b1458fda74ccf1d1739d5af73619':
+        raise ValueError('Use the pinned eBible engDBY 2019-11-15 archive')
     catalog = books()
     names = {b['englishName']: b['id'] for b in catalog}
     chapters = {}
@@ -172,19 +205,10 @@ def main():
         name,chapter,verse,markup=match.groups()
         if int(chapter)==0 or int(re.match(r'\d+',verse).group())==0:continue
         add('kjv',names[name],int(chapter),verse,osis_plain(markup))
-    with zipfile.ZipFile(args.english_archive) as z:
-        for line in z.read('engwebp_vpl.txt').decode('utf-8-sig').splitlines():
-            m = re.fullmatch(r'([A-Z0-9]{3}) (\d+):(\d+[a-z]?) (.*)', line)
-            if not m:
-                if line.strip(): raise ValueError(f'unrecognized WEBP source line: {line[:80]}')
-                continue
-            book, ch, verse, text = m.groups()
-            book = {'SOL': 'SNG', 'EZE': 'EZK', 'JOE': 'JOL', 'NAH': 'NAM', 'MAR': 'MRK',
-                    'JOH': 'JHN', 'PHI': 'PHP', 'JAM': 'JAS', '1JO': '1JN',
-                    '2JO': '2JN', '3JO': '3JN'}.get(book, book)
-            if book == 'PS2': continue  # Outside the explicitly selected 66-book canon.
-            assert book in {b['id'] for b in catalog}, book
-            add('webp', book, int(ch), verse, text)
+    for book, ch, verse, text in publisher_vpl(args.english_archive, 'engwebp_vpl.txt', skip_books=('PS2',)):
+        add('webp', book, ch, verse, text)
+    for book, ch, verse, text in publisher_vpl(args.darby_archive, 'engDBY_vpl.txt'):
+        add('dby', book, ch, verse, text)
     translations = [
         dict(id='cuv', language='zh-Hans', name='和合本（简体）', abbreviation='CUV',
              dataVersion='ChiUns-3.1-'+digest(args.chinese_archive)[:12],
@@ -194,7 +218,10 @@ def main():
              sourceUrl='https://ebible.org/bible/details.php?id=engwebp', license='Public Domain'),
         dict(id='kjv', language='en', name='King James Version (1769)', abbreviation='KJV',
              dataVersion='KJV-3.1-'+digest(args.kjv_archive)[:12]+'-'+hashlib.sha256(json.dumps({key:value for key,value in chapters.items() if key.startswith('kjv/')},ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:12],
-             sourceUrl='https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=KJV', license='GPL (CrossWire module; see source notice)')]
+             sourceUrl='https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=KJV', license='GPL (CrossWire module; see source notice)'),
+        dict(id='dby', language='en', name='Darby Translation（达秘译本）', abbreviation='DBY',
+             dataVersion='engDBY-2019-11-15-'+digest(args.darby_archive)[:12]+'-'+hashlib.sha256(json.dumps({key:value for key,value in chapters.items() if key.startswith('dby/')},ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:12],
+             sourceUrl='https://ebible.org/find/details.php?id=engDBY', license='Public Domain')]
     for t in translations:
         for b in catalog:
             for chapter in range(1, b['chapters']+1):
@@ -213,8 +240,10 @@ def main():
              sha256=digest(args.english_archive), version='2026-11-13', conversion='publisher VPL plain text'),
         dict(id='kjv', url='https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/KJV.zip',
              sha256=digest(args.kjv_archive), version='3.1', exportSha256=digest(args.kjv_export),
-             conversion='SWORD 1.9.0 mod2vpl raw OSIS; strip notes/titles/attributes, preserve divine-name capitals, normalize layout whitespace')]
-    manifest=dict(retrieved='2026-11-17', sources=sources, datasetSha256=digest(output),
+             conversion='SWORD 1.9.0 mod2vpl raw OSIS; strip notes/titles/attributes, preserve divine-name capitals, normalize layout whitespace'),
+        dict(id='dby', url='https://ebible.org/Scriptures/engDBY_vpl.zip', sha256=digest(args.darby_archive),
+             version='2019-11-15', conversion='publisher VPL plain text; preserve source verse labels and punctuation')]
+    manifest=dict(retrieved='2026-11-20', sources=sources, datasetSha256=digest(output),
                   plainSha256=hashlib.sha256(raw).hexdigest(),
                   books=len(catalog), chapters=len(chapters),
                   verses={t['id']:sum(len(v) for k,v in chapters.items() if k.startswith(t['id']+'/')) for t in translations})
@@ -226,6 +255,8 @@ def main():
         (target/'WEBP-source.html').write_bytes(z.read('engwebp_about.htm'))
     with zipfile.ZipFile(args.kjv_archive) as z:
         (target/'KJV-source.conf').write_bytes(z.read('mods.d/kjv.conf'))
+    with zipfile.ZipFile(args.darby_archive) as z:
+        (target/'DBY-source.html').write_bytes(z.read('engDBY_about.htm'))
     print(json.dumps(manifest, indent=2))
 
 

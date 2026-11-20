@@ -1,6 +1,6 @@
 # Scripture sources and editions
 
-The application bundles three complete 66-book translations. SWORD is a module
+The application bundles four complete 66-book translations. SWORD is a module
 format and toolchain; it is not an English Bible translation. The initial WEBP
 snapshot came directly from its publisher because a plain-text export and its
 public-domain notice were available. Chinese CUV and the added KJV use SWORD
@@ -11,10 +11,12 @@ modules; the application does not link or require a SWORD runtime library.
 | CUV, simplified Chinese Union Version | CrossWire ChiUns 3.1; module source identifies FHL | Public Domain                                                                                       |
 | WEBP, World English Bible             | eBible engwebp snapshot 2026-11-13                 | Public Domain; retain the translation name for unchanged text                                       |
 | KJV, King James Version (1769)        | CrossWire KJV 3.1, 2023-07-19                      | DistributionLicense=GPL; exact CrossWire permission and Crown-of-England base-text notice preserved |
+| DBY, English Darby Translation         | eBible engDBY, source text dated 2019-11-15, retrieved 2026-11-20 | Public Domain; original publisher notice and exact scripture wording retained |
 
 Source links: [ChiUns](https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=ChiUns),
 [WEBP](https://ebible.org/bible/details.php?id=engwebp),
-[KJV](https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=KJV).
+[KJV](https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=KJV),
+[DBY](https://ebible.org/find/details.php?id=engDBY).
 Checksums and transformation metadata are in `data/manifest.json`. Original
 publisher notices are in `data/` and `licenses/scripture-*`; the KJV module's
 metadata is not relabeled as global public domain. These data notices do not
@@ -33,7 +35,8 @@ mod2vpl KJV 1 > KJV-raw.vpl
 python3 tools/import_data.py \
   --chinese-archive /path/to/ChiUns.zip --chinese-export /path/to/ChiUns.txt \
   --english-archive /path/to/engwebp_vpl.zip \
-  --kjv-archive /path/to/KJV.zip --kjv-export /path/to/KJV-raw.vpl
+  --kjv-archive /path/to/KJV.zip --kjv-export /path/to/KJV-raw.vpl \
+  --darby-archive /path/to/engDBY_vpl.zip
 python3 tools/licenses.py
 make verify-data
 ```
@@ -97,3 +100,18 @@ from protected modules. Its edition and offline/distribution/copy/card scope
 must be confirmed before implementation. Guidance is provided by
 [CrossWire](https://www.crosswire.org/faq/) and
 [Biblica](https://www.biblica.com/permissions/).
+
+## Darby and pending Chinese editions
+
+DBY is the English translation. Its 66 books / 1189 chapters contain 31,099
+source verses; empty publisher records remain gaps. Supplied-word brackets and
+punctuation are retained. A separate normalized corpus fingerprint protects
+annotation offsets, while full fingerprints verify that every legacy CUV,
+WEBP and KJV verse and data version remains unchanged.
+
+The user confirmed that NIV and Lu Zhenzhong distribution permission is not
+currently available. Lu Zhenzhong is tracked in Issue #24; FHL's regional
+copyright-expiration statement does not establish worldwide distribution
+scope. A requested Chinese rendering of Darby would be a separately identified,
+reviewed derivative reference translation, not the English corpus relabeled
+as Chinese. No Chinese Darby corpus is currently bundled.
