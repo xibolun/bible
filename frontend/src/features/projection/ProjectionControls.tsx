@@ -1,15 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  Button,
-  Drawer,
-  Input,
-  InputNumber,
-  Select,
-  Space,
-  Tabs,
-} from "antd";
-import type { InputRef } from "antd";
+import { useRef, useState } from "react";
+import { Alert, Button, Drawer, InputNumber, Select, Space } from "antd";
 import type { API, Book, Translation } from "../../shared/types";
 import { ReferenceOptions } from "../../shared/ReferenceOptions";
 import { referenceStyles } from "../../shared/formatting";
@@ -51,33 +41,16 @@ export function ProjectionControls({
   onClose: () => void;
 }) {
   const t = translator(language);
-  const [reference, setReference] = useState(initialReference);
   const [translation, setTranslation] = useState(initialTranslation);
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
-  const [entryMode, setEntryMode] = useState("quick");
   const [drafts, setDrafts] = useState<
     Array<{ id: number; reference: string }>
   >([]);
   const draftID = useRef(0);
-  const input = useRef<InputRef>(null);
-  const wasOpen = useRef(false);
+  const [entryReady, setEntryReady] = useState(false);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const { state, error: loadError } = useProjection(api);
-  useEffect(() => {
-    if (open && !wasOpen.current)
-      setReference(state.reference || initialReference);
-    wasOpen.current = open;
-  }, [open, initialReference, state.reference]);
-  useEffect(() => {
-    if (!open) return;
-    setEntryMode("quick");
-    const timer = setTimeout(
-      () => input.current?.focus({ cursor: "all" }),
-      100,
-    );
-    return () => clearTimeout(timer);
-  }, [open, focusRequest]);
   const run = (work: () => Promise<unknown>) => {
     queue.current = queue.current
       .catch(() => {})
@@ -98,7 +71,7 @@ export function ProjectionControls({
     onStyle(next);
     run(() => api.SetProjection("", "", next));
   };
-  const project = (value = reference) => {
+  const project = (value: string) => {
     if (publishing) return;
     if (!value.trim()) {
       setError(
@@ -107,7 +80,7 @@ export function ProjectionControls({
       return;
     }
     setPublishing(true);
-    void run(async () => {
+    return run(async () => {
       await api.SetProjection(value, translation, {
         ...style,
         uiLanguage: language,
@@ -131,8 +104,10 @@ export function ProjectionControls({
       }));
       setDrafts((current) => [...current, ...additions]);
       setError("");
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      return false;
     }
   };
   const move = (index: number, direction: number) => {
@@ -154,7 +129,7 @@ export function ProjectionControls({
       onClose={onClose}
       className="projection-controls"
       afterOpenChange={(visible) => {
-        if (visible) input.current?.focus({ cursor: "all" });
+        setEntryReady(visible);
       }}
     >
       <p className="projection-hint">
@@ -163,66 +138,20 @@ export function ProjectionControls({
           "Enter a reference to project. Move the audience window to another display; F11 fullscreen, Esc windowed.",
         )}
       </p>
-      <Tabs
-        activeKey={entryMode}
-        onChange={setEntryMode}
-        items={[
-          {
-            key: "quick",
-            label: t("快速输入", "Quick input"),
-            children: (
-              <>
-                <label>
-                  {t("快速经文", "Quick passage")}
-                  <Input.Search
-                    ref={input}
-                    aria-label={t("投影经文", "Projection reference")}
-                    placeholder="创3:15-16;约3:16"
-                    value={reference}
-                    enterButton={
-                      <Button
-                        type="primary"
-                        aria-label={t("投放", "Project")}
-                        disabled={publishing}
-                      >
-                        {t("投放", "Project")}
-                      </Button>
-                    }
-                    loading={publishing}
-                    onChange={(e) => setReference(e.target.value)}
-                    onSearch={() => project()}
-                  />
-                </label>
-                <Button
-                  onClick={() => add(reference)}
-                  disabled={!reference.trim() || drafts.length >= 12}
-                >
-                  {t("加入投影清单", "Add to projection list")}
-                </Button>
-                <p className="projection-hint">
-                  {t(
-                    "多段可用分号或加号分隔；回车直接投放。加入清单后可排序并统一投放。",
-                    "Separate references with a semicolon or plus; Enter projects directly. Add to the list to reorder and project together.",
-                  )}
-                </p>
-              </>
-            ),
-          },
-          {
-            key: "picker",
-            label: t("下拉选择", "Choose passage"),
-            children: (
-              <PassagePicker
-                api={api}
-                books={books}
-                translation={translation}
-                language={language}
-                onAdd={add}
-                disabled={drafts.length >= 12}
-              />
-            ),
-          },
-        ]}
+      <PassagePicker
+        api={api}
+        books={books}
+        translation={translation}
+        language={language}
+        onAdd={add}
+        onProject={async (value) => {
+          await project(value);
+        }}
+        disabled={drafts.length >= 12}
+        active={open && entryReady}
+        focusRequest={focusRequest}
+        initialReference={initialReference}
+        publishing={publishing}
       />
       <label>
         {t("投影译本", "Projection translation")}
