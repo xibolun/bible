@@ -147,6 +147,9 @@ test("long pages fit the audience and preview at small viewports without clippin
   await panel
     .getByRole("spinbutton", { name: "投影字号", exact: true })
     .fill("120");
+  await expect(
+    panel.getByRole("button", { name: "投放", exact: true }),
+  ).toBeEnabled();
   await panel
     .getByRole("searchbox", { name: "投影经文", exact: true })
     .fill("诗119:1-6");

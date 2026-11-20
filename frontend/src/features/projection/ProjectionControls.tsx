@@ -36,7 +36,7 @@ export function ProjectionControls({
   const [reference, setReference] = useState(initialReference);
   const [translation, setTranslation] = useState(initialTranslation);
   const [error, setError] = useState("");
-  const [pending, setPending] = useState(0);
+  const [publishing, setPublishing] = useState(false);
   const input = useRef<InputRef>(null);
   const wasOpen = useRef(false);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
@@ -55,15 +55,14 @@ export function ProjectionControls({
     return () => clearTimeout(timer);
   }, [open, focusRequest]);
   const run = (work: () => Promise<unknown>) => {
-    setPending((n) => n + 1);
     queue.current = queue.current
       .catch(() => {})
       .then(work)
       .then(
         () => setError(""),
         (e) => setError(e instanceof Error ? e.message : String(e)),
-      )
-      .finally(() => setPending((n) => n - 1));
+      );
+    return queue.current;
   };
   const change = (patch: Partial<ProjectionStyle>) => {
     const next = { ...style, ...patch, uiLanguage: language };
@@ -71,19 +70,21 @@ export function ProjectionControls({
     run(() => api.SetProjection("", "", next));
   };
   const project = () => {
+    if (publishing) return;
     if (!reference.trim()) {
       setError(
         t("请输入卷章节，例如 创3:15-16", "Enter a reference, e.g. GEN3:15-16"),
       );
       return;
     }
-    run(async () => {
+    setPublishing(true);
+    void run(async () => {
       await api.SetProjection(reference, translation, {
         ...style,
         uiLanguage: language,
       });
       await api.ProjectionWindow("show");
-    });
+    }).finally(() => setPublishing(false));
   };
   const count = pageCount(state);
   return (
@@ -110,8 +111,16 @@ export function ProjectionControls({
           aria-label={t("投影经文", "Projection reference")}
           placeholder="创3:15-16"
           value={reference}
-          enterButton={t("投放", "Project")}
-          loading={pending > 0}
+          enterButton={
+            <Button
+              type="primary"
+              aria-label={t("投放", "Project")}
+              disabled={publishing}
+            >
+              {t("投放", "Project")}
+            </Button>
+          }
+          loading={publishing}
           onChange={(e) => setReference(e.target.value)}
           onSearch={project}
         />
