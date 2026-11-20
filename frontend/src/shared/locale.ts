@@ -5,6 +5,7 @@ export const translator = (language: Language) => (zh: string, en: string) =>
   language === "en" ? en : zh;
 
 const errors: Record<string, string> = {
+  PROJECTION_LIMIT: "Projection supports up to 12 passages and 600 verses. Reduce the list and retry.",
   INVALID_SEARCH:
     "Enter a 1–128 character search pattern and check escapes and pagination.",
   INVALID_WORD: "Enter a Strong’s number such as H430 or G3056.",

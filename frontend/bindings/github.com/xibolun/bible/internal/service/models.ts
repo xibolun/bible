@@ -63,12 +63,14 @@ export interface ProjectionState {
     "revision": number;
     "reference": string;
     "passage": bible$0.Passage | null;
+    "passages": bible$0.Passage[] | null;
     "style": ProjectionStyle;
     "pageIndex": number;
     "blank": boolean;
 }
 
 export interface ProjectionStyle {
+    "themeId": string;
     "fontSize": number;
     "backgroundColor": string;
     "textColor": string;

@@ -1379,6 +1379,7 @@ function Reader({
       )}
       <ProjectionControls
         api={api}
+        books={books}
         open={projecting}
         focusRequest={projectionFocus}
         initialReference={`${prefs.bookId}${prefs.chapter}:${selection?.spans[0]?.verseKey || "1"}${selection && selection.spans.length > 1 ? "-" + selection.spans.at(-1)!.verseKey : ""}`}

@@ -9,6 +9,7 @@ import (
 )
 
 type ProjectionStyle struct {
+	ThemeID           string `json:"themeId"`
 	FontSize          int    `json:"fontSize"`
 	BackgroundColor   string `json:"backgroundColor"`
 	TextColor         string `json:"textColor"`
@@ -22,13 +23,13 @@ type ProjectionStyle struct {
 }
 
 func DefaultProjectionStyle() ProjectionStyle {
-	return ProjectionStyle{64, "#ffffff", "#18212b", "left", 2, "after", "short-version", "arabic", "none", "zh-CN"}
+	return ProjectionStyle{ThemeID: "whiteboard", FontSize: 64, BackgroundColor: "#ffffff", TextColor: "#18212b", Alignment: "left", VersesPerPage: 2, ReferencePosition: "after", ReferenceStyle: "short-version", ChapterNumerals: "arabic", ReferenceBrackets: "none", UILanguage: "zh-CN"}
 }
 
 var projectionColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 func (p ProjectionStyle) valid() bool {
-	return p.FontSize >= 24 && p.FontSize <= 120 && p.VersesPerPage >= 1 && p.VersesPerPage <= 6 &&
+	return validProjectionTheme(p.ThemeID) && p.FontSize >= 24 && p.FontSize <= 120 && p.VersesPerPage >= 1 && p.VersesPerPage <= 6 &&
 		projectionColor.MatchString(p.BackgroundColor) && projectionColor.MatchString(p.TextColor) &&
 		slices.Contains([]string{"left", "center", "right"}, p.Alignment) &&
 		slices.Contains(referenceStyles, p.ReferenceStyle) &&
@@ -42,6 +43,7 @@ type ProjectionState struct {
 	Revision  uint64          `json:"revision"`
 	Reference string          `json:"reference"`
 	Passage   *bible.Passage  `json:"passage"`
+	Passages  []bible.Passage `json:"passages"`
 	Style     ProjectionStyle `json:"style"`
 	PageIndex int             `json:"pageIndex"`
 	Blank     bool            `json:"blank"`
@@ -69,26 +71,25 @@ func (s *Service) emitProjection(state ProjectionState) Result[ProjectionState] 
 
 // Empty reference changes styling without replacing the last confirmed passage.
 func (s *Service) SetProjection(reference, translation string, style ProjectionStyle) Result[ProjectionState] {
+	style = style.normalizedTheme()
 	if !style.valid() {
 		return failure[ProjectionState]("INVALID_SETTINGS")
 	}
-	var passage *bible.Passage
+	var passages []bible.Passage
 	if reference != "" {
-		p, err := s.Data.ResolveReference(reference, translation)
+		p, err := s.Data.ResolveReferences(reference, translation)
 		if err != nil {
 			return failure[ProjectionState](err.Error())
 		}
-		passage = &p
+		passages = p
 	}
 	s.projection.mu.Lock()
 	state := s.projection.state
-	if passage != nil {
-		state.Passage, state.Reference, state.PageIndex, state.Blank = passage, reference, 0, false
+	if passages != nil {
+		state.Passages, state.Passage, state.Reference, state.PageIndex, state.Blank = passages, &passages[0], reference, 0, false
 	}
 	state.Style = style
-	if state.Passage != nil {
-		state.PageIndex = min(state.PageIndex, (len(state.Passage.Verses)-1)/style.VersesPerPage)
-	}
+	state.PageIndex = min(state.PageIndex, projectionPageCount(state)-1)
 	state.Revision++
 	s.projection.state = state
 	s.projection.mu.Unlock()
@@ -97,10 +98,7 @@ func (s *Service) SetProjection(reference, translation string, style ProjectionS
 func (s *Service) ControlProjection(action string) Result[ProjectionState] {
 	s.projection.mu.Lock()
 	state := s.projection.state
-	last := 0
-	if state.Passage != nil {
-		last = (len(state.Passage.Verses) - 1) / state.Style.VersesPerPage
-	}
+	last := projectionPageCount(state) - 1
 	switch action {
 	case "next":
 		state.PageIndex = min(last, state.PageIndex+1)
@@ -116,6 +114,18 @@ func (s *Service) ControlProjection(action string) Result[ProjectionState] {
 	s.projection.state = state
 	s.projection.mu.Unlock()
 	return s.emitProjection(state)
+}
+
+func projectionPageCount(state ProjectionState) int {
+	passages := state.Passages
+	if len(passages) == 0 && state.Passage != nil {
+		passages = []bible.Passage{*state.Passage}
+	}
+	count := 1
+	for _, passage := range passages {
+		count = max(count, (len(passage.Verses)+state.Style.VersesPerPage-1)/state.Style.VersesPerPage)
+	}
+	return count
 }
 func (s *Service) ProjectionWindow(action string) Result[bool] {
 	if !slices.Contains([]string{"show", "fullscreen", "window", "stop", "controls", "toggle-fullscreen", "escape"}, action) {

@@ -3,8 +3,27 @@ package bible
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 )
+
+func TestGroupedReferencesPreserveOrderAndRejectPartialOrExcessiveInput(t *testing.T) {
+	data, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, reference := range []string{"创３:１５-１６；约３:１６", "GEN3:15-16+JHN3:16", "GEN3:15-16\r\nJHN3:16"} {
+		passages, err := data.ResolveReferences(reference, "cuv")
+		if err != nil || len(passages) != 2 || passages[0].Book.ID != "GEN" || passages[1].Book.ID != "JHN" || passages[1].Verses[0].Label != "16" {
+			t.Fatalf("wrong grouped reference %q: %v", reference, err)
+		}
+	}
+	for _, reference := range []string{"GEN3:15-16;JHN99:16", "GEN3:15-16;", ";GEN3:15", "GEN3:15;;JHN3:16", strings.Repeat("GEN1:1;", 12) + "GEN1:1", strings.Repeat("PSA119;", 3) + "PSA119", strings.Repeat("a", 4097)} {
+		if passages, err := data.ResolveReferences(reference, "cuv"); err == nil || passages != nil {
+			t.Errorf("partial/invalid group accepted: %q", reference)
+		}
+	}
+}
 
 func TestProjectionReferenceExamples(t *testing.T) {
 	data, err := Load()

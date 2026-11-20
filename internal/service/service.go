@@ -32,6 +32,9 @@ type Result[T any] struct {
 
 func success[T any](v T) Result[T] { return Result[T]{OK: true, Data: &v} }
 func failure[T any](code string) Result[T] {
+	if code == "PROJECTION_LIMIT" {
+		return Result[T]{Error: &Problem{Code: code, Message: "投影最多12段、600节经文，请减少清单后重试", OperationID: rand.Text()}}
+	}
 	msg := map[string]string{"INVALID_REFERENCE": "书卷或章节不存在", "INVALID_TRANSLATION": "请选择不同且已安装的译本", "DATA_UNAVAILABLE": "内置经文不可用，请重新安装完整应用", "INVALID_SELECTION": "请选择同章同译本的连续经文", "STALE_DATA": "经文版本已变化，请重新选择", "STORAGE_ERROR": "无法读取或保存本地数据，请检查磁盘权限后重试", "CLIPBOARD_ERROR": "复制失败，请保留选区后重试", "INVALID_IMAGE": "卡片图像或尺寸无效", "EXPORT_ERROR": "保存失败，请检查目标文件夹和磁盘空间", "INVALID_SETTINGS": "显示设置或阅读位置无效", "CARD_LIMIT": "卡片最多20节、4000个字符", "BRIDGE_UNAVAILABLE": "桌面服务未连接，请重启应用"}[code]
 	if code == "INVALID_SEARCH" {
 		msg = "请输入 1–128 个字符的搜索条件，检查转义符和分页范围"
@@ -142,6 +145,7 @@ func (s *Service) GetPreferences() Result[Preferences] {
 	if s.Store == nil || s.Store.Preferences(&p) != nil {
 		return failure[Preferences]("STORAGE_ERROR")
 	}
+	p.ProjectionStyle = p.ProjectionStyle.normalizedTheme()
 	if !s.validPreferences(p) {
 		return failure[Preferences]("INVALID_SETTINGS")
 	}
@@ -172,6 +176,7 @@ func (s *Service) validPreferences(p Preferences) bool {
 	return err == nil && slices.Contains(referenceStyles, p.ReferenceStyle) && slices.Contains([]string{"before", "after"}, p.ReferencePosition) && slices.Contains([]string{"zh-CN", "en"}, p.UILanguage) && p.FontSize >= 14 && p.FontSize <= 32 && p.WindowWidth >= 1024 && p.WindowWidth <= 16384 && p.WindowHeight >= 640 && p.WindowHeight <= 16384 && p.ScrollOffset >= 0 && p.ScrollOffset < 100000 && p.SchemaVersion == 1
 }
 func (s *Service) SavePreferences(p Preferences) Result[bool] {
+	p.ProjectionStyle = p.ProjectionStyle.normalizedTheme()
 	if !s.validPreferences(p) {
 		return failure[bool]("INVALID_SETTINGS")
 	}

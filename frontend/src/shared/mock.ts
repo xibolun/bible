@@ -12,6 +12,7 @@ import { codepoints } from "./selection";
 import { formatPassage, passageText } from "./formatting";
 import { sourceRepository } from "./build";
 import { mockProjection } from "../features/projection/mock";
+import { normalizeProjectionTheme } from "../features/projection/themes";
 let loading: Promise<Dataset> | undefined;
 function data() {
   return (loading ??= fetch("/dataset.json").then((r) => {
@@ -141,13 +142,18 @@ export const mock: API = {
   },
   async GetPreferences() {
     fail("storage");
-    return {
+    const preferences = {
       ...defaults,
       ...JSON.parse(
         localStorage.getItem("bible:mock:preferences") ??
           JSON.stringify(defaults),
       ),
     } as Preferences;
+    preferences.projectionStyle = normalizeProjectionTheme({
+      ...defaults.projectionStyle,
+      ...preferences.projectionStyle,
+    });
+    return preferences;
   },
   async SavePreferences(p) {
     fail("storage");

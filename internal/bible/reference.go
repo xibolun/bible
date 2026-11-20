@@ -31,6 +31,32 @@ func normalizeReference(s string) string {
 }
 
 var chapterReference = regexp.MustCompile(`^([1-9][0-9]{0,2})(?::([1-9][0-9]{0,2})(?:-([1-9][0-9]{0,2}))?)?$`)
+var referenceSeparator = regexp.MustCompile("[;；+＋\n]")
+
+// ResolveReferences validates the complete group before the caller publishes it.
+func (d *Dataset) ResolveReferences(reference, translation string) ([]Passage, error) {
+	if len(reference) > 4096 {
+		return nil, fmt.Errorf("PROJECTION_LIMIT")
+	}
+	references := referenceSeparator.Split(strings.ReplaceAll(reference, "\r\n", "\n"), -1)
+	if len(references) > 12 {
+		return nil, fmt.Errorf("PROJECTION_LIMIT")
+	}
+	passages := make([]Passage, 0, len(references))
+	total := 0
+	for _, value := range references {
+		passage, err := d.ResolveReference(strings.TrimSpace(value), translation)
+		if err != nil {
+			return nil, err
+		}
+		total += len(passage.Verses)
+		if total > 600 {
+			return nil, fmt.Errorf("PROJECTION_LIMIT")
+		}
+		passages = append(passages, passage)
+	}
+	return passages, nil
+}
 
 // ResolveReference matches aliases before parsing numbers (including numbered books).
 // Ranges require every source label; missing verses are never ordinal substitutes.

@@ -40,6 +40,7 @@ export const native: API = {
     invoke<ProjectionState>(
       bridge.SetProjection(reference, translation, {
         ...style,
+        themeId: style.themeId || "",
         chapterNumerals: style.chapterNumerals || "arabic",
         referenceBrackets: style.referenceBrackets || "none",
       }),
@@ -63,7 +64,16 @@ export const native: API = {
   GetChapter: (ids, book, ch, request) =>
     invoke<Chapter>(bridge.GetChapter(ids, book, ch, request)),
   GetPreferences: () => invoke<Preferences>(bridge.GetPreferences()),
-  SavePreferences: (p) => invoke<boolean>(bridge.SavePreferences(p)),
+  SavePreferences: (p) =>
+    invoke<boolean>(
+      bridge.SavePreferences({
+        ...p,
+        projectionStyle: {
+          ...p.projectionStyle,
+          themeId: p.projectionStyle.themeId || "",
+        },
+      }),
+    ),
   ListHighlights: (ids, book, ch) =>
     invoke<Highlight[]>(bridge.ListHighlights(ids, book, ch)),
   ApplyHighlight: (request, sel, color) =>

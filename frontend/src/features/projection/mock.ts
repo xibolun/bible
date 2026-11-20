@@ -2,16 +2,19 @@ import type { Dataset } from "../../shared/types";
 import {
   emptyProjection,
   pageCount,
-  resolveReference,
+  resolveReferences,
   type ProjectionState,
   type ProjectionStyle,
 } from "./model";
+import { normalizeProjectionTheme } from "./themes";
 const key = "bible:mock:projection";
 const channel = new BroadcastChannel(key);
 const listeners = new Set<(state: ProjectionState) => void>();
 let popup: Window | null = null;
 function read(): ProjectionState {
-  return JSON.parse(localStorage.getItem(key) || "null") || emptyProjection();
+  const state =
+    JSON.parse(localStorage.getItem(key) || "null") || emptyProjection();
+  return { ...state, style: normalizeProjectionTheme(state.style) };
 }
 function publish(state: ProjectionState) {
   state.revision++;
@@ -38,13 +41,19 @@ export const mockProjection = {
     translation: string,
     style: ProjectionStyle,
   ) {
-    const passage = reference
-      ? resolveReference(data, reference, translation)
+    const passages = reference
+      ? resolveReferences(data, reference, translation)
       : null;
     const state = read();
-    if (passage)
-      Object.assign(state, { passage, reference, pageIndex: 0, blank: false });
-    state.style = style;
+    if (passages)
+      Object.assign(state, {
+        passage: passages[0],
+        passages,
+        reference,
+        pageIndex: 0,
+        blank: false,
+      });
+    state.style = normalizeProjectionTheme(style);
     state.pageIndex = Math.min(state.pageIndex, pageCount(state) - 1);
     return publish(state);
   },
