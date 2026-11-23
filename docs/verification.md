@@ -127,7 +127,12 @@ commit, version/architecture, hashes and successful native reports through
 `tools/release.py validate`, generating a release index without publishing.
 Release unit tests use synthetic bundles and a fake provider for missing,
 corrupt, wrong-version/source, failed-runtime and interrupted-upload cases;
-published reruns retain assets and validate their original index. Tests also
+published reruns retain assets and validate either their legacy index or the
+compact release-notes policy/source/checksum records. Public publication uploads
+only four installers after the complete six-target bundle passes. Cleanup cases
+verify read-only preview, original metadata/index backups, interrupted deletion
+and resume, idempotency, retained asset IDs/digests and rejection of changed or
+unknown assets. No existing package needs rebuilding for cleanup. Tests also
 exercise version tags merged into main and reject moved/unmerged tags, including
 under Python `-O`. Workflow syntax is checked with actionlint 1.7.12. Only the
 tag/manual release workflow receives publishing permission, as confirmed by the
