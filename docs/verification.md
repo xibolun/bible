@@ -55,6 +55,13 @@ selection rejection, visible data errors and direct export retry after a save
 failure without losing editor state. Screenshots and an actual exported
 PNG are uploaded with the browser report. These tests do not substitute for a
 native first-launch/offline check.
+
+Projection dropdown tests wait for the documented chapter-focus advance after
+each book suggestion click and scope suggestions to the book combobox's controlled
+list. A regression repeats the same English/Pinyin queries with 90 ms delayed
+animation frames and 6x Chromium CPU throttling; the normal minimum-window,
+large-font layout and publication checks remain in place.
+
 The KJV flow checks all-three vertical ordering, source verse numbers without repeated edition labels,
 compact line height, KJV highlight persistence after reload, three-version
 clipboard/card output, and removal of an unselected version from comparison
