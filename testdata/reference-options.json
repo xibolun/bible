@@ -60,7 +60,7 @@
         "chapterNumerals": "chinese",
         "referenceBrackets": "book"
       },
-      "expected": "【约三:1】\n正文一。"
+      "expected": "【约三1】\n正文一。"
     },
     {
       "name": "edition inside corner brackets",
@@ -71,7 +71,7 @@
         "chapterNumerals": "chinese",
         "referenceBrackets": "corner"
       },
-      "expected": "正文一。\n正文二。\n— 「约三:1–2·CUV」"
+      "expected": "正文一。\n正文二。\n— 「约三1–2·CUV」"
     },
     {
       "name": "Arabic square brackets",
@@ -93,7 +93,7 @@
         "chapterNumerals": "chinese",
         "referenceBrackets": "book"
       },
-      "expected": "【约三:1-2】: 正文一。\n正文二。"
+      "expected": "【约三1-2】: 正文一。\n正文二。"
     },
     {
       "name": "per-verse corner brackets",
@@ -104,7 +104,7 @@
         "chapterNumerals": "chinese",
         "referenceBrackets": "corner"
       },
-      "expected": "「约三:1」: 正文一。\n「约三:2」: 正文二。"
+      "expected": "「约三1」: 正文一。\n「约三2」: 正文二。"
     },
     {
       "name": "per-verse full name square brackets",
@@ -115,7 +115,7 @@
         "chapterNumerals": "chinese",
         "referenceBrackets": "square"
       },
-      "expected": "[约翰福音三:1]: 正文一。\n[约翰福音三:2]: 正文二。"
+      "expected": "[约翰福音三1]: 正文一。\n[约翰福音三2]: 正文二。"
     },
     {
       "name": "English interface with explicit Chinese chapter",
@@ -126,7 +126,7 @@
         "chapterNumerals": "chinese",
         "referenceBrackets": "none"
       },
-      "expected": "John 三:1–2\n正文一。\n正文二。"
+      "expected": "John 三1–2\n正文一。\n正文二。"
     },
     {
       "name": "English edition and brackets",

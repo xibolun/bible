@@ -74,12 +74,12 @@ test("Chinese chapters and reference-only brackets persist and copy through the 
   await selectOption(page, "章号数字", "中文数字（三）");
   await selectOption(page, "出处括号", "【】");
   await page.getByText("经文之前", { exact: true }).click();
-  await expect(page.locator(".format-preview")).toContainText("【约三:1–2】");
+  await expect(page.locator(".format-preview")).toContainText("【约三1–2】");
   await page.getByRole("button", { name: "完成", exact: true }).click();
-  await verse(page, "1").click();
-  const text = await verse(page, "1").textContent();
+  await verse(page, "16").click();
+  const text = await verse(page, "16").textContent();
   await page.keyboard.press("Control+c");
-  await expect.poll(() => clipboard(page)).toBe(`【约三:1】\n${text}`);
+  await expect.poll(() => clipboard(page)).toBe(`【约三16】\n${text}`);
   await page.getByRole("button", { name: "制作卡片", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "导出 PNG", exact: true }),
@@ -104,9 +104,9 @@ test("Chinese chapters and reference-only brackets persist and copy through the 
       referencePosition: "before",
     });
   await page.reload();
-  await verse(page, "1").click();
+  await verse(page, "16").click();
   await page.keyboard.press("Control+c");
-  await expect.poll(() => clipboard(page)).toBe(`【约三:1】\n${text}`);
+  await expect.poll(() => clipboard(page)).toBe(`【约三16】\n${text}`);
 });
 
 test("global typography scales UI and scripture, preserves PNG sizing and remains usable at minimum bounds", async ({

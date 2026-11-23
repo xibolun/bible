@@ -124,3 +124,22 @@ func TestReferenceOptionsAgreeForCopyAndCards(t *testing.T) {
 		}
 	}
 }
+
+func TestChineseChapterUserExample(t *testing.T) {
+	book := bible.Book{ID: "JHN", Name: "约翰福音", Abbreviation: "约", EnglishName: "John"}
+	verses := []bible.Verse{{Label: "16", Text: "正文：保留冒号"}}
+	for _, sample := range []struct{ numerals, language, expected string }{
+		{"chinese", "zh-CN", "约三16"},
+		{"arabic", "zh-CN", "约3:16"},
+		{"chinese", "en", "JHN 三16"},
+	} {
+		t.Run(sample.expected, func(t *testing.T) {
+			line := formatPassage(book, 3, verses, bible.Translation{ID: "cuv"}, CopyOptions{
+				ChapterNumerals: sample.numerals, UILanguage: sample.language, ReferenceStyle: "short", ReferencePosition: "before",
+			})
+			if got := passageText(line); got != sample.expected+"\n正文：保留冒号" {
+				t.Fatalf("incorrect chapter separator: %q", got)
+			}
+		})
+	}
+}
