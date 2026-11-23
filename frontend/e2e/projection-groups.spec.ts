@@ -1,6 +1,29 @@
 import { expect, test, type Page } from "@playwright/test";
 import { entry, setPassage, addPassage } from "./projection-helpers";
 
+const bookQueries = [
+  ["John", "约翰福音"],
+  ["yuē hàn", "约翰福音"],
+  ["yhfy", "约翰福音"],
+  ["1 John", "约翰一书"],
+  ["tie sa luo ni jia qian shu", "帖撒罗尼迦前书"],
+] as const;
+
+async function selectBookSuggestion(page: Page, query: string, name: string) {
+  const book = entry(page, "book");
+  await book.fill(query);
+  await expect(book).toHaveAttribute("aria-controls", /\S+/);
+  const list = await book.getAttribute("aria-controls");
+  await page
+    .locator(".ant-select-dropdown")
+    .filter({ has: page.locator(`[id="${list}"]`) })
+    .getByText(name, { exact: true })
+    .click();
+  // Selection advances focus on the next frame, before the next book query.
+  await expect(entry(page, "chapter")).toBeFocused();
+  await expect(book).toHaveValue(name);
+}
+
 async function open(page: Page) {
   await page.goto("/");
   await expect(page.locator(".verse-scroll")).toHaveAttribute(
@@ -13,6 +36,7 @@ async function open(page: Page) {
     exact: true,
   });
   await expect(panel).toBeVisible();
+  await expect(entry(page, "book")).toBeFocused();
   return panel;
 }
 async function pageSize(page: Page, value: string) {
@@ -92,18 +116,8 @@ test("compact unlabeled passage row supports English and Pinyin at minimum bound
   const panel = await open(page);
   const row = panel.getByRole("group", { name: "快速经文", exact: true });
   await expect(row.locator("label")).toHaveCount(0);
-  for (const [query, name] of [
-    ["John", "约翰福音"],
-    ["yuē hàn", "约翰福音"],
-    ["yhfy", "约翰福音"],
-    ["1 John", "约翰一书"],
-    ["tie sa luo ni jia qian shu", "帖撒罗尼迦前书"],
-  ]) {
-    await entry(page, "book").fill(query);
-    await page
-      .locator(".ant-select-dropdown:visible")
-      .getByText(name, { exact: true })
-      .click();
+  for (const [query, name] of bookQueries) {
+    await selectBookSuggestion(page, query, name);
   }
   await setPassage(page, "1TH", "3", "5", "6");
   const controls = row.locator(".ant-select,button");
@@ -136,6 +150,40 @@ test("compact unlabeled passage row supports English and Pinyin at minimum bound
   await row.screenshot({
     path: test.info().outputPath("compact-projection-reference-row.png"),
   });
+});
+
+test("book suggestions wait for chapter focus with delayed frames and CPU throttling", async ({
+  page,
+}) => {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Emulation.setCPUThrottlingRate", { rate: 6 });
+  await page.addInitScript(() => {
+    const requestFrame = window.requestAnimationFrame.bind(window);
+    const cancelFrame = window.cancelAnimationFrame.bind(window);
+    const pending = new Map<number, () => void>();
+    let nextId = 0;
+    // Simulate slow frame delivery while retaining cancellation and timestamps.
+    window.requestAnimationFrame = (callback) => {
+      const id = ++nextId;
+      const delay = window.setTimeout(() => {
+        const frame = requestFrame((timestamp) => {
+          pending.delete(id);
+          callback(timestamp);
+        });
+        pending.set(id, () => cancelFrame(frame));
+      }, 90);
+      pending.set(id, () => window.clearTimeout(delay));
+      return id;
+    };
+    window.cancelAnimationFrame = (id) => {
+      pending.get(id)?.();
+      pending.delete(id);
+    };
+  });
+  await open(page);
+  for (const [query, name] of bookQueries) {
+    await selectBookSuggestion(page, query, name);
+  }
 });
 
 test("prepared passages retain both citations and grouped long text fits a small screen", async ({
