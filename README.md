@@ -15,19 +15,19 @@
 
 ## 安装
 
-在 [Releases](https://github.com/xibolun/bible/releases) 选择与系统、处理器匹配的安装包。每个版本提供以下六种组合，文件名包含版本号和架构。
+在 [Releases](https://github.com/xibolun/bible/releases) 选择与系统、处理器匹配的安装包。公开附件提供以下四种组合，文件名包含版本号和架构。
 
 | 系统       | 架构                                   | 安装包                              |
 | ---------- | -------------------------------------- | ----------------------------------- |
-| macOS 12+  | Apple Silicon（arm64）／Intel（amd64） | `.dmg`，也提供应用 `.zip`           |
-| Windows 11 | ARM64／Intel、AMD 64 位（amd64）       | `-installer.exe`，也提供便携 `.zip` |
-| Linux      | arm64／amd64                           | `.deb` 或 `.tar.gz`                 |
+| macOS 12+  | Apple Silicon（arm64）／Intel（amd64） | `.dmg`                              |
+| Windows 11 | Intel、AMD 64 位（amd64）              | `-installer.exe`                     |
+| Linux      | Intel、AMD 64 位（amd64）              | `.deb`                              |
 
 - **macOS**：打开 DMG，将 Bible 拖入 Applications。当前应用使用临时签名，尚未公证。
 - **Windows**：运行对应架构的安装器。需要 Microsoft WebView2 Runtime；当前安装包未签名。
-- **Linux**：推荐 Ubuntu 24.04 及以上或兼容系统，安装对应 `.deb` 后运行 `bible`。依赖 GTK4、WebKitGTK 6.0 和桌面文件对话框服务，包管理器会安装声明的依赖。tar 包在解压后运行 `Bible`，受限用户命名空间环境的配置见开发文档。
+- **Linux**：推荐 Ubuntu 24.04 及以上或兼容系统，安装对应 `.deb` 后运行 `bible`。依赖 GTK4、WebKitGTK 6.0 和桌面文件对话框服务，包管理器会安装声明的依赖。受限用户命名空间环境的配置见开发文档。
 
-Release 附带 `SHA256SUMS` 与构建清单，方便核对版本和文件完整性。卸载保留用户的标记和设置。
+发布说明的折叠区域提供四个安装包的 SHA-256。其他架构、便携包、构建清单和原生验证报告保留在 Actions 工件中。卸载保留用户的标记和设置。
 
 ## 使用
 

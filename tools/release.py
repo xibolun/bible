@@ -12,6 +12,11 @@ from project import ROOT, TARGETS
 
 REPOSITORY = 'xibolun/bible'
 VERSION = re.compile(r'v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\Z')
+PUBLIC_TARGETS = [('windows', 'amd64', '-installer.exe', 'Windows', 'x64'),
+                  ('darwin', 'arm64', '.dmg', 'macOS', 'Apple Silicon'),
+                  ('darwin', 'amd64', '.dmg', 'macOS', 'Intel'),
+                  ('linux', 'amd64', '.deb', 'Linux', 'x64')]
+PUBLIC_POLICY = '<!-- bible-release-assets:installers-v1 -->'
 
 
 def require(condition, message):
@@ -83,26 +88,36 @@ def validate(tag, commit, directory):
     return [directory / name for name in sorted(names)]
 
 
-def notes(tag, commit):
-    lines = [f'Bible {tag}', '', f'Source commit: `{commit}`', '',
+def installer_names(tag):
+    return {f'bible-{tag}-{system}-{arch}{extension}'
+            for system, arch, extension, _, _ in PUBLIC_TARGETS}
+
+
+def notes(tag, commit, checksums, introduction=None):
+    require(set(checksums) == installer_names(tag), 'Installer checksum set is incomplete')
+    require(all(re.fullmatch(r'[0-9a-f]{64}', value) for value in checksums.values()), 'Invalid installer checksum')
+    introduction = introduction or f'Bible {tag}\n\nSource commit: `{commit}`'
+    lines = [introduction.rstrip(), '', '## Downloads', '',
              '| Platform | Architecture | Downloads |', '| --- | --- | --- |']
-    for system, architecture in TARGETS:
-        prefix = f'bible-{tag}-{system}-{architecture}'
-        extensions = [('.deb', 'DEB'), ('.tar.gz', 'tar.gz')] if system == 'linux' else [
-            ('.dmg' if system == 'darwin' else '-installer.exe', 'Installer'), ('.zip', 'Portable ZIP')]
-        links = ' · '.join(f'[{label}](https://github.com/{REPOSITORY}/releases/download/{tag}/{prefix}{extension})'
-                           for extension, label in extensions)
-        lines.append(f'| {system} | {architecture} | {links} |')
+    for system, arch, extension, label, architecture in PUBLIC_TARGETS:
+        name = f'bible-{tag}-{system}-{arch}{extension}'
+        lines.append(f'| {label} | {architecture} | [Installer](https://github.com/{REPOSITORY}/releases/download/{tag}/{name}) |')
     lines += ['', 'All six targets passed checks and two native WebView/Go smoke launches. '
               'Package, runtime and interface versions match this tag.', '',
-              'SHA256SUMS and release-manifest.json identify every asset. '
+              'Build manifests, portable archives and native reports are retained in Actions artifacts.', '',
+              '<details>', '<summary>SHA-256 checksums</summary>', '', '```text']
+    lines += [f'{value}  {name}' for name, value in sorted(checksums.items())]
+    lines += ['```', '', '</details>', '',
               'macOS builds are ad-hoc signed and not notarized; Windows builds are unsigned. '
               'Linux requires system GTK4/WebKitGTK 6.0 libraries. See README for installation.',
-              '', f'<!-- bible-release-source:{commit} -->', '']
+              '', PUBLIC_POLICY, f'<!-- bible-release-source:{commit} -->', '']
     return '\n'.join(lines)
 
 
 class GitHub:
+    def identity(self):
+        return subprocess.check_output(['gh', 'api', 'user', '--jq', '.login'], text=True).strip()
+
     def view(self, tag):
         result = subprocess.run(['gh', 'api', f'repos/{REPOSITORY}/releases/tags/{tag}'], capture_output=True, text=True)
         if result.returncode:
@@ -141,6 +156,18 @@ class GitHub:
         source(tag, expected=commit, refresh=True)
         subprocess.run(['gh', 'release', 'edit', tag, '--repo', REPOSITORY, '--draft=false', '--verify-tag'], check=True)
 
+    def update_notes(self, tag, body):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'notes.md'
+            path.write_text(body, encoding='utf-8')
+            subprocess.run(['gh', 'release', 'edit', tag, '--repo', REPOSITORY,
+                            '--notes-file', str(path)], check=True)
+
+    def delete_asset(self, asset):
+        require(isinstance(asset.get('id'), int) and asset['id'] > 0, 'Invalid asset identity')
+        subprocess.run(['gh', 'api', '--method', 'DELETE',
+                        f'repos/{REPOSITORY}/releases/assets/{asset["id"]}'], check=True)
+
 
 def verify_remote(release, paths):
     assets = {asset['name']: asset for asset in release['assets']}
@@ -151,31 +178,117 @@ def verify_remote(release, paths):
                 f'Uploaded asset differs: {path.name}')
 
 
+def verify_legacy(release, tag, commit, directory):
+    index_path = directory / 'release-manifest.json'
+    index = json.loads(index_path.read_text(encoding='utf-8'))
+    require(index.get('version') == tag and index.get('commit') == commit, 'Published release identifies another source')
+    require(set(index['files']) == target_files(tag), 'Published target index is incomplete')
+    assets = {asset['name']: asset for asset in release['assets']}
+    expected = set(index['files']) | {'release-manifest.json', 'SHA256SUMS'}
+    require(len(assets) == len(release['assets']) and set(assets) == expected, 'Published release is incomplete')
+    checksums = {name: value['sha256'] for name, value in index['files'].items()}
+    checksums['release-manifest.json'] = digest(index_path)
+    text = ''.join(f'{checksum}  {name}\n' for name, checksum in sorted(checksums.items()))
+    require((directory / 'SHA256SUMS').read_text(encoding='utf-8') == text, 'Published checksums disagree with the index')
+    checksums['SHA256SUMS'] = digest(directory / 'SHA256SUMS')
+    for name, checksum in checksums.items():
+        require(assets[name].get('digest') == 'sha256:' + checksum, f'Published asset integrity failure: {name}')
+
+
+def verify_installers(release, tag, commit):
+    body = release.get('body', '').replace('\r\n', '\n')
+    require(PUBLIC_POLICY in body and f'<!-- bible-release-source:{commit} -->' in body,
+            'Published installer policy/source is missing or changed')
+    rows = re.findall(r'^([0-9a-f]{64})  (bible-[^\s]+)$', body, re.M)
+    checksums = {name: value for value, name in rows}
+    require(len(rows) == len(checksums) and set(checksums) == installer_names(tag), 'Published installer checksums are incomplete')
+    assets = {asset['name']: asset for asset in release['assets']}
+    require(len(assets) == len(release['assets']) and set(assets) == installer_names(tag), 'Published installer set is incomplete')
+    for name, value in checksums.items():
+        require(assets[name].get('digest') == 'sha256:' + value and assets[name].get('size', 0) > 0,
+                f'Published asset integrity failure: {name}')
+
+
 def verify_published(client, release, tag, commit):
     # Rebuilt packages can differ in timestamps. Verify the existing publication
-    # against its own complete index; never overwrite published assets on a retry.
+    # against its original integrity records; never overwrite public assets.
+    if PUBLIC_POLICY in release.get('body', ''):
+        verify_installers(release, tag, commit)
+        return
+    require({asset['name'] for asset in release['assets']} == target_files(tag) | {'release-manifest.json', 'SHA256SUMS'},
+            'Published release policy/layout is incomplete')
     with tempfile.TemporaryDirectory() as folder:
         directory = Path(folder)
         client.download(tag, directory)
-        index_path = directory / 'release-manifest.json'
-        index = json.loads(index_path.read_text(encoding='utf-8'))
-        require(index.get('version') == tag and index.get('commit') == commit, 'Published release identifies another source')
-        require(set(index['files']) == target_files(tag), 'Published target index is incomplete')
-        assets = {asset['name']: asset for asset in release['assets']}
-        expected = set(index['files']) | {'release-manifest.json', 'SHA256SUMS'}
-        require(len(assets) == len(release['assets']) and set(assets) == expected, 'Published release is incomplete')
-        checksums = {name: value['sha256'] for name, value in index['files'].items()}
-        checksums['release-manifest.json'] = digest(index_path)
-        text = ''.join(f'{checksum}  {name}\n' for name, checksum in sorted(checksums.items()))
-        require((directory / 'SHA256SUMS').read_text(encoding='utf-8') == text, 'Published checksums disagree with the index')
-        checksums['SHA256SUMS'] = digest(directory / 'SHA256SUMS')
-        for name, checksum in checksums.items():
-            require(assets[name].get('digest') == 'sha256:' + checksum, f'Published asset integrity failure: {name}')
+        verify_legacy(release, tag, commit, directory)
+
+
+def introduction(body):
+    body = body.replace('\r\n', '\n')
+    for marker in ('## Downloads\n', '| Platform | Architecture | Downloads |'):
+        if marker in body:
+            return body.split(marker, 1)[0].rstrip()
+    raise ValueError('Release download section is not recognized')
+
+
+def prune(tag, commit, backup_directory, client, apply=False):
+    """Explicitly reduce an existing public release, with a verified resume snapshot."""
+    require(VERSION.fullmatch(tag), 'Release tags must use vX.Y.Z')
+    require(client.identity() == 'xibolun', 'Release maintenance must authenticate as xibolun')
+    release = client.view(tag)
+    require(release is not None and not release['draft'] and release.get('tag_name') == tag, 'Expected an existing public release')
+    require(f'<!-- bible-release-source:{commit} -->' in release.get('body', ''), 'Release source marker changed')
+    names = installer_names(tag)
+    directory = Path(backup_directory)
+    snapshot_path = directory / 'release-before.json'
+    if {asset['name'] for asset in release['assets']} == names and not snapshot_path.is_file():
+        verify_installers(release, tag, commit)
+        return {'keep': sorted(names), 'remove': [], 'applied': False}
+    if not snapshot_path.is_file():
+        require(PUBLIC_POLICY not in release.get('body', ''), 'A verified pre-cleanup backup is required to resume')
+        with tempfile.TemporaryDirectory() as folder:
+            temporary = Path(folder)
+            client.download(tag, temporary)
+            verify_legacy(release, tag, commit, temporary)
+            directory.mkdir(parents=True, exist_ok=True)
+            for name in ('release-manifest.json', 'SHA256SUMS'):
+                (directory / name).write_bytes((temporary / name).read_bytes())
+        snapshot_path.write_text(json.dumps(release, indent=2) + '\n', encoding='utf-8')
+    snapshot = json.loads(snapshot_path.read_text(encoding='utf-8'))
+    verify_legacy(snapshot, tag, commit, directory)
+    require(snapshot.get('id') == release.get('id') and snapshot.get('tag_name') == tag, 'Release identity changed')
+    expected = {asset['name']: asset for asset in snapshot['assets']}
+    actual = {asset['name']: asset for asset in release['assets']}
+    require(len(actual) == len(release['assets']) and names <= set(actual) <= set(expected), 'Unknown or missing release assets')
+    for name, asset in actual.items():
+        require(all(asset.get(key) == expected[name].get(key) for key in ('id', 'size', 'digest')),
+                f'Asset changed since backup: {name}')
+    checksums = {name: expected[name]['digest'].removeprefix('sha256:') for name in names}
+    body = notes(tag, commit, checksums, introduction(release['body']))
+    remove = sorted(set(actual) - names)
+    if not remove:
+        verify_installers(release, tag, commit)
+        return {'keep': sorted(names), 'remove': [], 'applied': False}
+    result = {'keep': sorted(names), 'remove': remove, 'applied': apply}
+    (directory / 'release-notes-after.md').write_text(body, encoding='utf-8')
+    if not apply:
+        return result
+    client.update_notes(tag, body)
+    for name in remove:
+        client.delete_asset(actual[name])
+    final = client.view(tag)
+    verify_installers(final, tag, commit)
+    retained = {asset['name']: asset for asset in final['assets']}
+    require(final.get('id') == snapshot.get('id') and not final['draft'], 'Release identity/state changed')
+    require(all(retained[name].get(key) == expected[name].get(key)
+                for name in names for key in ('id', 'size', 'digest')), 'Retained installer changed')
+    (directory / 'release-after.json').write_text(json.dumps(final, indent=2) + '\n', encoding='utf-8')
+    return result
 
 
 def publish(tag, commit, directory, client):
     require(VERSION.fullmatch(tag), 'Release tags must use vX.Y.Z')
-    paths = validate(tag, commit, directory)
+    paths = [path for path in validate(tag, commit, directory) if path.name in installer_names(tag)]
     release = client.view(tag)
     if release and not release['draft']:
         verify_published(client, release, tag, commit)
@@ -183,28 +296,37 @@ def publish(tag, commit, directory, client):
     if release:
         require(f'<!-- bible-release-source:{commit} -->' in release.get('body', ''), 'Existing draft belongs to another source')
         require({asset['name'] for asset in release['assets']} <= {path.name for path in paths}, 'Draft has unrelated assets')
+        client.update_notes(tag, notes(tag, commit, {path.name: digest(path) for path in paths}, introduction(release['body'])))
     else:
-        client.create(tag, notes(tag, commit))
+        client.create(tag, notes(tag, commit, {path.name: digest(path) for path in paths}))
     client.upload(tag, paths)
     release = client.view(tag)
     require(release is not None and release['draft'], 'Release draft changed during upload')
     verify_remote(release, paths)
+    verify_installers(release, tag, commit)
     client.publish(tag, commit)
-    return f'Published {tag} with all six targets'
+    return f'Published {tag} with four installers after validating all six targets'
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['prepare', 'validate', 'publish'])
+    parser.add_argument('action', choices=['prepare', 'validate', 'publish', 'prune'])
     parser.add_argument('--tag', required=True)
     parser.add_argument('--commit')
     parser.add_argument('--directory', type=Path)
+    parser.add_argument('--backup-directory', type=Path)
+    parser.add_argument('--apply', action='store_true', help='Apply an explicitly requested existing-release cleanup')
     args = parser.parse_args()
     if args.action == 'prepare':
         commit = source(args.tag)
         with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
             output.write(f'version={args.tag}\nsha={commit}\n')
         print(f'Validated {args.tag} at {commit}')
+        return
+    if args.action == 'prune':
+        require(args.backup_directory is not None, 'Cleanup requires --backup-directory')
+        commit = source(args.tag, expected=args.commit, refresh=True)
+        print(json.dumps(prune(args.tag, commit, args.backup_directory, GitHub(), args.apply), indent=2))
         return
     commit = args.commit or subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     directory = args.directory or ROOT / 'dist' / args.tag

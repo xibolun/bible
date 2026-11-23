@@ -54,7 +54,7 @@ jobs:
         with:
           name: bible-${{ needs.prepare.outputs.version }}-all-targets
           path: dist/${{ needs.prepare.outputs.version }}/
-      - name: Validate and publish the complete release
+      - name: Validate all targets and publish mainstream installers
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 tools/release.py publish --tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT"
