@@ -70,8 +70,10 @@ func chineseChapter(value int) string {
 // formatPassage keeps source verse labels separate from selected text offsets.
 func formatPassage(book bible.Book, chapter int, verses []bible.Verse, translation bible.Translation, options CopyOptions) CardLine {
 	chapterText := strconv.Itoa(chapter)
+	chapterSeparator := ":"
 	if options.ChapterNumerals == "chinese" {
 		chapterText = chineseChapter(chapter)
+		chapterSeparator = ""
 	}
 	wrap := func(reference string) string {
 		switch options.ReferenceBrackets {
@@ -96,7 +98,9 @@ func formatPassage(book bible.Book, chapter int, verses []bible.Verse, translati
 			name = book.ID
 		}
 	}
-	ref := func(label string) string { return fmt.Sprintf("%s%s%s:%s", name, space, chapterText, label) }
+	ref := func(label string) string {
+		return fmt.Sprintf("%s%s%s%s%s", name, space, chapterText, chapterSeparator, label)
+	}
 	parts := make([]string, 0, len(verses))
 	for _, verse := range verses {
 		text := verse.Text

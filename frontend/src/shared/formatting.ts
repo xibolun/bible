@@ -75,6 +75,7 @@ export function formatPassage(
   const { book, chapter, verses, translation } = passage;
   const chapterText =
     numerals === "chinese" ? chineseChapter(chapter) : String(chapter);
+  const chapterSeparator = numerals === "chinese" ? "" : ":";
   const [left, right] = brackets[bracketStyle];
   const wrap = (reference: string) => `${left}${reference}${right}`;
   if (!verses.length) throw new Error("INVALID_SELECTION");
@@ -90,7 +91,7 @@ export function formatPassage(
         ? book.abbreviation
         : book.name;
   const ref = (label: string) =>
-    `${name}${options.uiLanguage === "en" ? " " : ""}${chapterText}:${label}`;
+    `${name}${options.uiLanguage === "en" ? " " : ""}${chapterText}${chapterSeparator}${label}`;
   const perVerse = options.referenceStyle.startsWith("verses-");
   const line: CardLine = {
     text: verses

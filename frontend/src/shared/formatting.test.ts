@@ -67,3 +67,27 @@ it("rejects unknown chapter and bracket formats", () => {
       ),
     ).toThrow("INVALID_SETTINGS");
 });
+
+it.each([
+  ["chinese", "zh-CN", "约三16"],
+  ["arabic", "zh-CN", "约3:16"],
+  ["chinese", "en", "JHN 三16"],
+] as const)(
+  "formats the user's reference as %s / %s: %s",
+  (numerals, language, expected) => {
+    const passage = {
+      ...referenceOptions,
+      verses: [{ label: "16", text: "正文：保留冒号" }],
+    } as Passage;
+    expect(
+      passageText(
+        formatPassage(passage, {
+          chapterNumerals: numerals,
+          uiLanguage: language,
+          referenceStyle: "short",
+          referencePosition: "before",
+        }),
+      ),
+    ).toBe(`${expected}\n正文：保留冒号`);
+  },
+);

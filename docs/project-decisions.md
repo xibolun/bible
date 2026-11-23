@@ -1,5 +1,7 @@
 # Desktop product decisions
 
+- Chinese chapter numerals join the original verse label directly in citations (for example, 约三16); Arabic chapter numerals retain the colon (约3:16). The setting controls this rule independently of interface language across native copy/cards and frontend previews/projection. Inline/per-verse reference-to-body punctuation remains separate.
+
 - Original-language study bundles the independent FHL CBOL Chinese dictionary under GNU FDL 1.1-or-later, with unchanged transparent source dumps, publisher notice, license and normalization history in the distribution. Chinese wording remains Traditional Chinese. Separately attributed OSHB (CC BY 4.0) and CrossWire Strong’s Greek (Public Domain) supply original script, transliteration, pronunciation and expandable English definitions. Verse word groups come from the already pinned KJV 3.1 OSIS Strong’s annotations; the UI identifies that source and does not imply word alignment for CUV/WEBP. Scripture text and data versions remain unchanged.
 - Four persisted reading palettes (Light, Warm paper, Soft sage and Quiet night) use shared Ant Design tokens and CSS variables across reading, navigation and floating controls. Additive readingTheme preferences preserve schema 1, legacy defaults, reading position and highlights. Scripture and secondary text contrast are checked; highlighted text retains a dark foreground at night. The owned open-book/cross SVG is the single source for platform icons and NSIS artwork; installed-app DisplayIcon points to the branded executable.
 

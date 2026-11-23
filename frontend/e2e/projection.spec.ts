@@ -111,7 +111,7 @@ test("projection styles update live, paging and blanking synchronize in both dir
   await choose(page, "出处括号", "【】");
   await choose(page, "投影经文样式", "书卷简称");
   await expect(audience.locator(".projection-reference")).toHaveText(
-    "— 【诗一百五十:5–6】",
+    "— 【诗一百五十5–6】",
   );
   await audience.keyboard.press("F8");
   await expect(entry(page, "book")).toBeFocused();
