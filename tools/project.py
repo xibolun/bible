@@ -155,7 +155,7 @@ def doctor(args):
         if HOST=='windows' and not nsis():raise RuntimeError('NSIS missing. Install explicitly and add makensis to PATH.')
     print(f'Doctor passed on {HOST}/{ARCH}; distribution targets are macOS, Windows and Linux.')
 
-def check(version='v0.3.0'):
+def check(version='v0.3.1'):
     if HOST=='linux':linux_dependencies()
     run([sys.executable,'-m','unittest','discover','-s','tools','-p','test_*.py'])
     files=[ROOT/'main.go',*list((ROOT/'internal').rglob('*.go'))]
@@ -319,9 +319,9 @@ def release_artifacts(args):
     run(['gh','run','download',identifier,'--repo','xibolun/bible','--name',f'bible-{args.version}-all-targets','--dir',dest]);dist(args)
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action');p.add_argument('--os',default=HOST);p.add_argument('--arch',default=ARCH);p.add_argument('--version',default='v0.3.0');p.add_argument('--ref',default='main');p.add_argument('--dev',action='store_true');args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action');p.add_argument('--os',default=HOST);p.add_argument('--arch',default=ARCH);p.add_argument('--version',default='v0.3.1');p.add_argument('--ref',default='main');p.add_argument('--dev',action='store_true');args=p.parse_args()
     assert re.fullmatch(r'v?\d+\.\d+\.\d+',args.version),'VERSION must be a simple semantic version'
-    if args.action=='help':print('make doctor | check | dev | build | package [GOOS=darwin|windows|linux GOARCH=arm64|amd64 VERSION=v0.3.0] | smoke | dist | release-artifacts REF=main | verify-data | verify-branding | bindings | clean\nBuild/package requires a matching native macOS/Windows/Linux host and declared system dependencies. Linux CGO builds require a matching architecture. Authenticate GitHub CLI as xibolun and run make release-artifacts REF=main for all six CI targets.')
+    if args.action=='help':print('make doctor | check | dev | build | package [GOOS=darwin|windows|linux GOARCH=arm64|amd64 VERSION=v0.3.1] | smoke | dist | release-artifacts REF=main | verify-data | verify-branding | bindings | clean\nBuild/package requires a matching native macOS/Windows/Linux host and declared system dependencies. Linux CGO builds require a matching architecture. Authenticate GitHub CLI as xibolun and run make release-artifacts REF=main for all six CI targets.')
     elif args.action=='doctor':doctor(args)
     elif args.action=='check':check(args.version)
     elif args.action=='verify-data':verify_data()

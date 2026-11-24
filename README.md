@@ -4,7 +4,7 @@
 
 离线圣经桌面阅读器，支持 macOS、Windows 和 Linux。阅读、搜索、高亮、复制、经文卡片与第二屏投影，在本机完成。
 
-**[下载 v0.3.0](https://github.com/xibolun/bible/releases/tag/v0.3.0)** · [全部版本](https://github.com/xibolun/bible/releases) · [使用与开发文档](docs/development.md)
+**[下载 v0.3.1](https://github.com/xibolun/bible/releases/tag/v0.3.1)** · [全部版本](https://github.com/xibolun/bible/releases) · [使用与开发文档](docs/development.md)
 
 ## 安装
 
@@ -12,10 +12,10 @@
 
 | 系统       | 处理器          | 安装包                                                                                                           |
 | ---------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| macOS 12+  | Apple Silicon   | [arm64 DMG](https://github.com/xibolun/bible/releases/download/v0.3.0/bible-v0.3.0-darwin-arm64.dmg)             |
-| macOS 12+  | Intel           | [x64 DMG](https://github.com/xibolun/bible/releases/download/v0.3.0/bible-v0.3.0-darwin-amd64.dmg)               |
-| Windows 11 | Intel / AMD x64 | [EXE 安装器](https://github.com/xibolun/bible/releases/download/v0.3.0/bible-v0.3.0-windows-amd64-installer.exe) |
-| Linux      | Intel / AMD x64 | [DEB 安装包](https://github.com/xibolun/bible/releases/download/v0.3.0/bible-v0.3.0-linux-amd64.deb)             |
+| macOS 12+  | Apple Silicon   | [arm64 DMG](https://github.com/xibolun/bible/releases/download/v0.3.1/bible-v0.3.1-darwin-arm64.dmg)             |
+| macOS 12+  | Intel           | [x64 DMG](https://github.com/xibolun/bible/releases/download/v0.3.1/bible-v0.3.1-darwin-amd64.dmg)               |
+| Windows 11 | Intel / AMD x64 | [EXE 安装器](https://github.com/xibolun/bible/releases/download/v0.3.1/bible-v0.3.1-windows-amd64-installer.exe) |
+| Linux      | Intel / AMD x64 | [DEB 安装包](https://github.com/xibolun/bible/releases/download/v0.3.1/bible-v0.3.1-linux-amd64.deb)             |
 
 - **macOS**：打开 DMG，将 Bible 拖入 Applications。当前为临时签名，尚未公证。
 - **Windows**：运行安装器，需要 Microsoft WebView2 Runtime。当前安装包未签名。
@@ -24,7 +24,7 @@
 Linux 安装示例：
 
 ```sh
-sudo apt install ./bible-v0.3.0-linux-amd64.deb
+sudo apt install ./bible-v0.3.1-linux-amd64.deb
 ```
 
 升级及卸载保留本机设置与高亮。便携包、其他架构、JSON 构建清单和验证报告保留在 Actions 工件中。
