@@ -141,6 +141,10 @@ Hook tests cover double-clicks, cancellation, late responses after closing and
 failed-install retries. Library tests cover preserved enable state and version
 metadata even when the updated text matches a retained fingerprint.
 Changing UI language also retains the cached catalogue without a source request.
+Catalogue component tests count source calls: none on opening, local refresh or
+reopening; More editions fetches once and opted-in refresh can fetch again.
+Browser coverage checks the footer entry, source retry and a single inline
+linear download indicator without an alternate spinner style.
 
 SWORD inscription regressions use self-authored CC0 text to check nested words,
 supplied text, combining characters, divine names, excluded notes, line breaks

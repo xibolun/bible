@@ -7,7 +7,6 @@ import {
   Form,
   Input,
   Modal,
-  Progress,
   Select,
   Space,
   Spin,
@@ -321,16 +320,8 @@ export function EditionManager({
               onClick={() => void cancel()}
             >
               {t(
-                job?.status === "downloading"
-                  ? "取消下载"
-                  : job?.status === "inspecting"
-                    ? "取消检查"
-                    : "关闭",
-                job?.status === "downloading"
-                  ? "Cancel download"
-                  : job?.status === "inspecting"
-                    ? "Cancel inspection"
-                    : "Close",
+                job?.status === "inspecting" ? "取消检查" : "关闭",
+                job?.status === "inspecting" ? "Cancel inspection" : "Close",
               )}
             </Button>
           )
@@ -338,43 +329,16 @@ export function EditionManager({
       >
         {error && <Alert title={error} type="error" showIcon />}
         {(job?.status === "queued" ||
-          job?.status === "downloading" ||
           job?.status === "inspecting" ||
           job?.status === "committing") && (
           <Spin
             description={t(
-              job.status === "downloading"
-                ? "正在下载译本…"
-                : job.status === "committing"
-                  ? "正在本地安装…"
-                  : "正在检查文件…",
-              job.status === "downloading"
-                ? "Downloading edition…"
-                : job.status === "committing"
-                  ? "Installing locally…"
-                  : "Inspecting file…",
+              job.status === "committing" ? "正在本地安装…" : "正在检查文件…",
+              job.status === "committing"
+                ? "Installing locally…"
+                : "Inspecting file…",
             )}
           />
-        )}
-        {job?.status === "downloading" && (
-          <div>
-            <p>
-              {((job.downloadedBytes || 0) / 1048576).toFixed(2)} MiB
-              {job.totalBytes
-                ? ` / ${(job.totalBytes / 1048576).toFixed(2)} MiB`
-                : ""}
-            </p>
-            {!!job.totalBytes && (
-              <Progress
-                percent={Math.min(
-                  100,
-                  Math.floor(
-                    ((job.downloadedBytes || 0) * 100) / job.totalBytes,
-                  ),
-                )}
-              />
-            )}
-          </div>
         )}
         {job?.problem && (
           <Alert

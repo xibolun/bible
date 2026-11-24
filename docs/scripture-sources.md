@@ -33,7 +33,8 @@ without carrying KJV scripture.
 ## User-selected downloads
 
 The edition manager reads the official CrossWire `mods.d.tar.gz` catalogue over
-HTTPS only after the reader opens Editions. It lists Chinese and English modules
+HTTPS only after the reader clicks More editions below the local list. Opening
+Editions or refreshing the local list does not request it. It lists Chinese and English modules
 together with installed editions, retains source notices and checks the supported
 native profile before download. Clicking Download or Update authorizes that
 selected ZIP's validated local installation. Progress, cancellation and retry

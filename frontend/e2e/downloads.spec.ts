@@ -1,9 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function manager(page: Page) {
+async function manager(page: Page, loadRemote = true) {
   await page.getByRole("button", { name: "设置", exact: true }).click();
   await page.getByRole("tab", { name: "译本管理", exact: true }).click();
-  return page.getByRole("region", { name: "译本管理", exact: true });
+  const region = page.getByRole("region", { name: "译本管理", exact: true });
+  if (loadRemote)
+    await region.getByRole("button", { name: "更多译本", exact: true }).click();
+  return region;
 }
 const row = (page: Page, id = "TEST_EN") =>
   page.locator('tr[data-module="' + id + '"]');
@@ -18,6 +21,8 @@ async function download(page: Page, id = "TEST_EN") {
   await expect(
     row(page, id).getByRole("status", { name: "译本下载进度", exact: true }),
   ).toBeVisible();
+  await expect(row(page, id).locator(".ant-progress")).toHaveCount(1);
+  await expect(row(page, id).locator(".ant-spin")).toHaveCount(0);
   await expect(
     row(page, id).getByRole("button", { name: "下载", exact: true }),
   ).toHaveCount(0);
@@ -34,6 +39,33 @@ const library = (page: Page) =>
         localStorage.getItem("bible:mock:user-editions") || '{"installs":[]}',
       ).installs,
   );
+
+test("local-only management and refresh stay offline until More editions is clicked", async ({
+  page,
+}) => {
+  await page.goto("/?mockError=source");
+  let region = await manager(page, false);
+  await expect(
+    region.getByRole("row").filter({ hasText: "CUV" }),
+  ).toBeVisible();
+  await expect(row(page)).toHaveCount(0);
+  await region.getByRole("button", { name: "刷新列表", exact: true }).click();
+  await expect(
+    region.getByRole("alert").filter({ hasText: "无法连接CrossWire" }),
+  ).toHaveCount(0);
+  await region.getByRole("button", { name: "更多译本", exact: true }).click();
+  await expect(
+    region.getByRole("alert").filter({ hasText: "无法连接CrossWire" }),
+  ).toBeVisible();
+  await refresh(page, "/");
+  await expect(row(page)).toBeVisible();
+  await page.getByRole("button", { name: "完成", exact: true }).click();
+  region = await manager(page, false);
+  await expect(
+    region.getByRole("button", { name: "更多译本", exact: true }),
+  ).toBeVisible();
+  await expect(row(page)).toHaveCount(0);
+});
 
 test("one flat bilingual list installs downloads with inline progress and separates enable from actions", async ({
   page,

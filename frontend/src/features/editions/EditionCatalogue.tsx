@@ -5,7 +5,6 @@ import {
   Input,
   Progress,
   Space,
-  Spin,
   Switch,
   Table,
   Tag,
@@ -49,7 +48,8 @@ export function EditionCatalogue({
 }) {
   const t = translator(language);
   const [modules, setModules] = useState<DownloadEdition[]>([]);
-  const [sourceLoading, setSourceLoading] = useState(true);
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [remoteRequested, setRemoteRequested] = useState(false);
   const [sourceError, setSourceError] = useState<unknown>();
   const [actionError, setActionError] = useState<unknown>();
   const [query, setQuery] = useState("");
@@ -58,6 +58,7 @@ export function EditionCatalogue({
   const download = useEditionDownload(api, onInstalled);
   const working = disabled || download.busy;
   useEffect(() => {
+    if (!remoteRequested) return;
     let active = true;
     setSourceLoading(true);
     setSourceError(undefined);
@@ -75,7 +76,7 @@ export function EditionCatalogue({
     return () => {
       active = false;
     };
-  }, [api, refresh]);
+  }, [api, refresh, remoteRequested]);
   const rows = editionRows(translations, installs, modules).filter((row) => {
     // Keep an active task visible even if the reader changes the search.
     if (download.busy && row.module?.id === download.task?.module.id)
@@ -126,20 +127,22 @@ export function EditionCatalogue({
                     : "Downloading",
               )}
             </span>
-            {task.phase === "downloading" && !!task.job?.totalBytes ? (
-              <Progress
-                percent={Math.min(
-                  100,
-                  Math.floor(
-                    ((task.job.downloadedBytes || 0) * 100) /
-                      task.job.totalBytes,
-                  ),
-                )}
-                size="small"
-              />
-            ) : (
-              <Spin size="small" />
-            )}
+            <Progress
+              percent={
+                task.job?.totalBytes
+                  ? Math.min(
+                      100,
+                      Math.floor(
+                        ((task.job?.downloadedBytes || 0) * 100) /
+                          task.job.totalBytes,
+                      ),
+                    )
+                  : 0
+              }
+              size="small"
+              status="active"
+              showInfo={task.phase === "downloading" && !!task.job?.totalBytes}
+            />
             {task.phase === "downloading" && (
               <small>
                 {((task.job?.downloadedBytes || 0) / 1048576).toFixed(2)} MiB
@@ -218,19 +221,21 @@ export function EditionCatalogue({
           disabled={working}
           loading={sourceLoading}
           onClick={() => {
-            setRefresh((n) => n + 1);
+            if (remoteRequested) setRefresh((n) => n + 1);
             void onReload().catch(setActionError);
           }}
         >
           {t("刷新列表", "Refresh list")}
         </Button>
       </Space>
-      <p className="muted">
-        {t(
-          "来源：CrossWire 官方圣经模块库。点击下载后自动导入本机，供离线阅读；版权与版次见详情。",
-          "Source: CrossWire Bible modules. Downloads install automatically for offline reading; see details for notices and versions.",
-        )}
-      </p>
+      {remoteRequested && (
+        <p className="muted">
+          {t(
+            "来源：CrossWire 官方圣经模块库。点击下载后自动导入本机，供离线阅读；版权与版次见详情。",
+            "Source: CrossWire Bible modules. Downloads install automatically for offline reading; see details for notices and versions.",
+          )}
+        </p>
+      )}
       {prototype && (
         <Alert
           type="info"
@@ -391,6 +396,15 @@ export function EditionCatalogue({
           },
         ]}
       />
+      {!remoteRequested && (
+        <Button
+          block
+          disabled={working}
+          onClick={() => setRemoteRequested(true)}
+        >
+          {t("更多译本", "More editions")}
+        </Button>
+      )}
       {!installs.length && (
         <p className="muted">
           {t(
