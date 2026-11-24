@@ -842,7 +842,7 @@ function Reader({
         )
           throw new Error("settings persistence");
         await api!.SavePreferences(previous);
-        await api!.CopySelection(s, "parallelVerse", ["cuv"], {
+        await api!.CopySelection(s, "textWithReference", ["cuv"], {
           referencePosition: "before",
           referenceStyle: "verses-short",
           uiLanguage: "en",

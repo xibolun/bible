@@ -286,7 +286,7 @@ test("legacy settings, bilingual interface and reference placement in keyboard c
   await panel.getByRole("tab", { name: "About", exact: true }).click();
   await expect(
     panel.getByText(
-      `Application version ${process.env.BIBLE_APP_VERSION || "v0.3.0"}`,
+      `Application version ${process.env.BIBLE_APP_VERSION || "v0.3.1"}`,
     ),
   ).toBeVisible();
   await expect(

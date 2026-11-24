@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/xibolun/bible/internal/bible"
@@ -15,7 +16,11 @@ import (
 var myBibleNumbers = []int{10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 190, 220, 230, 240, 250, 260, 290, 300, 310, 330, 340, 350, 360, 370, 380, 390, 400, 410, 420, 430, 440, 450, 460, 470, 480, 490, 500, 510, 520, 530, 540, 550, 560, 570, 580, 590, 600, 610, 620, 630, 640, 650, 660, 670, 680, 690, 700, 710, 720, 730}
 
 func parseSQLite(ctx context.Context, filename string, d *Draft, canon *bible.Dataset) error {
-	db, err := sql.Open("sqlite", (&url.URL{Scheme: "file", Path: filename}).String()+"?mode=ro&immutable=1")
+	uri, err := sqliteSourceURI(filename)
+	if err != nil {
+		return err
+	}
+	db, err := sql.Open("sqlite", uri)
 	if err != nil {
 		return err
 	}
@@ -265,6 +270,20 @@ func parseSQLite(ctx context.Context, filename string, d *Draft, canon *bible.Da
 		return e
 	}
 	return nil
+}
+
+func sqliteSourceURI(filename string) (string, error) {
+	absolute, err := filepath.Abs(filename)
+	if err != nil {
+		return "", err
+	}
+	path := filepath.ToSlash(absolute)
+	// SQLite file URIs require /C:/... rather than C:\... on Windows.
+	// https://www.sqlite.org/uri.html#the_uri_path
+	if filepath.VolumeName(absolute) != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return (&url.URL{Scheme: "file", Path: path, RawQuery: "mode=ro&immutable=1"}).String(), nil
 }
 
 // These exact ASV 2.3.7 rules only unwrap styling. The tokenizer implements

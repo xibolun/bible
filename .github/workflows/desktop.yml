@@ -7,7 +7,7 @@ on:
     inputs:
       version:
         description: Internal package version
-        default: v0.3.0
+        default: v0.3.1
         required: true
   workflow_call:
     inputs:
@@ -20,7 +20,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: desktop-${{ github.ref }}-${{ inputs.version || 'v0.3.0' }}
+  group: desktop-${{ github.ref }}-${{ inputs.version || 'v0.3.1' }}
   cancel-in-progress: true
 jobs:
   checks:
@@ -62,10 +62,21 @@ jobs:
         run: |
           make verify-data
           make verify-branding
+  windows-imports:
+    if: github.event_name == 'pull_request'
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26.10'
+          cache: true
+      - name: Check Windows edition imports without packaging
+        run: go test ./internal/importer
   browser:
     runs-on: ubuntu-24.04
     env:
-      BIBLE_APP_VERSION: ${{ inputs.version || 'v0.3.0' }}
+      BIBLE_APP_VERSION: ${{ inputs.version || 'v0.3.1' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -117,7 +128,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       PYTHONUTF8: '1'
-      VERSION: ${{ inputs.version || 'v0.3.0' }}
+      VERSION: ${{ inputs.version || 'v0.3.1' }}
     defaults:
       run:
         shell: bash
@@ -191,14 +202,14 @@ jobs:
         if: ${{ !cancelled() && steps.version.outcome == 'success' }}
         with:
           name: bible-${{ matrix.os }}-${{ matrix.arch }}
-          path: dist/${{ inputs.version || 'v0.3.0' }}/
+          path: dist/${{ inputs.version || 'v0.3.1' }}/
           if-no-files-found: error
   collect:
     if: github.event_name == 'workflow_dispatch' || inputs.ref != ''
     needs: [browser, native]
     runs-on: ubuntu-24.04
     env:
-      VERSION: ${{ inputs.version || 'v0.3.0' }}
+      VERSION: ${{ inputs.version || 'v0.3.1' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -206,13 +217,13 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: bible-*
-          path: dist/${{ inputs.version || 'v0.3.0' }}/
+          path: dist/${{ inputs.version || 'v0.3.1' }}/
           merge-multiple: true
       - run: python3 tools/project.py dist --version "$VERSION"
       - name: Validate the complete release bundle without publishing
         run: python3 tools/release.py validate --tag "$VERSION"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: bible-${{ inputs.version || 'v0.3.0' }}-all-targets
-          path: dist/${{ inputs.version || 'v0.3.0' }}/
+          name: bible-${{ inputs.version || 'v0.3.1' }}-all-targets
+          path: dist/${{ inputs.version || 'v0.3.1' }}/
           if-no-files-found: error
