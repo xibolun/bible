@@ -110,6 +110,59 @@ func TestLibraryDurabilityDuplicateVersionRecoveryAndRemoval(t *testing.T) {
 		t.Fatal("same text did not recover tombstone identity", e)
 	}
 }
+func TestExplicitUpdateKeepsIdentityEnabledStateAndVersionMetadata(t *testing.T) {
+	filename := filepath.Join(t.TempDir(), "library.sqlite")
+	l, err := Open(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { l.Close() }()
+	first := draftFixture(t, "First synthetic version.")
+	first.SourceEdition = "1"
+	options := Commit{Name: "My edition", Abbreviation: "MINE", Language: "en"}
+	installed, err := l.Install(first, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = l.SetEnabled(installed.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	second := draftFixture(t, "Second synthetic version.")
+	second.SourceEdition = "2"
+	options.ReplaceID = installed.ID
+	for _, phase := range []string{"new text", "retained text", "same text new version"} {
+		if phase == "retained text" {
+			if err = l.Restore(installed.ID, first.Fingerprint); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if phase == "same text new version" {
+			second.SourceEdition = "2.1"
+		}
+		updated, err := l.Install(second, options)
+		if err != nil || updated.ID != installed.ID {
+			t.Fatalf("%s changed identity: %+v %v", phase, updated, err)
+		}
+		rows := l.List()
+		if len(rows) != 1 || rows[0].Enabled || rows[0].Translation.Name != "My edition" || rows[0].Translation.DataVersion != second.Fingerprint || rows[0].Report.SourceEdition != second.SourceEdition || len(rows[0].Versions) != 2 {
+			t.Fatalf("%s lost update metadata: %+v", phase, rows)
+		}
+	}
+	invalid := options
+	invalid.ReplaceID = "user:missing"
+	if _, err = l.Install(second, invalid); err == nil {
+		t.Fatal("duplicate text bypassed update target validation")
+	}
+	l.Close()
+	l, err = Open(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := l.List()[0]; got.Enabled || got.Report.SourceEdition != "2.1" || got.Translation.ID != installed.ID {
+		t.Fatalf("restart lost update: %+v", got)
+	}
+}
+
 func TestFailedWriteRollsBackAndFutureSchemaIsRetained(t *testing.T) {
 	l, e := Open(filepath.Join(t.TempDir(), "library.sqlite"))
 	if e != nil {

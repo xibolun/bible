@@ -318,10 +318,16 @@ func (l *Library) Install(d *importer.Draft, options Commit) (Installed, error) 
 		return Installed{}, err
 	}
 	defer tx.Rollback()
+	if options.ReplaceID != "" {
+		var n int
+		if err = tx.QueryRow("SELECT count(*) FROM editions WHERE id=? AND deleted=0 AND NOT EXISTS(SELECT 1 FROM removals WHERE removals.id=editions.id)", options.ReplaceID).Scan(&n); err != nil || n != 1 {
+			return Installed{}, fmt.Errorf("INVALID_TRANSLATION")
+		}
+	}
 	var existing string
 	var deleted bool
 	e := tx.QueryRow("SELECT v.id,e.deleted FROM versions v JOIN editions e ON e.id=v.id WHERE v.version=? ORDER BY e.deleted LIMIT 1", d.Fingerprint).Scan(&existing, &deleted)
-	if e == nil && !deleted {
+	if e == nil && !deleted && options.ReplaceID == "" {
 		return Installed{existing, true}, nil
 	}
 	if e != nil && e != sql.ErrNoRows {
@@ -329,10 +335,6 @@ func (l *Library) Install(d *importer.Draft, options Commit) (Installed, error) 
 	}
 	id := existing
 	if options.ReplaceID != "" {
-		var n int
-		if err = tx.QueryRow("SELECT count(*) FROM editions WHERE id=? AND deleted=0 AND NOT EXISTS(SELECT 1 FROM removals WHERE removals.id=editions.id)", options.ReplaceID).Scan(&n); err != nil || n != 1 {
-			return Installed{}, fmt.Errorf("INVALID_TRANSLATION")
-		}
 		id = options.ReplaceID
 	}
 	if id == "" {
@@ -347,7 +349,7 @@ func (l *Library) Install(d *importer.Draft, options Commit) (Installed, error) 
 	if err != nil {
 		return Installed{}, err
 	}
-	_, err = tx.Exec("INSERT INTO editions(id,active_version,enabled,deleted) VALUES(?,?,1,0) ON CONFLICT(id) DO UPDATE SET active_version=excluded.active_version,enabled=1,deleted=0", id, d.Fingerprint)
+	_, err = tx.Exec("INSERT INTO editions(id,active_version,enabled,deleted) VALUES(?,?,1,0) ON CONFLICT(id) DO UPDATE SET active_version=excluded.active_version,enabled=CASE WHEN editions.deleted=1 THEN 1 ELSE editions.enabled END,deleted=0", id, d.Fingerprint)
 	if err != nil {
 		return Installed{}, err
 	}

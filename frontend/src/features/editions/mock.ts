@@ -12,6 +12,7 @@ interface Stored {
   installs: EditionInstall[];
   records: Record<string, Record<string, EditionRecord[]>>;
   tombstones: Record<string, string>;
+  reports?: Record<string, Record<string, EditionReport>>;
 }
 const saved: Stored = JSON.parse(
   localStorage.getItem(key) || '{"installs":[],"records":{},"tombstones":{}}',
@@ -21,6 +22,11 @@ let draft: EditionRecord[] = [];
 let source = "";
 let remote: "TEST_ZH" | "TEST_EN" | undefined;
 let downloadPolls = 0;
+let remoteVersion = "1";
+const mockVersion = (key = "mockVersion") => {
+  const value = new URLSearchParams(location.search).get(key) || "1";
+  return /^\d+(?:\.\d+)*$/.test(value) ? value : "1";
+};
 const persist = () => localStorage.setItem(key, JSON.stringify(saved));
 export function restoreMockEditions(data: Dataset) {
   data.translations = data.translations.filter((v) => v.origin !== "user");
@@ -64,7 +70,7 @@ export function mockEditionAPI(
           id: "TEST_ZH",
           name: "中文示例（模拟）",
           language: "zh-Hans",
-          version: "1",
+          version: mockVersion(),
           license: "CC0 synthetic sample",
           about: "自编测试示例，非圣经译本正文",
           size: 100,
@@ -75,7 +81,7 @@ export function mockEditionAPI(
           id: "TEST_EN",
           name: "English sample (Mock)",
           language: "en",
-          version: "1",
+          version: mockVersion(),
           license: "CC0 synthetic sample",
           about: "Self-authored test sample, not a Bible edition",
           size: 100,
@@ -101,9 +107,17 @@ export function mockEditionAPI(
       if (new URLSearchParams(location.search).get("mockError") === "download")
         throw new Error("SOURCE_UNAVAILABLE");
       remote = id;
+      remoteVersion = mockVersion();
       downloadPolls = 0;
       draft = [];
       source = `<XMLBIBLE biblename="${id === "TEST_ZH" ? "中文示例（模拟）" : "English sample (Mock)"}"><INFORMATION><identifier>${id}</identifier><language>${id === "TEST_ZH" ? "zh-Hans" : "en"}</language><rights>CC0 synthetic sample, not a Bible edition</rights></INFORMATION><BIBLEBOOK bnumber="43"><CHAPTER cnumber="3"><VERS vnumber="16">${id === "TEST_ZH" ? "下载示例：晨光照耀。" : "Download sample: morning light. Not scripture."}</VERS></CHAPTER></BIBLEBOOK></XMLBIBLE>`;
+      const textVersion = new URLSearchParams(location.search).has(
+        "mockTextVersion",
+      )
+        ? mockVersion("mockTextVersion")
+        : remoteVersion;
+      if (textVersion !== "1")
+        source = source.replace("</VERS>", ` Version ${textVersion}.</VERS>`);
       job = {
         id: crypto.randomUUID(),
         status: "downloading",
@@ -251,7 +265,12 @@ export function mockEditionAPI(
     async GetEditionImportJob(id) {
       const value = requireJob(id);
       if (value.status === "downloading") {
-        if (++downloadPolls === 1) {
+        const steps = new URLSearchParams(location.search).has(
+          "mockSlowDownload",
+        )
+          ? 10
+          : 2;
+        if (++downloadPolls < steps) {
           value.downloadedBytes = 50;
           return structuredClone(value);
         }
@@ -262,7 +281,7 @@ export function mockEditionAPI(
           value.report.versification = selected === "TEST_EN" ? "KJV" : "NRSV";
           value.report.metadata.DownloadRepository = "CrossWire (Mock)";
           value.report.metadata.DownloadURL = `https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/${selected}.zip`;
-          value.report.sourceEdition = "1";
+          value.report.sourceEdition = remoteVersion;
           value.report.diagnostics = [
             "自编下载模拟示例，非真实圣经译本 / Synthetic download sample, not an actual Bible edition",
           ];
@@ -286,12 +305,14 @@ export function mockEditionAPI(
         throw new Error("DRAFT_EXPIRED");
       if (!options.name.trim() || !options.abbreviation.trim())
         throw new Error("INVALID_SETTINGS");
+      if (new URLSearchParams(location.search).get("mockError") === "install")
+        throw new Error("IMPORT_IO");
       const d = await data(),
         report = { ...value.report, ...options };
       const existing = saved.installs.find(
         (v) => saved.records[v.translation.id]?.[report.fingerprint],
       );
-      if (existing) {
+      if (existing && !options.replaceId) {
         value.installed = { id: existing.translation.id, duplicate: true };
       } else {
         const replaced = saved.installs.find(
@@ -318,7 +339,7 @@ export function mockEditionAPI(
             versification: report.versification,
             comparable: report.versification === "KJV",
           },
-          enabled: true,
+          enabled: replaced?.enabled ?? true,
           removing: false,
           report,
           versions: [
@@ -327,12 +348,17 @@ export function mockEditionAPI(
               sourceEdition: report.sourceEdition,
               created: new Date().toISOString(),
             },
-            ...(replaced?.versions || []),
+            ...(replaced?.versions || []).filter(
+              (v) => v.fingerprint !== report.fingerprint,
+            ),
           ],
           bytes: new TextEncoder().encode(JSON.stringify(draft)).length,
         };
         saved.records[editionID] ??= {};
         saved.records[editionID][report.fingerprint] = structuredClone(draft);
+        saved.reports ??= {};
+        saved.reports[editionID] ??= {};
+        saved.reports[editionID][report.fingerprint] = structuredClone(report);
         saved.installs = saved.installs.filter(
           (v) => v.translation.id !== editionID,
         );
@@ -364,6 +390,20 @@ export function mockEditionAPI(
       if (!item || !saved.records[id]?.[version])
         throw new Error("DATA_UNAVAILABLE");
       item.translation.dataVersion = version;
+      const report = saved.reports?.[id]?.[version];
+      if (report) {
+        item.report = structuredClone(report);
+        Object.assign(item.translation, {
+          name: report.name,
+          abbreviation: report.abbreviation,
+          language: report.language,
+          sourceEdition: report.sourceEdition,
+          sourceUrl: report.sourceUrl,
+          license: report.license,
+          versification: report.versification,
+          comparable: report.versification === "KJV",
+        });
+      }
       persist();
       restoreMockEditions(await data());
       return true;
@@ -375,6 +415,7 @@ export function mockEditionAPI(
         saved.tombstones[version.fingerprint] = id;
       saved.installs = saved.installs.filter((v) => v.translation.id !== id);
       delete saved.records[id];
+      if (saved.reports) delete saved.reports[id];
       if (purgeHighlights) purge(id);
       persist();
       restoreMockEditions(await data());

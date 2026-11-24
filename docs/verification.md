@@ -131,11 +131,15 @@ explicit additional/final slot offsets to guard against verse shifts. Browser
 bilingual regressions install an explicit CI-only WEBP excerpt fixture rather
 than adding scripture to production assets.
 
-Edition management browser coverage also checks the integrated installed/download
-views, a single settings drawer without catalogue/details modals, preserved
-search/language filters, read-only bundled CUV, provenance-based installed status
-after renaming, shared row actions, inline version recovery, failed-source
-isolation from local management, and 1024×640 layout at 20px global type.
+Edition management browser coverage checks one flat Chinese/English catalogue,
+no language filter or view switch, independent Enabled and Actions cells,
+inline download progress/cancel/retry, automatic installation without a modal,
+read-only CUV, renamed-module provenance, newer-version updates with stable ID
+and disabled state, version-only updates, retained-version recovery, no duplicate
+or downgrade prompts, failed-source isolation, and 1024×640 layout at 20px type.
+Hook tests cover double-clicks, cancellation, late responses after closing and
+failed-install retries. Library tests cover preserved enable state and version
+metadata even when the updated text matches a retained fingerprint.
 Changing UI language also retains the cached catalogue without a source request.
 
 SWORD inscription regressions use self-authored CC0 text to check nested words,

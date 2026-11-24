@@ -33,10 +33,12 @@ without carrying KJV scripture.
 ## User-selected downloads
 
 The edition manager reads the official CrossWire `mods.d.tar.gz` catalogue over
-HTTPS only after the reader opens Download editions. It lists Chinese and
-English Bible modules, retains source notices and checks the supported native
-profile before download. A selected ZIP is downloaded with bounded progress and
-cancellation, parsed into the same preview draft and installed only on confirmation.
+HTTPS only after the reader opens Editions. It lists Chinese and English modules
+together with installed editions, retains source notices and checks the supported
+native profile before download. Clicking Download or Update authorizes that
+selected ZIP's validated local installation. Progress, cancellation and retry
+stay in its row; installation completes automatically. Local file imports retain
+their separate preview and confirmation flow.
 No remote module scripture is included in application assets or installers.
 
 Bilingual regression tests explicitly install selected public-domain WEBP excerpts

@@ -12,7 +12,7 @@ async function inspect(page: Page, source: string, replace = false) {
   const chooser = page.waitForEvent("filechooser");
   await page
     .getByRole("button", {
-      name: replace ? "替换" : "导入译本文件",
+      name: "导入译本文件",
       exact: true,
     })
     .click();
@@ -28,6 +28,15 @@ async function inspect(page: Page, source: string, replace = false) {
     exact: true,
   });
   await expect(dialog).toBeVisible();
+  if (replace) {
+    await dialog
+      .getByRole("combobox", { name: "安装方式", exact: true })
+      .click();
+    await page
+      .locator(".ant-select-dropdown:visible")
+      .getByText("替换 导入测试（保留旧版）", { exact: true })
+      .click();
+  }
   return dialog;
 }
 async function install(page: Page, body?: string, replace = false) {
