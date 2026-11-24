@@ -172,6 +172,23 @@ test("version replacement and disabling or removing a current edition keep readi
   let dialog = await install(page);
   await dialog.getByRole("button", { name: "开始阅读", exact: true }).click();
   await expect(page.locator(".verse-scroll")).toContainText("晨光");
+  await page.keyboard.press("Control+f");
+  const search = page.getByRole("searchbox", { name: "搜索条件", exact: true });
+  await search.fill("晨%照");
+  await search.press("Enter");
+  await page
+    .getByRole("button", { name: "前往约翰福音3:1", exact: true })
+    .click();
+  await page.locator(".verse-scroll [data-verse-text]").first().click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        JSON.parse(
+          localStorage.getItem("bible:mock:preferences") || "{}",
+        ).searchHistory?.map((entry: { pattern: string }) => entry.pattern),
+      ),
+    )
+    .toEqual(["晨%照"]);
   await manager(page);
   dialog = await install(page, "新版样本。", true);
   await dialog
@@ -200,6 +217,15 @@ test("version replacement and disabling or removing a current edition keep readi
   await expect(
     region.getByRole("switch", { name: "启用 导入测试", exact: true }),
   ).not.toBeChecked();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem("bible:mock:preferences") || "{}")
+            .searchHistory,
+      ),
+    )
+    .toEqual([]);
   dialog = await inspect(page, fixture());
   await dialog.getByRole("button", { name: "确认导入", exact: true }).click();
   await expect(dialog.getByText("此正文已存在", { exact: true })).toBeVisible();

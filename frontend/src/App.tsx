@@ -304,6 +304,9 @@ function Reader({
       const next = {
         ...previous,
         translations: selected,
+        searchHistory: previous.searchHistory.filter((entry) =>
+          ts.some((v) => v.id === entry.translationId),
+        ),
         parallel,
         bookId: book.id,
         chapter: ch,

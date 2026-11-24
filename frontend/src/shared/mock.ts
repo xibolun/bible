@@ -189,6 +189,13 @@ export const mock: API = {
   },
   async SavePreferences(p) {
     fail("storage");
+    const d = await data();
+    if (
+      p.searchHistory.some(
+        (entry) => !d.translations.some((v) => v.id === entry.translationId),
+      )
+    )
+      throw new Error("INVALID_SETTINGS");
     localStorage.setItem("bible:mock:preferences", JSON.stringify(p));
     return true;
   },
