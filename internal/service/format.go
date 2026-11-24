@@ -148,12 +148,12 @@ func passageText(line CardLine) string {
 	return line.Text + "\n" + line.Reference
 }
 
-func (s *Service) passage(sel Selection, id string, full bool, options CopyOptions) CardLine {
-	book, _ := s.Data.Book(sel.BookID)
-	translation, _ := s.Data.Translation(id)
+func passage(data *bible.Dataset, sel Selection, id string, full bool, options CopyOptions) CardLine {
+	book, _ := data.Book(sel.BookID)
+	translation, _ := data.Translation(id)
 	verses := make([]bible.Verse, 0, len(sel.Spans))
 	for _, span := range sel.Spans {
-		verse, present := s.Data.Verse(id, sel.BookID, sel.Chapter, span.VerseKey)
+		verse, present := data.Verse(id, sel.BookID, sel.Chapter, span.VerseKey)
 		if !present {
 			verse = bible.Verse{Label: span.VerseKey, Text: "本译本无此节"}
 			if options.UILanguage == "en" {

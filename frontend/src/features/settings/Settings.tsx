@@ -7,13 +7,20 @@ import {
   Select,
   Space,
   Tabs,
+  Spin,
 } from "antd";
+import { lazy, Suspense } from "react";
 import { GithubOutlined } from "@ant-design/icons";
 import type { API, Preferences, Translation } from "../../shared/types";
 import { translator, errorText } from "../../shared/locale";
 import { appVersion } from "../../shared/build";
 import { palettes, readingThemes } from "../../shared/themes";
 import { ReferenceOptions } from "../../shared/ReferenceOptions";
+const EditionManager = lazy(() =>
+  import("../editions/EditionManager").then((m) => ({
+    default: m.EditionManager,
+  })),
+);
 import {
   referenceStyles,
   inlineReferences,
@@ -29,6 +36,9 @@ export function Settings({
   translations,
   onChange,
   onClose,
+  initialTab = "reading",
+  onCatalogue,
+  onRead,
 }: {
   preferences: Preferences;
   api: API;
@@ -36,6 +46,9 @@ export function Settings({
   translations: Translation[];
   onChange: (value: Partial<Preferences>) => void;
   onClose: () => void;
+  initialTab?: string;
+  onCatalogue: () => Promise<void>;
+  onRead: (id: string) => Promise<void>;
 }) {
   const t = translator(preferences.uiLanguage);
   const { message } = App.useApp();
@@ -65,6 +78,7 @@ export function Settings({
       }
     >
       <Tabs
+        defaultActiveKey={initialTab}
         items={[
           {
             key: "reading",
@@ -112,7 +126,7 @@ export function Settings({
                   language={preferences.uiLanguage}
                   onChange={onChange}
                 />
-                {preview && (
+                {preview && preview.verses.length > 0 && (
                   <div>
                     <div className="muted">
                       {t("样式预览", "Format preview")}
@@ -231,6 +245,21 @@ export function Settings({
             ),
           },
           {
+            key: "editions",
+            label: t("译本管理", "Editions"),
+            children: (
+              <Suspense fallback={<Spin />}>
+                <EditionManager
+                  api={api}
+                  preferences={preferences}
+                  translations={translations}
+                  onCatalogue={onCatalogue}
+                  onRead={onRead}
+                />
+              </Suspense>
+            ),
+          },
+          {
             key: "about",
             label: t("关于", "About"),
             children: (
@@ -257,8 +286,8 @@ export function Settings({
                 ))}
                 <p className="muted">
                   {t(
-                    "译文、字体与依赖来源见发行包 THIRD_PARTY_NOTICES。",
-                    "Scripture, font and dependency notices are included in THIRD_PARTY_NOTICES in the distribution.",
+                    "内置译文、字体与依赖来源见发行包 THIRD_PARTY_NOTICES；本机导入译本的来源与版权说明见译本管理。",
+                    "Bundled scripture, font and dependency notices are in THIRD_PARTY_NOTICES. Imported edition sources and copyright notices are in Editions.",
                   )}
                 </p>
               </section>

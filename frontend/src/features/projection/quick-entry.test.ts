@@ -24,6 +24,19 @@ it("creates exact single, range and whole-chapter references", () => {
   expect(quickReference(book, "3", "16", "16", ["16"])).toBe("JHN3:16");
   expect(quickReference(book, "3", "", undefined, ["1"])).toBe("JHN3");
 });
+
+it("preserves joined source verses and uses the actual first chapter of a partial edition", () => {
+  const partial = { ...book, chapters: 5, chapterNumbers: [3, 5] };
+  expect(seedQuickEntry([partial], "JHN1").chapter).toBe(3);
+  expect(quickReference(partial, "3", "3", undefined, ["3-4", "6"])).toBe(
+    "JHN3:3",
+  );
+  expect(quickReference(partial, "3", "4", undefined, ["3-4", "6"])).toBe(
+    "JHN3:4",
+  );
+  expect(() => quickReference(partial, "4", "3", undefined, ["3-4"])).toThrow();
+  expect(() => quickReference(partial, "3", "3", "6", ["3-4", "6"])).toThrow();
+});
 it.each([
   ["22", "1", undefined],
   ["0", "1", undefined],

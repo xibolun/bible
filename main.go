@@ -17,6 +17,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/xibolun/bible/internal/bible"
+	"github.com/xibolun/bible/internal/editions"
 	"github.com/xibolun/bible/internal/service"
 	"github.com/xibolun/bible/internal/storage"
 )
@@ -34,6 +35,13 @@ type desktop struct {
 	window     *application.WebviewWindow
 	smokeDir   string
 	projection *application.WebviewWindow
+}
+
+func (d *desktop) ChooseEditionFile() (string, error) {
+	if d.app == nil {
+		return "", fmt.Errorf("desktop unavailable")
+	}
+	return d.app.Dialog.OpenFile().SetTitle("导入本地圣经译本 · Import Bible edition").CanChooseFiles(true).CanChooseDirectories(false).AddFilter("Bible editions", "*.SQLite3;*.sqlite3;*.bbl.mybible;*.ont;*.ot;*.nt;*.xml;*.osis;*.zip").AllowsOtherFileTypes(true).AttachToWindow(d.window).PromptForSingleSelection()
 }
 
 func (d *desktop) ProjectionChanged(state service.ProjectionState) {
@@ -211,7 +219,21 @@ func main() {
 			log.Fatal("SMOKE_DIRECTORY_UNAVAILABLE")
 		}
 	}
-	svc := service.New(data, store, desk)
+	importRoot := filepath.Join(config, "Bible", "imports")
+	if err := service.CleanupEditionInputs(importRoot); err != nil {
+		log.Print("IMPORT_STAGING_CLEANUP: pending inputs retained")
+	}
+	library, libraryErr := editions.Open(filepath.Join(config, "Bible", "editions.sqlite"))
+	if libraryErr != nil {
+		log.Print("EDITION_LIBRARY_UNAVAILABLE: user library retained; bundled reading available")
+	}
+	svc := service.NewWithEditions(data, store, desk, library, importRoot)
+	defer func() {
+		service.CloseEditionInputs(svc)
+		if library != nil {
+			_ = library.Close()
+		}
+	}()
 	app := application.New(application.Options{Name: "Bible", Description: "离线圣经阅读与经文卡片", Icon: appIcon, Services: []application.Service{application.NewService(svc)}, Assets: application.AssetOptions{Handler: application.AssetFileServerFS(assets)}, Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true}, Linux: application.LinuxOptions{ApplicationID: "io.github.xibolun.bible", ProgramName: "io.github.xibolun.bible"}})
 	desk.app = app
 	p := service.Defaults()

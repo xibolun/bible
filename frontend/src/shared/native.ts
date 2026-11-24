@@ -1,6 +1,7 @@
 import * as bridge from "../../bindings/github.com/xibolun/bible/internal/service/service";
 import { Browser, Events } from "@wailsio/runtime";
 import type { ProjectionState } from "../features/projection/model";
+import type { EditionInstall, EditionJob } from "../features/editions/types";
 import { sourceRepository } from "./build";
 import type {
   API,
@@ -35,6 +36,23 @@ async function invoke<T>(request: PromiseLike<Result>): Promise<T> {
   return r.data as T;
 }
 export const native: API = {
+  ChooseEditionImport: () => invoke(bridge.ChooseEditionImport()),
+  InspectEditionImport: (token) =>
+    invoke<EditionJob>(bridge.InspectEditionImport(token)),
+  GetEditionImportJob: (id) =>
+    invoke<EditionJob>(bridge.GetEditionImportJob(id)),
+  CancelEditionImport: (id) =>
+    invoke<EditionJob>(bridge.CancelEditionImport(id)),
+  CommitEditionImport: (id, options) =>
+    invoke<EditionJob>(bridge.CommitEditionImport(id, options)),
+  ListEditionInstalls: () =>
+    invoke<EditionInstall[]>(bridge.ListEditionInstalls()),
+  SetEditionEnabled: (id, enabled) =>
+    invoke<boolean>(bridge.SetEditionEnabled(id, enabled)),
+  RestoreEditionVersion: (id, version) =>
+    invoke<boolean>(bridge.RestoreEditionVersion(id, version)),
+  RemoveEdition: (id, purge) =>
+    invoke<boolean>(bridge.RemoveEdition(id, purge)),
   GetProjection: () => invoke<ProjectionState>(bridge.GetProjection()),
   SetProjection: (reference, translation, style) =>
     invoke<ProjectionState>(

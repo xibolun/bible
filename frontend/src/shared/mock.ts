@@ -13,11 +13,12 @@ import { formatPassage, passageText } from "./formatting";
 import { sourceRepository } from "./build";
 import { mockProjection } from "../features/projection/mock";
 import { normalizeProjectionTheme } from "../features/projection/themes";
+import { mockEditionAPI, restoreMockEditions } from "../features/editions/mock";
 let loading: Promise<Dataset> | undefined;
 function data() {
   return (loading ??= fetch("/dataset.json").then((r) => {
     if (!r.ok) throw new Error("模拟数据不可用");
-    return r.json() as Promise<Dataset>;
+    return (r.json() as Promise<Dataset>).then(restoreMockEditions);
   }));
 }
 let highlights: Highlight[] = JSON.parse(
@@ -82,6 +83,10 @@ async function formatted(
   );
 }
 export const mock: API = {
+  ...mockEditionAPI(data, (id) => {
+    highlights = highlights.filter((h) => h.translationId !== id);
+    persist();
+  }),
   ...mockProjection,
   async SetProjection(reference, translation, style) {
     return mockProjection.set(await data(), reference, translation, style);
@@ -105,11 +110,38 @@ export const mock: API = {
   async ListTranslations() {
     return (await data()).translations;
   },
-  async ListBooks() {
-    return (await data()).books;
+  async ListBooks(ids) {
+    const d = await data();
+    await validateIds(ids);
+    if (
+      ids.length > 1 &&
+      d.translations.some(
+        (v) => ids.includes(v.id) && v.origin === "user" && !v.comparable,
+      )
+    )
+      throw new Error("VERSIFICATION_UNSUPPORTED");
+    return d.books.flatMap((book) => {
+      const numbers = Array.from(
+        { length: book.chapters },
+        (_, i) => i + 1,
+      ).filter((ch) =>
+        ids.some((id) => d.chapters[`${id}/${book.id}/${ch}`]?.length),
+      );
+      if (!numbers.length) return [];
+      return [
+        {
+          ...book,
+          chapters: numbers.at(-1)!,
+          ...(numbers.length !== numbers.at(-1)
+            ? { chapterNumbers: numbers }
+            : {}),
+        },
+      ];
+    });
   },
   async GetChapter(ids, book, chapter, request) {
     fail("data");
+    await mock.ListBooks(ids);
     const d = await data(),
       b = d.books.find((x) => x.id === book);
     if (!b || chapter < 1 || chapter > b.chapters) throw new Error("无效章节");
@@ -134,7 +166,7 @@ export const mock: API = {
             translationId: id,
             verseKey: label,
             text: v?.text ?? "",
-            missing: !v,
+            missing: !v || !v.text,
           };
         }),
       })),
@@ -162,11 +194,17 @@ export const mock: API = {
   },
   async ListHighlights(ids, book, chapter) {
     fail("storage");
+    const d = await data();
     return highlights.filter(
       (h) =>
         h.bookId === book &&
         h.chapter === chapter &&
-        ids.includes(h.translationId),
+        ids.includes(h.translationId) &&
+        d.translations.some(
+          (v) =>
+            v.id === h.translationId &&
+            (v.origin !== "user" || v.dataVersion === h.dataVersion),
+        ),
     );
   },
   async ApplyHighlight(_request, sel, color) {

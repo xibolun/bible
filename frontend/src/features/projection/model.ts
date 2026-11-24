@@ -1,5 +1,6 @@
 import type { Book, Dataset, FormatOptions } from "../../shared/types";
 import type { Passage } from "../../shared/formatting";
+import { verseRange } from "../../shared/verse-labels";
 
 export interface ProjectionStyle extends Required<FormatOptions> {
   themeId?: string;
@@ -119,12 +120,15 @@ export function resolveReference(
     const first = +match[2],
       last = +(match[3] || match[2]);
     if (last < first) throw invalid();
-    const selected = [];
-    for (let n = first; n <= last; n++) {
-      const verse = verses.find((v) => v.label === String(n));
-      if (!verse) throw invalid();
-      selected.push(verse);
-    }
+    const covered = new Set<number>();
+    const selected = verses.filter((v) => {
+      const span = verseRange(v.label);
+      if (!span || !v.text || span[0] > last || span[1] < first) return false;
+      for (let n = Math.max(first, span[0]); n <= Math.min(last, span[1]); n++)
+        covered.add(n);
+      return true;
+    });
+    for (let n = first; n <= last; n++) if (!covered.has(n)) throw invalid();
     verses = selected;
   }
   return { book, chapter, verses, translation };

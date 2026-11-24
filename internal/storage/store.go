@@ -87,6 +87,14 @@ func Open(path string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
+// Idempotent cleanup participates in the edition library's durable removal log.
+func (s *Store) DeleteEditionHighlights(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, err := s.db.Exec("DELETE FROM highlights WHERE translation=?", id)
+	return err
+}
+
 func (s *Store) Preferences(dst any) error {
 	var b string
 	err := s.db.QueryRow("SELECT value FROM settings WHERE id=1").Scan(&b)

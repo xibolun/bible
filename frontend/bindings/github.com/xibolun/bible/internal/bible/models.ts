@@ -8,6 +8,7 @@ export interface Book {
     "englishName": string;
     "testament": string;
     "chapters": number;
+    "chapterNumbers"?: number[] | null;
 }
 
 export interface Cell {
@@ -76,6 +77,11 @@ export interface Translation {
     "dataVersion": string;
     "sourceUrl": string;
     "license": string;
+    "origin"?: string;
+    "sourceFormat"?: string;
+    "sourceEdition"?: string;
+    "versification"?: string;
+    "comparable"?: boolean;
 }
 
 export interface Verse {

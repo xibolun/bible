@@ -35,6 +35,7 @@ var referenceSeparator = regexp.MustCompile("[;；+＋\n]")
 
 // ResolveReferences validates the complete group before the caller publishes it.
 func (d *Dataset) ResolveReferences(reference, translation string) ([]Passage, error) {
+	d = d.Snapshot()
 	if len(reference) > 4096 {
 		return nil, fmt.Errorf("PROJECTION_LIMIT")
 	}
@@ -61,6 +62,7 @@ func (d *Dataset) ResolveReferences(reference, translation string) ([]Passage, e
 // ResolveReference matches aliases before parsing numbers (including numbered books).
 // Ranges require every source label; missing verses are never ordinal substitutes.
 func (d *Dataset) ResolveReference(reference, translationID string) (Passage, error) {
+	d = d.Snapshot()
 	bad := func() (Passage, error) { return Passage{}, fmt.Errorf("INVALID_REFERENCE") }
 	if len(reference) > 256 {
 		return bad()
@@ -73,7 +75,11 @@ func (d *Dataset) ResolveReference(reference, translationID string) (Passage, er
 	var book Book
 	var suffix string
 	longest := 0
-	for _, b := range d.Books {
+	books, err := d.AvailableBooks([]string{translationID})
+	if err != nil {
+		return Passage{}, err
+	}
+	for _, b := range books {
 		numericName := strings.NewReplacer("III ", "3 ", "II ", "2 ", "I ", "1 ").Replace(b.EnglishName)
 		for _, name := range []string{b.ID, b.Name, b.Abbreviation, b.EnglishName, numericName} {
 			alias := normalizeReference(name)
@@ -90,7 +96,10 @@ func (d *Dataset) ResolveReference(reference, translationID string) (Passage, er
 	if ch > book.Chapters {
 		return bad()
 	}
-	verses := d.Chapters[ChapterKey(t.ID, book.ID, ch)]
+	verses, err := d.ChapterVerses(t.ID, book.ID, ch)
+	if err != nil {
+		return Passage{}, err
+	}
 	if len(verses) == 0 {
 		return bad()
 	}
@@ -104,12 +113,21 @@ func (d *Dataset) ResolveReference(reference, translationID string) (Passage, er
 			return bad()
 		}
 		selected := []Verse{}
-		for n := first; n <= last; n++ {
-			v, found := d.Verse(t.ID, book.ID, ch, strconv.Itoa(n))
-			if !found {
-				return bad()
+		covered := map[int]bool{}
+		for _, v := range verses {
+			a, b, valid := LabelRange(v.Label)
+			if !valid || v.Text == "" || a > last || b < first {
+				continue
 			}
 			selected = append(selected, v)
+			for n := max(a, first); n <= min(b, last); n++ {
+				covered[n] = true
+			}
+		}
+		for n := first; n <= last; n++ {
+			if !covered[n] {
+				return bad()
+			}
 		}
 		verses = selected
 	}

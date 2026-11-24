@@ -1,4 +1,6 @@
 import type { Book } from "../../shared/types";
+import { chapterNumbers } from "../../shared/navigation";
+import { verseNumbers } from "../../shared/verse-labels";
 import { matchesBookSearch } from "../../shared/book-search";
 import { projectionSearchText } from "./model";
 
@@ -12,6 +14,7 @@ export function entryBook(books: Book[], value: string) {
   return books.find((book) => matchesBookSearch(book, value));
 }
 export function rangeEndLabels(labels: string[], start: string) {
+  labels = verseNumbers(labels).map(String);
   const index = labels.indexOf(start);
   if (index < 0) return [];
   const result = [labels[index]];
@@ -29,7 +32,8 @@ export function quickReference(
   labels: string[],
 ) {
   const chapter = entryNumber(chapterText);
-  if (!chapter || chapter > book.chapters) throw new Error("INVALID_REFERENCE");
+  if (!chapter || !chapterNumbers(book).includes(chapter))
+    throw new Error("INVALID_REFERENCE");
   if (!startText.trim() && endText === undefined) return `${book.id}${chapter}`;
   const start = entryNumber(startText),
     end = endText === undefined ? start : entryNumber(endText);
@@ -76,9 +80,9 @@ export function seedQuickEntry(books: Book[], reference: string) {
   );
   const book = books.find((b) => b.id === match?.[1].toUpperCase()) || books[0];
   const chapter =
-    match && book && +match[2] >= 1 && +match[2] <= book.chapters
+    match && book && chapterNumbers(book).includes(+match[2])
       ? +match[2]
-      : 1;
+      : chapterNumbers(book)[0] || 1;
   const start = match?.[3] || "1";
   return {
     bookID: book?.id || "",

@@ -1,5 +1,25 @@
 # Verification boundaries
 
+Local edition import tests use self-authored CC0 synthetic text, with distinct
+MyBible/MySword SQLite schemas, theWord line-position profiles, OSIS container
+and milestone structures, Zefania XML and a one-resource ZIP. They verify source
+labels, missing/blank positions, joined/split records, Unicode and line breaks,
+metadata, cancellation, unknown tags, malicious ZIP/XML/schema input and limits.
+Library/service tests cover atomic rollback, duplicate installs, replacement,
+version restoration, tombstone identity, future schema preservation, per-request
+snapshots and interrupted cross-database annotation purge recovery after restart.
+Real Go services exercise imported reading, LIKE search, highlighting, clipboard,
+card and projection data. Browser tests use only the explicitly labeled Zefania
+Mock, including minimum-window/large-font preview, multiline text, offline
+read/search/copy/card/projection and disabled-duplicate recovery. These are not
+claims that every platform module or every versification is supported.
+
+Linux local native QA additionally uses an isolated profile and GTK portal to
+select a real file, preview and install it, delete the source, restart and read
+the persisted partial edition, then remove it and verify fallback. This verifies
+that host's chooser/bridge/storage path, not macOS/Windows dialogs, installers or
+all Linux portals. See `edition-import.md` for supported profiles and limits.
+
 Search shares native/Mock fixtures for ordered wildcards, Unicode underscores,
 literal escapes, ASCII case behavior and SQL-looking text treated as data. Go
 checks exercise real bundled text, pagination, empty results and invalid inputs.
