@@ -81,6 +81,9 @@ each book suggestion click and scope suggestions to the book combobox's controll
 list. A regression repeats the same English/Pinyin queries with 90 ms delayed
 animation frames and 6x Chromium CPU throttling; the normal minimum-window,
 large-font layout and publication checks remain in place.
+Quick-entry dropdowns open and close immediately: a delayed leave animation
+could detach a reopened suggestion between mouse down and mouse up, losing the
+selection. The pressure case also runs repeatedly with traces during this fix.
 
 The KJV flow checks all-three vertical ordering, source verse numbers without repeated edition labels,
 compact line height, KJV highlight persistence after reload, three-version

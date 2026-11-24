@@ -568,6 +568,9 @@ export function PassagePicker({
         ).map((field) => (
           <AutoComplete<string>
             key={field}
+            // Reopening during a delayed leave animation can detach an option
+            // between mouse down/up. Quick entry needs immediate popup changes.
+            transitionName=""
             className={
               field === "book"
                 ? "projection-book-select"
