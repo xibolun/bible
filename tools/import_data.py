@@ -2,7 +2,6 @@
 
 SWORD export (no optional annotation filters):
 diatheke -b ChiUns -f plain -k 'Genesis 1:1-Revelation 22:21'
-mod2vpl KJV 1  # raw OSIS records; this importer removes annotations structurally
 This importer retains verse text only. Separate word-study importers preserve
 Strong's associations without changing this dataset or its annotation offsets.
 """
@@ -158,17 +157,12 @@ def main():
     p.add_argument('--chinese-archive', type=Path, required=True)
     p.add_argument('--chinese-export', type=Path, required=True)
     p.add_argument('--english-archive', type=Path, required=True)
-    p.add_argument('--kjv-archive', type=Path, required=True)
-    p.add_argument('--kjv-export', type=Path, required=True)
-    p.add_argument('--darby-archive', type=Path, required=True)
     args = p.parse_args()
     pinned = [(args.chinese_archive,'37fcef08bd3b5f42f5d7b8e0a9326075f9f41e6aa39906711b092f105ae4857e'),
               (args.chinese_export,'6d6b67c46231adba2e516ad8277e08b2f08c2f86a54c96e0e6ddc477dd974dcf'),
               (args.english_archive,'7ebe6b7dc416ce63691d1a3889a06f841ccb7f414ada69be82da891f4b9be44f')]
     if any(digest(path)!=expected for path,expected in pinned):
         raise ValueError('Use the pinned CUV and WEBP inputs to preserve existing annotation data versions')
-    if digest(args.darby_archive) != '7eb1df2a434f5bbd831591aa96c08e94b900b1458fda74ccf1d1739d5af73619':
-        raise ValueError('Use the pinned eBible engDBY 2019-11-15 archive')
     catalog = books()
     names = {b['englishName']: b['id'] for b in catalog}
     chapters = {}
@@ -195,33 +189,15 @@ def main():
             elif line.strip() and line.strip() != f'({module})':
                 raise ValueError(f'unrecognized {module} SWORD export line: {line[:80]}')
     sword_export(args.chinese_export,'ChiUns','cuv')
-    if digest(args.kjv_archive)!='873815aa4b4123025616d1f41eae75f412111275f4c3884e36f92d4f46dcba1d':
-        raise ValueError('Use the pinned CrossWire KJV 3.1 archive')
-    for line in args.kjv_export.read_text(encoding='utf-8').splitlines():
-        match=re.fullmatch(r'(.+?) (\d+):(\d+[a-z]?) (.*)',line)
-        if not match:
-            if not line.strip() or re.match(r'^\[ Testament [12] Heading \] ',line):continue
-            raise ValueError(f'unrecognized KJV raw VPL line: {line[:80]}')
-        name,chapter,verse,markup=match.groups()
-        if int(chapter)==0 or int(re.match(r'\d+',verse).group())==0:continue
-        add('kjv',names[name],int(chapter),verse,osis_plain(markup))
     for book, ch, verse, text in publisher_vpl(args.english_archive, 'engwebp_vpl.txt', skip_books=('PS2',)):
         add('webp', book, ch, verse, text)
-    for book, ch, verse, text in publisher_vpl(args.darby_archive, 'engDBY_vpl.txt'):
-        add('dby', book, ch, verse, text)
     translations = [
         dict(id='cuv', language='zh-Hans', name='和合本（简体）', abbreviation='CUV',
              dataVersion='ChiUns-3.1-'+digest(args.chinese_archive)[:12],
              sourceUrl='https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=ChiUns', license='Public Domain'),
         dict(id='webp', language='en', name='World English Bible', abbreviation='WEBP',
              dataVersion='engwebp-2026-11-13-'+digest(args.english_archive)[:12],
-             sourceUrl='https://ebible.org/bible/details.php?id=engwebp', license='Public Domain'),
-        dict(id='kjv', language='en', name='King James Version (1769)', abbreviation='KJV',
-             dataVersion='KJV-3.1-'+digest(args.kjv_archive)[:12]+'-'+hashlib.sha256(json.dumps({key:value for key,value in chapters.items() if key.startswith('kjv/')},ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:12],
-             sourceUrl='https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=KJV', license='GPL (CrossWire module; see source notice)'),
-        dict(id='dby', language='en', name='Darby Translation（达秘译本）', abbreviation='DBY',
-             dataVersion='engDBY-2019-11-15-'+digest(args.darby_archive)[:12]+'-'+hashlib.sha256(json.dumps({key:value for key,value in chapters.items() if key.startswith('dby/')},ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:12],
-             sourceUrl='https://ebible.org/find/details.php?id=engDBY', license='Public Domain')]
+             sourceUrl='https://ebible.org/bible/details.php?id=engwebp', license='Public Domain')]
     for t in translations:
         for b in catalog:
             for chapter in range(1, b['chapters']+1):
@@ -237,12 +213,7 @@ def main():
              sha256=digest(args.chinese_archive), version='3.1',
              exportSha256=digest(args.chinese_export), conversion='diatheke 4.8 / SWORD 1.9.0 plain, optional filters disabled'),
         dict(id='webp', url='https://ebible.org/Scriptures/engwebp_vpl.zip',
-             sha256=digest(args.english_archive), version='2026-11-13', conversion='publisher VPL plain text'),
-        dict(id='kjv', url='https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/KJV.zip',
-             sha256=digest(args.kjv_archive), version='3.1', exportSha256=digest(args.kjv_export),
-             conversion='SWORD 1.9.0 mod2vpl raw OSIS; strip notes/titles/attributes, preserve divine-name capitals, normalize layout whitespace'),
-        dict(id='dby', url='https://ebible.org/Scriptures/engDBY_vpl.zip', sha256=digest(args.darby_archive),
-             version='2019-11-15', conversion='publisher VPL plain text; preserve source verse labels and punctuation')]
+             sha256=digest(args.english_archive), version='2026-11-13', conversion='publisher VPL plain text')]
     manifest=dict(retrieved='2026-11-20', sources=sources, datasetSha256=digest(output),
                   plainSha256=hashlib.sha256(raw).hexdigest(),
                   books=len(catalog), chapters=len(chapters),
@@ -253,10 +224,6 @@ def main():
         (target/'ChiUns-source.conf').write_bytes(z.read('mods.d/chiuns.conf'))
     with zipfile.ZipFile(args.english_archive) as z:
         (target/'WEBP-source.html').write_bytes(z.read('engwebp_about.htm'))
-    with zipfile.ZipFile(args.kjv_archive) as z:
-        (target/'KJV-source.conf').write_bytes(z.read('mods.d/kjv.conf'))
-    with zipfile.ZipFile(args.darby_archive) as z:
-        (target/'DBY-source.html').write_bytes(z.read('engDBY_about.htm'))
     print(json.dumps(manifest, indent=2))
 
 

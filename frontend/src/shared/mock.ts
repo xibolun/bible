@@ -185,6 +185,14 @@ export const mock: API = {
       ...defaults.projectionStyle,
       ...preferences.projectionStyle,
     });
+    const catalogue = (await data()).translations;
+    const available = (id: string) => catalogue.some((tr) => tr.id === id);
+    preferences.translations = preferences.translations.filter(available);
+    if (!preferences.translations.length)
+      preferences.translations = [catalogue[0].id];
+    preferences.searchHistory = preferences.searchHistory.filter((entry) =>
+      available(entry.translationId),
+    );
     return preferences;
   },
   async SavePreferences(p) {

@@ -116,26 +116,20 @@ test("invalid mixed-translation selection and explicit service error", async ({
   ).toBeVisible();
 });
 
-test("SWORD KJV stacked versions, selected-version copy, highlights and cards", async ({
+test("CUV/WEBP stacked versions, selected-version copy, highlights and cards", async ({
   page,
 }) => {
   await page.goto("/");
   await page.getByRole("switch", { name: "多译本对照" }).click();
-  await selectVersion(page, "主译本", "KJV · English");
-  await expect(page.locator('[data-translation="kjv"]').first()).toContainText(
-    "the heaven and the earth",
-  );
+  await selectVersion(page, "主译本", "WEBP · English");
   await expect(page.locator('[data-translation="webp"]').first()).toContainText(
     "the heavens and the earth",
   );
-  await expect(page.locator('[data-translation="cuv"]')).toHaveCount(0);
-
-  await selectVersion(page, "对照译本", "CUV · 简体中文");
   await expect(page.locator('[data-translation="cuv"]').first()).toContainText(
     "起初",
   );
   const firstRow = page.locator(".verse-row").first();
-  await expect(firstRow.locator(".verse-cell")).toHaveCount(3);
+  await expect(firstRow.locator(".verse-cell")).toHaveCount(2);
   const layout = await firstRow.locator(".verse-cell").evaluateAll((cells) =>
     cells.map((cell) => {
       const rect = cell.getBoundingClientRect(),
@@ -149,12 +143,10 @@ test("SWORD KJV stacked versions, selected-version copy, highlights and cards", 
     }),
   );
   expect(layout[0].bottom).toBeLessThanOrEqual(layout[1].top);
-  expect(layout[1].bottom).toBeLessThanOrEqual(layout[2].top);
-  expect(layout[0].left).toBe(layout[2].left);
+  expect(layout[0].left).toBe(layout[1].left);
   expect(layout[0].lineRatio).toBeLessThanOrEqual(1.6);
   await expect(page.locator(".reference, .verse-number")).toHaveCount(0);
   expect(await firstRow.locator(".verse-select").allTextContents()).toEqual([
-    "1",
     "1",
     "1",
   ]);
@@ -165,9 +157,7 @@ test("SWORD KJV stacked versions, selected-version copy, highlights and cards", 
     }),
   );
   expect(cells[1].top).toBeGreaterThanOrEqual(cells[0].bottom);
-  expect(cells[2].top).toBeGreaterThanOrEqual(cells[1].bottom);
   expect(cells.map((cell) => cell.left)).toEqual([
-    cells[0].left,
     cells[0].left,
     cells[0].left,
   ]);
@@ -194,13 +184,15 @@ test("SWORD KJV stacked versions, selected-version copy, highlights and cards", 
     page.getByRole("button", { name: "设置", exact: true }),
   ).toBeInViewport();
   await page.screenshot({
-    path: test.info().outputPath("kjv-reader-1024.png"),
+    path: test.info().outputPath("webp-reader-1024.png"),
     animations: "disabled",
   });
-  await page.getByRole("button", { name: "选择KJV第1节", exact: true }).click();
+  await page
+    .getByRole("button", { name: "选择WEBP第1节", exact: true })
+    .click();
   await page.getByRole("button", { name: "绿色高亮", exact: true }).click();
   await expect(
-    page.locator('[data-translation="kjv"]').first().locator("mark"),
+    page.locator('[data-translation="webp"]').first().locator("mark"),
   ).toContainText("In the beginning");
   await page.getByRole("toolbar").locator(".ant-dropdown-trigger").click();
   await page.getByText("复制当前对照", { exact: true }).click();
@@ -211,34 +203,21 @@ test("SWORD KJV stacked versions, selected-version copy, highlights and cards", 
   expect(copied).toContain("起初");
   expect(copied).toContain("创世记1:1·WEBP");
   expect(copied).toContain("the heavens and the earth");
-  expect(copied).toContain("创世记1:1·KJV");
 
   await page.getByRole("button", { name: "制作卡片", exact: true }).click();
-  await selectVersion(page, "卡片语言", "当前对照 · KJV + WEBP + CUV");
+  await selectVersion(page, "卡片语言", "当前对照 · WEBP + CUV");
   await expect(page.getByRole("button", { name: "导出 PNG" })).toBeEnabled();
   const pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出 PNG" }).click();
   const download = await pending;
-  await download.saveAs(test.info().outputPath("kjv-comparison-card.png"));
+  await download.saveAs(test.info().outputPath("webp-comparison-card.png"));
   await page
     .getByRole("button", { name: "关闭卡片编辑器", exact: true })
     .click();
 
-  await selectVersion(page, "对照译本", "WEBP · English");
-  await expect(firstRow.locator(".verse-cell")).toHaveCount(2);
-  await page.getByRole("button", { name: "选择KJV第1节", exact: true }).click();
-  await page.getByRole("toolbar").locator(".ant-dropdown-trigger").click();
-  await page.getByText("复制当前对照", { exact: true }).click();
-  await expect
-    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .not.toContain("WEBP");
-  await selectVersion(page, "主译本", "CUV · 简体中文");
-  await expect(page.locator('[data-verse="1"][data-translation]')).toHaveCount(
-    2,
-  );
   await page.reload();
   await expect(
-    page.locator('[data-translation="kjv"]').first().locator("mark"),
+    page.locator('[data-translation="webp"]').first().locator("mark"),
   ).toContainText("In the beginning");
   await expect(page.locator('[data-verse="1"][data-translation]')).toHaveCount(
     2,
@@ -307,7 +286,7 @@ test("legacy settings, bilingual interface and reference placement in keyboard c
     ),
   ).toBeVisible();
   await expect(
-    panel.getByText("KJV · King James Version (1769)", { exact: true }),
+    panel.getByText("WEBP · World English Bible", { exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: test.info().outputPath("settings-about-en.png"),

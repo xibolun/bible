@@ -10,7 +10,7 @@ func TestBundledCanonAndSourceSamples(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(d.Books) != 66 || len(d.Translations) != 4 || len(d.Chapters) != 1189*len(d.Translations) {
+	if len(d.Books) != 66 || len(d.Translations) != 2 || d.Translations[0].ID != "cuv" || d.Translations[1].ID != "webp" || len(d.Chapters) != 1189*len(d.Translations) {
 		t.Fatal("incomplete canon")
 	}
 	for _, tr := range d.Translations {
@@ -34,7 +34,7 @@ func TestBundledCanonAndSourceSamples(t *testing.T) {
 		tr, book    string
 		ch          int
 		verse, want string
-	}{{"cuv", "GEN", 1, "1", "起初"}, {"webp", "GEN", 1, "1", "In the beginning"}, {"cuv", "PSA", 23, "1", "耶和华"}, {"webp", "JHN", 3, "16", "God so loved"}, {"cuv", "REV", 22, "21", "主耶稣"}, {"kjv", "GEN", 1, "1", "In the beginning God created the heaven and the earth."}, {"kjv", "JHN", 3, "16", "only begotten Son"}, {"kjv", "REV", 22, "21", "Amen."}} {
+	}{{"cuv", "GEN", 1, "1", "起初"}, {"webp", "GEN", 1, "1", "In the beginning"}, {"cuv", "PSA", 23, "1", "耶和华"}, {"webp", "JHN", 3, "16", "God so loved"}, {"cuv", "REV", 22, "21", "主耶稣"}} {
 		v, ok := d.Verse(sample.tr, sample.book, sample.ch, sample.verse)
 		if !ok || !strings.Contains(v.Text, sample.want) {
 			t.Fatalf("source sample mismatch: %+v %q", sample, v.Text)
@@ -42,66 +42,46 @@ func TestBundledCanonAndSourceSamples(t *testing.T) {
 	}
 }
 
-func TestDarbySourceTextAndMissingVerse(t *testing.T) {
+func TestOnlyCUVAndWEBPAreBundled(t *testing.T) {
 	d, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	tr, ok := d.Translation("dby")
-	if !ok || tr.Language != "en" || tr.Abbreviation != "DBY" || tr.License != "Public Domain" {
-		t.Fatalf("incorrect Darby identity: %+v", tr)
-	}
-	for _, sample := range []struct {
-		book        string
-		chapter     int
-		label, text string
-	}{
-		{"GEN", 1, "1", "In the beginning God created the heavens and the earth."},
-		{"JHN", 3, "16", "For God so loved the world, that he gave his only-begotten Son, that whosoever believes on him may not perish, but have life eternal."},
-		{"REV", 22, "21", "The grace of the Lord Jesus Christ [be] with all the saints."},
-	} {
-		verse, found := d.Verse("dby", sample.book, sample.chapter, sample.label)
-		if !found || verse.Text != sample.text {
-			t.Fatalf("DBY source changed: %+v %q", sample, verse.Text)
+	for _, id := range []string{"kjv", "dby"} {
+		if _, ok := d.Translation(id); ok {
+			t.Fatalf("unexpected bundled edition %s", id)
 		}
 	}
-	aligned, err := d.Align([]string{"kjv", "dby"}, "ACT", 8)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var gap, next bool
-	for _, row := range aligned.Rows {
-		if row.Label == "37" {
-			gap = row.Cells[1].Missing && !row.Cells[0].Missing
-		}
-		if row.Label == "38" {
-			next = !row.Cells[1].Missing && strings.Contains(row.Cells[1].Text, "chariot")
+	for key := range d.Chapters {
+		if !strings.HasPrefix(key, "cuv/") && !strings.HasPrefix(key, "webp/") {
+			t.Fatalf("unlisted bundled scripture %s", key)
 		}
 	}
-	if !gap || !next {
-		t.Fatal("Darby source omission shifted the next verse")
+	words, err := d.VerseWords("JHN", 3, "16")
+	if err != nil || len(words.Words) == 0 {
+		t.Fatal("independent word study unavailable", err)
 	}
 }
 
-func TestKJVAndWEBPKeepActualMissingVerseGap(t *testing.T) {
+func TestCUVAndWEBPKeepActualMissingVerseGap(t *testing.T) {
 	d, e := Load()
 	if e != nil {
 		t.Fatal(e)
 	}
-	chapter, e := d.Align([]string{"kjv", "webp"}, "ACT", 8)
+	chapter, e := d.Align([]string{"cuv", "webp"}, "ACT", 8)
 	if e != nil {
 		t.Fatal(e)
 	}
 	checked := 0
 	for _, row := range chapter.Rows {
 		if row.Label == "37" {
-			if row.Cells[0].Missing || !row.Cells[1].Missing || !strings.Contains(row.Cells[0].Text, "believest") {
+			if row.Cells[0].Missing || !row.Cells[1].Missing || !strings.Contains(row.Cells[0].Text, "信") {
 				t.Fatalf("source gap lost: %+v", row)
 			}
 			checked++
 		}
 		if row.Label == "38" {
-			for index, id := range []string{"kjv", "webp"} {
+			for index, id := range []string{"cuv", "webp"} {
 				verse, ok := d.Verse(id, "ACT", 8, "38")
 				if !ok || row.Cells[index].Text != verse.Text {
 					t.Fatalf("verse shifted for %s", id)

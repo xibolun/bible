@@ -122,16 +122,13 @@ func (d *Dataset) VerseWords(book string, chapter int, verse string) (VerseStudy
 	if !ok || chapter < 1 || chapter > b.Chapters {
 		return VerseStudy{}, fmt.Errorf("INVALID_REFERENCE")
 	}
-	if _, ok := d.Verse("kjv", book, chapter, verse); !ok {
-		return VerseStudy{}, fmt.Errorf("INVALID_REFERENCE")
-	}
 	data, err := studyOnce()
 	if err != nil {
 		return VerseStudy{}, fmt.Errorf("DATA_UNAVAILABLE")
 	}
 	words, ok := data.Verses[book+"/"+strconv.Itoa(chapter)+"/"+verse]
 	if !ok {
-		return VerseStudy{}, fmt.Errorf("DATA_UNAVAILABLE")
+		return VerseStudy{}, fmt.Errorf("INVALID_REFERENCE")
 	}
 	out := VerseStudy{Words: words, Entries: []DictionaryEntry{}}
 	seen := map[string]bool{}

@@ -110,7 +110,7 @@ func TestImportedEditionUsesAllNativeServicesAndPreservesAnnotations(t *testing.
 	defer CloseEditionInputs(s)
 	id := importFixtureWithCompression(t, s, desk, "晨光照耀。[补词]<BR/>第二行。", "", true)
 	ts := s.ListTranslations()
-	if !ts.OK || len(*ts.Data) != 5 {
+	if !ts.OK || len(*ts.Data) != 3 {
 		t.Fatal("catalogue not refreshed")
 	}
 	books := s.ListBooks([]string{id})

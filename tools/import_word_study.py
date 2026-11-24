@@ -100,7 +100,7 @@ def main():
         if hashlib.sha256(getattr(args, key).read_bytes()).hexdigest() != expected:
             raise ValueError('Use pinned '+key+' source')
     entries = hebrew_entries(args.hebrew.read_bytes()) | greek_entries(args.greek.read_text(encoding='utf-8'))
-    scripture = json.loads((ROOT/'frontend/public/dataset.json').read_text(encoding='utf-8'))
+    normalized_chapters = {}
     names = {book['englishName']: book['id'] for book in books()}
     verses = {}
     for line in args.kjv.read_text(encoding='utf-8').splitlines():
@@ -113,10 +113,13 @@ def main():
         if int(chapter) == 0 or int(re.match(r'\d+', label)[0]) == 0:
             continue
         key = f'{names[name]}/{chapter}/{label}'
-        original = next(v['text'] for v in scripture['chapters'][f'kjv/{names[name]}/{chapter}'] if v['label'] == label)
-        if original != osis_plain(markup) or key in verses:
+        if key in verses:
             raise ValueError('KJV text or reference mismatch: '+key)
+        normalized_chapters.setdefault(f'kjv/{names[name]}/{chapter}', []).append(dict(label=label, text=osis_plain(markup)))
         verses[key] = verse_words(markup)
+    plain_hash = hashlib.sha256(json.dumps(normalized_chapters, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    if plain_hash != '4fdc37c1b21153507e3c06c23fdf989d266f18edafa51c5d9284d3ecfa2b44bf':
+        raise ValueError('Pinned KJV word-study source text changed')
     if len(verses) != 31102 or len(entries) < 14000:
         raise ValueError('Incomplete word study data')
     raw = json.dumps(dict(entries=entries, verses=verses), ensure_ascii=False, separators=(',', ':')).encode()

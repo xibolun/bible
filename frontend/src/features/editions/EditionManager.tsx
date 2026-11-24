@@ -26,6 +26,7 @@ const formatNames: Record<string, string> = {
   theword: "theWord",
   osis: "OSIS",
   zefania: "Zefania XML",
+  sword: "SWORD",
 };
 export function EditionManager({
   api,
@@ -284,8 +285,8 @@ export function EditionManager({
       </Space>
       <p className="muted">
         {t(
-          "MyBible / MySword / theWord / OSIS / Zefania XML；本地导入，保留原版权说明。",
-          "MyBible / MySword / theWord / OSIS / Zefania XML. Local import; original copyright notices are retained.",
+          "MyBible / MySword / theWord / OSIS / Zefania XML / SWORD ZIP；本地导入，保留原版权说明。",
+          "MyBible / MySword / theWord / OSIS / Zefania XML / SWORD ZIP. Local import; original copyright notices are retained.",
         )}
       </p>
       {prototype && (

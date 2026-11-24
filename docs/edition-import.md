@@ -17,7 +17,8 @@ MySword 官方下载的 `asv.bbl.mybible.gz` 可以直接选择：若浏览器�
 | theWord | `.ont`、`.ot`、`.nt` | 官方 0.10 规格的 UTF-8 未加密文本子集，分别为 31,102／23,145／7,957 个 KJV 引用位置，空行仍占一个位置；正文后读取模块元数据。自定义 `verse.rule`、`tag.rule`、`notags` 渲染规则和加密的 `ontx/otx/ntx` 暂不支持。 |
 | OSIS | `.xml`、`.osis` | OSIS 2.1.1 命名空间中的正文子集，支持 `verse` 容器和配对 `sID/eID` 里程碑、书卷代码、诗行及常见行内标记。不能直接读取 SWORD 二进制模块。 |
 | Zefania XML | `.xml` | 无命名空间的 `XMLBIBLE/INFORMATION/BIBLEBOOK/CHAPTER/VERS`，按 zef2005 2.0.1 正文子集读取，支持 `STYLE/GRAM/SUP/BR`。识别明确的合并节 `e` 扩展。 |
-| ZIP 容器 | `.zip` | 其中恰好一个受支持资源。多个候选时请解压并单独选择；不支持嵌套 ZIP、加密条目、路径穿越或符号链接。 |
+| SWORD | `.zip` | 一个 `mods.d/*.conf` 与其 `modules/texts/ztext/...` 文件集合。支持未加密 `zText`、ZIP（zlib）压缩、BOOK/CHAPTER/VERSE 块、UTF-8、OSIS 正文和 KJV 编号。已验证 Darby 2.0（1889 英文版）：66 卷／1189 章／31,099 条正文；可直接选原 ZIP，无需转换。其他 driver、压缩、编码或编号体系暂不支持。 |
+| ZIP 容器 | `.zip` | 其中恰好一个受支持资源或一组 SWORD 模块文件。多个候选时请解压并单独选择；不支持嵌套 ZIP、加密条目、路径穿越或符号链接。 |
 | GZIP 容器 | `.gz` | 一个受支持资源，按实际压缩签名识别，校验 CRC 与完整性；拒绝多成员、尾随数据和嵌套压缩，不按头部文件名创建文件路径。 |
 
 SQLite 使用已有驱动以只读方式查询固定表，不执行模块提供的 SQL 或程序；视图、触发器、虚拟表和生成列会被拒绝。XML 不解析 DTD 或外部实体。UTF-8／UTF-16 XML 可读取，历史 GBK／Big5 编码需先可靠转换。未知正文标记、未知书卷或无法解释的引用会阻止导入，避免悄悄丢字。
@@ -28,7 +29,9 @@ SQLite 使用已有驱动以只读方式查询固定表，不执行模块提供�
 
 支持 66 卷范围内的完整、旧约、新约或单卷译本，目录只列实际有正文的章。缺节保留缺口，绝不从内置译本补齐或按列表位置重新编号。源标签 `3`、`3a`、`3b`、`3-4` 保留；合并节只显示、搜索一次，复制或投影相交范围时保留完整原记录及实际出处。跨章节或非连续合并引用暂不支持。
 
-只有经过验证的 KJV 固定行号配置参与自动逐节对照。其他导入配置的编号体系暂标为未验证，允许单独阅读、搜索及投影，对照开关会说明限制。修改显示名不能解除此限制。
+经过验证的 theWord KJV 固定行号和 SWORD KJV 索引配置参与自动逐节对照。索引使用独立节号表，不需要内置 KJV 正文。其他导入配置的编号体系暂标为未验证，允许单独阅读、搜索及投影，对照开关会说明限制。修改显示名不能解除此限制。
+
+SWORD 模块、两约、卷首和章首的介绍槽位不会错当经节。同一索引指向的连续同章经节合并为一条实际范围；跨章或非连续共享索引会被拒绝。校验索引边界、解压长度及 zlib 校验和，兼容 Darby 中固定的 1024 个零字节填充，不执行模块过滤器。单个解压块最多 32 MiB，累计最多 200 MiB。来源模块文件及正文均不会加入应用安装包。
 
 ## 重复、替换与删除
 
@@ -55,4 +58,6 @@ GZIP 压缩文件及实际解压后资源也各限 200 MiB，在解压过程中�
 
 实现参考 [MyBible 官方模块格式](https://docs.google.com/document/d/12rf4Pqy13qhnAW31uKkaWNTBDTtRbNW0s7cM0vcimlA/edit)、[MySword 模块说明](https://www.mysword.info/modules-format)、[theWord 官方 0.10 规格](https://www.theword.net/docs/tw3-bible-module-spec.doc)、[CrossWire OSIS 文档](https://wiki.crosswire.org/OSIS_Bibles) 及 [zef2005 XSD](https://svn.code.sf.net/p/bibleworkplace/elberfelder1871/trunk/zef2005.xsd)。这些规范是兼容依据，测试文件的正文均为自编 CC0 合成文本，未随功能增加任何外部译本全文。
 
-后续可发布明确 schema 的 SQLite、JSON、YAML 交换格式并新增独立适配器；当前内部 SQLite 存储不等于支持任意 SQLite 文件。USFM／USX、e-Sword、原生 SWORD、云平台缓存及无结构 PDF／TXT／图片尚不支持。
+SWORD 结构依据为 [CrossWire 配置规范](https://wiki.crosswire.org/DevTools:conf_Files)与[压缩经文索引说明](https://www.crosswire.org/jsword/javadoc/org/crosswire/jsword/book/sword/ZVerseBackend.html)。
+
+后续可发布明确 schema 的 SQLite、JSON、YAML 交换格式并新增独立适配器；当前内部 SQLite 存储不等于支持任意 SQLite 文件。USFM／USX、e-Sword、其他 SWORD 配置、云平台缓存及无结构 PDF／TXT／图片尚不支持。

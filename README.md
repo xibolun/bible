@@ -4,8 +4,8 @@
 
 ## 特性
 
-- 内置完整简体和合本 CUV，以及英文 WEBP、KJV、达秘 DBY，支持多版本上下对照。
-- [本地译本导入](docs/edition-import.md)：支持 MyBible、MySword、theWord、OSIS 和 Zefania XML 的明确子集，预览后安装，可停用、替换、恢复版次及删除。
+- 内置完整简体和合本 CUV 及英文 WEBP，支持多版本上下对照；其他译本可从本地文件导入。
+- [本地译本导入](docs/edition-import.md)：支持 MyBible、MySword、theWord、OSIS、Zefania XML 和 SWORD ZIP 的明确子集，预览后安装，可停用、替换、恢复版次及删除。
 - 书卷目录、按钮组下方自动换行的章号、逐句节号，支持左右方向键翻章。
 - 离线经文搜索，支持 `%`、`_` 通配符和点击结果定位，例如 `起%神` 可找到创世记 1:1。
 - 文字选区高亮，复制可选择全书名／简称、译本标识、整段或逐节引用。

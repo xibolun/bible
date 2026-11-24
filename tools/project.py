@@ -81,7 +81,8 @@ def verify_data():
     raw=gzip.decompress((ROOT/'internal/bible/dataset.json.gz').read_bytes())
     assert hashlib.sha256(raw).hexdigest()==manifest['plainSha256']
     assert (ROOT/'frontend/public/dataset.json').read_bytes()==raw,'Mock/native data diverged'
-    d=json.loads(raw);assert len(d['books'])==66 and {tr['id'] for tr in d['translations']}=={'cuv','webp','kjv','dby'}
+    d=json.loads(raw);assert len(d['books'])==66 and {tr['id'] for tr in d['translations']}=={'cuv','webp'}
+    assert all(key.split('/')[0] in {'cuv','webp'} for key in d['chapters']), 'unexpected bundled scripture'
     assert {source['id'] for source in manifest['sources']}=={tr['id'] for tr in d['translations']}
     for tr in d['translations']:
         count=0
@@ -96,7 +97,6 @@ def verify_data():
     assert sha(ROOT/'frontend/public/fonts/bible-sans.woff2')==font['sha256']
     assert (ROOT/'licenses/font-Noto-CJK.txt').is_file()
     assert (ROOT/'licenses/scripture-KJV-source.conf').read_bytes()==(ROOT/'data/KJV-source.conf').read_bytes()
-    assert (ROOT/'licenses/scripture-DBY-source.html').read_bytes()==(ROOT/'data/DBY-source.html').read_bytes()
     study_manifest=json.loads((ROOT/'data/word-study-manifest.json').read_text(encoding='utf-8'))
     study_compressed=(ROOT/'internal/bible/word-study.json.gz').read_bytes()
     study_raw=gzip.decompress(study_compressed)
@@ -115,7 +115,7 @@ def verify_data():
     chinese=json.loads(chinese_raw)
     assert len(chinese)==chinese_manifest['entries'] and '話語' in chinese['G3056']['definition'] and '神' in chinese['H430']['definition']
     assert all((ROOT/'licenses/word-study-fhl'/name).is_file() for name in ['dhfhl.txt','dgfhl.txt','FDL-1.1.txt','NOTICE.md','publisher-copyright.txt'])
-    print('Verified complete CUV/WEBP/KJV/DBY data, source manifests and bundled font.')
+    print('Verified complete CUV/WEBP data, independent word study, source manifests and bundled font.')
 
 def verify_branding():
     bad=re.compile(r'(Wails\s*(?:logo|\+|version)|Built\s+(?:with|using)\s+Wails|My Company|My Product|wails\.png|GreetService|Welcome to Wails)',re.I)

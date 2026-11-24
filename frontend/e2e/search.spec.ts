@@ -110,14 +110,14 @@ test("search keeps editing shortcuts, validates patterns and switches translatio
   await page.getByRole("combobox", { name: "搜索译本", exact: true }).click();
   await page
     .locator(".ant-select-dropdown")
-    .getByText("KJV · King James Version (1769)", { exact: true })
+    .getByText("WEBP · World English Bible", { exact: true })
     .click();
   await submit(page, "beginning%God");
   await page
     .getByRole("button", { name: "前往创世记1:1", exact: true })
     .click();
-  await expect(page.locator('[data-translation="kjv"]').first()).toContainText(
-    "In the beginning God",
+  await expect(page.locator('[data-translation="webp"]').first()).toContainText(
+    "In the beginning, God",
   );
 });
 

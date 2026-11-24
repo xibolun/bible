@@ -140,6 +140,8 @@ func parse(ctx context.Context, filename, originalName string, canon *bible.Data
 			return nil, fail("IMPORT_LIMIT", "ZIP entries")
 		}
 		seen := map[string]bool{}
+		entries := map[string]*zip.File{}
+		var configs []*zip.File
 		var candidate *zip.File
 		var total uint64
 		for _, entry := range z.File {
@@ -159,6 +161,10 @@ func parse(ctx context.Context, filename, originalName string, canon *bible.Data
 			if entry.FileInfo().IsDir() {
 				continue
 			}
+			entries[clean] = entry
+			if path.Dir(clean) == "mods.d" && strings.EqualFold(path.Ext(clean), ".conf") {
+				configs = append(configs, entry)
+			}
 			ext := strings.ToLower(filepath.Ext(name))
 			if ext == ".zip" || ext == ".gz" {
 				return nil, fail("FORMAT_UNSUPPORTED", "nested archive")
@@ -169,6 +175,17 @@ func parse(ctx context.Context, filename, originalName string, canon *bible.Data
 				}
 				candidate = entry
 			}
+		}
+		if len(configs) > 0 {
+			if len(configs) != 1 || candidate != nil {
+				return nil, fail("FORMAT_AMBIGUOUS", "multiple Bible resources")
+			}
+			d, err := parseSwordZIP(ctx, entries, configs[0], canon)
+			if err == nil {
+				d.SourceHash = sourceHash
+				err = validate(ctx, d, canon)
+			}
+			return d, err
 		}
 		if candidate == nil {
 			return nil, fail("FORMAT_UNSUPPORTED", "ZIP content")
@@ -406,16 +423,9 @@ func parseTheWord(ctx context.Context, r io.Reader, name string, d *Draft, canon
 	d.Format = "theword"
 	d.Profile = "theWord Bible spec 0.10; UTF-8/KJV"
 	d.Versification = "KJV"
-	refs := []Record{}
-	for i, b := range canon.Books {
-		if ext == ".ot" && i >= 39 || ext == ".nt" && i < 39 {
-			continue
-		}
-		for ch := 1; ch <= b.Chapters; ch++ {
-			for _, v := range canon.Chapters[bible.ChapterKey("kjv", b.ID, ch)] {
-				refs = append(refs, Record{Book: b.ID, Chapter: ch, Label: v.Label})
-			}
-		}
+	refs, err := kjvReferences(canon, ext, false)
+	if err != nil {
+		return err
 	}
 	want := 31102
 	if ext == ".ot" {

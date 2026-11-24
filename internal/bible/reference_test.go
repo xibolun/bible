@@ -61,8 +61,8 @@ func TestProjectionReferenceExamples(t *testing.T) {
 			t.Errorf("accepted %q", input)
 		}
 	}
-	delete(data.Chapters, "kjv/GEN/1")
-	if _, err := data.ResolveReference("GEN1", "kjv"); err == nil {
+	delete(data.Chapters, "webp/GEN/1")
+	if _, err := data.ResolveReference("GEN1", "webp"); err == nil {
 		t.Fatal("missing chapter accepted")
 	}
 	data.Chapters["cuv/GEN/3"] = []Verse{{Label: "15", Text: "first"}, {Label: "17", Text: "last"}}

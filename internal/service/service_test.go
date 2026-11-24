@@ -77,36 +77,32 @@ func selected() Selection {
 	return Selection{TranslationID: "cuv", DataVersion: "v1", BookID: "GEN", Chapter: 1, Spans: []Span{{VerseKey: "1", Start: 1, End: 5}}}
 }
 
-func TestBundledDarbyWorksThroughNativeServices(t *testing.T) {
-	s, desktop := fixture(t)
+func TestRemovedBuiltInEditionsRepairPreferences(t *testing.T) {
+	s, _ := fixture(t)
 	data, err := bible.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.Data = data
-	tr, _ := data.Translation("dby")
-	verse, _ := data.Verse("dby", "GEN", 1, "1")
-	sel := Selection{TranslationID: tr.ID, DataVersion: tr.DataVersion, BookID: "GEN", Chapter: 1,
-		Spans: []Span{{VerseKey: "1", Start: 0, End: len([]rune(verse.Text))}}}
-	if r := s.GetChapter([]string{"dby", "cuv"}, "GEN", 1, "darby"); !r.OK || r.Data.Rows[0].Cells[0].Text != verse.Text {
-		t.Fatalf("Darby chapter unavailable: %+v", r)
+	p := Defaults()
+	p.Translations = []string{"dby", "kjv", "webp"}
+	p.Parallel = true
+	p.BookID, p.Chapter, p.FontSize = "JHN", 3, 24
+	p.SearchHistory = []SearchHistoryEntry{{TranslationID: "kjv", Pattern: "words"}, {TranslationID: "webp", Pattern: "God"}}
+	if err := s.Store.SavePreferences(p); err != nil {
+		t.Fatal(err)
 	}
-	if r := s.SearchScripture("dby", "beginning%God", 0, 30); !r.OK || len(r.Data.Results) == 0 || r.Data.Results[0].BookID != "GEN" {
-		t.Fatalf("Darby search failed: %+v", r)
+	read := s.GetPreferences()
+	if !read.OK || len(read.Data.Translations) != 1 || read.Data.Translations[0] != "webp" || read.Data.BookID != "JHN" || read.Data.Chapter != 3 || read.Data.FontSize != 24 || len(read.Data.SearchHistory) != 1 {
+		t.Fatalf("legacy preferences not repaired: %+v", read)
 	}
-	if !s.ApplyHighlight("darby-mark", sel, "green").OK || !s.CopySelection(sel, "textWithReference", nil, CopyOptions{}).OK || !strings.Contains(desktop.text, verse.Text) || !strings.Contains(desktop.text, "DBY") {
-		t.Fatal("Darby selection/clipboard failed")
+	p.Translations = []string{"dby", "kjv"}
+	if err := s.Store.SavePreferences(p); err != nil {
+		t.Fatal(err)
 	}
-	if r := s.GetCard(sel, []string{"dby"}, true, CopyOptions{}); !r.OK || len(r.Data.Lines) != 1 || r.Data.Lines[0].Text != verse.Text || r.Data.Lines[0].Version != "DBY" {
-		t.Fatalf("Darby card failed: %+v", r)
-	}
-	preferences := Defaults()
-	preferences.Translations = []string{"dby", "cuv"}
-	if !s.SavePreferences(preferences).OK || s.GetPreferences().Data.Translations[0] != "dby" {
-		t.Fatal("Darby preference was not retained")
-	}
-	if r := s.SetProjection("John3:16", "dby", DefaultProjectionStyle()); !r.OK || r.Data.Passage.Translation.ID != "dby" || !strings.Contains(r.Data.Passage.Verses[0].Text, "only-begotten Son") {
-		t.Fatalf("Darby projection failed: %+v", r)
+	read = s.GetPreferences()
+	if !read.OK || read.Data.Translations[0] != "cuv" {
+		t.Fatal("no available edition fallback", read.Error)
 	}
 }
 

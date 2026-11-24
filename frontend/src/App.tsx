@@ -800,22 +800,22 @@ function Reader({
         const hs = await api!.ListHighlights(["cuv"], "GEN", 1);
         if (!hs.some((h) => h.verseKey === "1" && h.color === "green"))
           throw new Error("highlight");
-        const kjvChapter = await api!.GetChapter(
-          ["cuv", "kjv", "webp"],
-          "GEN",
-          1,
-          "native-kjv-smoke",
-        );
+        const catalogue = await api!.ListTranslations();
         if (
-          !kjvChapter.rows
+          catalogue.length !== 2 ||
+          catalogue.map((tr) => tr.id).join(",") !== "cuv,webp"
+        )
+          throw new Error("bundled editions");
+        if (
+          !c.rows
             .find((row) => row.label === "1")
             ?.cells.some(
               (cell) =>
-                cell.translationId === "kjv" &&
-                cell.text.includes("the heaven and the earth"),
+                cell.translationId === "webp" &&
+                cell.text.includes("the heavens and the earth"),
             )
         )
-          throw new Error("KJV chapter");
+          throw new Error("WEBP chapter");
         const previous = await api!.GetPreferences();
         await api!.SavePreferences({
           ...previous,
@@ -833,21 +833,21 @@ function Reader({
         )
           throw new Error("settings persistence");
         await api!.SavePreferences(previous);
-        await api!.CopySelection(s, "parallelVerse", ["cuv", "kjv", "webp"], {
+        await api!.CopySelection(s, "parallelVerse", ["cuv", "webp"], {
           referencePosition: "before",
           referenceStyle: "verses-short",
           uiLanguage: "en",
         });
-        const content = await api!.GetCard(s, ["cuv", "kjv", "webp"], true, {
+        const content = await api!.GetCard(s, ["cuv", "webp"], true, {
           referencePosition: "after",
           referenceStyle: "short",
           uiLanguage: "zh-CN",
         });
         if (
-          content.lines.length !== 3 ||
-          !content.lines.some((line) => line.version === "KJV")
+          content.lines.length !== 2 ||
+          !content.lines.some((line) => line.version === "WEBP")
         )
-          throw new Error("KJV card");
+          throw new Error("CUV/WEBP card");
         const image = document.createElement("canvas");
         await drawCard(image, content, {
           height: 1080,
