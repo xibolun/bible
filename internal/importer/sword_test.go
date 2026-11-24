@@ -32,10 +32,10 @@ func swordFixture(t *testing.T, blockType string) map[string][]byte {
 				text = "<title>Excluded introduction</title>"
 			}
 			if testament == "ot" && ref.Book == "GEN" && ref.Chapter == 1 && ref.Label == "1" {
-				text = `<w lemma="strong:H1">[晨光]</w>é<note>excluded footnote</note><hi>照耀</hi><lb/>第二行。`
+				text = `<inscription><w lemma="strong:H1">[晨光]</w>é<note>excluded footnote</note><hi>照耀</hi><lb/>第二行。</inscription>`
 			}
 			if testament == "nt" && ref.Book == "MAT" && ref.Chapter == 1 && ref.Label == "1" {
-				text = `<w>First</w><note><reference>excluded</reference></note><w>words</w> &amp; punctuation.`
+				text = `<inscription><w>First</w><note><reference>excluded</reference></note><w>words</w> &amp; punctuation.</inscription>`
 			}
 			if slot == len(refs)-1 {
 				text = "Last words."
@@ -168,8 +168,28 @@ func TestSwordRejectsInvalidProfilesAndIndexes(t *testing.T) {
 	}
 }
 
+func TestSwordOSISPreservesInscriptionText(t *testing.T) {
+	// Self-authored CC0 samples; no downloaded module scripture is embedded.
+	for _, tc := range []struct{ name, source, want string }{
+		{"nested text", `Before <inscription><w lemma="strong:H1">WORDS</w>, <w><divineName>NAME</divineName></w>!</inscription> after.`, "Before WORDS, NAME! after."},
+		{"supplied and combining text", `<inscription>[supplied] é Αλφα 中文 &amp; punctuation.</inscription>`, "[supplied] é Αλφα 中文 & punctuation."},
+		{"notes excluded", `<inscription><w>First</w><note><catchWord>excluded</catchWord><rdg>variant</rdg></note><w>words</w></inscription>`, "First words"},
+		{"line breaks", `<inscription>First<lb/><hi>second</hi></inscription>`, "First\nsecond"},
+		{"opening fragment", `Before <inscription><w>WORDS</w>`, "Before WORDS"},
+		{"closing fragment", `<w>WORDS</w></inscription> after.`, "WORDS after."},
+		{"empty container", `before<inscription/>after`, "beforeafter"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := swordOSIS(context.Background(), []byte(tc.source))
+			if err != nil || got != tc.want {
+				t.Fatalf("inscription text: got %q, want %q, error %v", got, tc.want, err)
+			}
+		})
+	}
+}
+
 func TestSwordOSISRejectsUnknownAndUnsafeFragments(t *testing.T) {
-	for _, text := range []string{"<unknown>words</unknown>", "<!DOCTYPE x>words", "<?xml version=\"1.0\"?>words", "&unknown;", "<note>unclosed", "<note><hi>wrong</note></hi>", "<q marker=\"‘\">generated</q>", "<x:w>unknown namespace</x:w>", "bad\x00text", "bad\xffencoding"} {
+	for _, text := range []string{"<unknown>words</unknown>", "<!DOCTYPE x>words", "<?xml version=\"1.0\"?>words", "&unknown;", "<note>unclosed", "<note><hi>wrong</note></hi>", "<q marker=\"‘\">generated</q>", "<x:w>unknown namespace</x:w>", "bad\x00text", "bad\xffencoding", "<inscription><unknown>words</unknown></inscription>", "<inscription><x:w>namespace</x:w></inscription>"} {
 		if _, err := swordOSIS(context.Background(), []byte(text)); err == nil {
 			t.Fatalf("accepted %q", text)
 		}

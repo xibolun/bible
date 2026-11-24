@@ -304,7 +304,8 @@ func swordOSIS(ctx context.Context, raw []byte) (string, error) {
 			switch el.Name.Local {
 			case "note", "title":
 				excluded = append(excluded, el.Name)
-			case "w", "hi", "seg", "transChange", "foreign", "reference", "name", "abbr", "divineName", "milestone", "chapter", "verse":
+			// Inscription is scripture-bearing inline text (OSIS 2.1.1), not a note.
+			case "w", "hi", "seg", "transChange", "foreign", "reference", "name", "abbr", "divineName", "inscription", "milestone", "chapter", "verse":
 			case "l", "lb", "lg", "p", "div":
 				if out.Len() > 0 {
 					out.WriteByte('\n')

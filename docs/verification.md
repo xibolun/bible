@@ -138,6 +138,13 @@ after renaming, shared row actions, inline version recovery, failed-source
 isolation from local management, and 1024×640 layout at 20px global type.
 Changing UI language also retains the cached catalogue without a source request.
 
+SWORD inscription regressions use self-authored CC0 text to check nested words,
+supplied text, combining characters, divine names, excluded notes, line breaks
+and cross-verse fragments. Archive tests cover all three supported block types;
+service tests cover download, exact preview, explicit confirmation and exact
+offline reading. Unknown descendants and namespaces remain rejected. Live KJV
+validation uses ignored private files rather than adding its corpus to fixtures.
+
 Native smoke checks that the bundled catalogue contains only CUV,
 reads it through the Go bridge, round-trips font/language/reference settings
 and verifies CUV in clipboard/card paths. Independent Strong’s lookup

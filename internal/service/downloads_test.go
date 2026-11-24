@@ -31,7 +31,7 @@ func downloadFiles(t *testing.T) ([]byte, []byte) {
 	_, _ = tarWriter.Write([]byte(downloadConf))
 	_ = tarWriter.Close()
 	_ = g.Close()
-	const text = "Synthetic downloaded words. Not scripture."
+	const text = `<inscription><w>Synthetic downloaded words.</w><note><catchWord>excluded</catchWord><rdg>variant</rdg></note> <w>Not scripture.</w></inscription>`
 	var compressed bytes.Buffer
 	z := zlib.NewWriter(&compressed)
 	_, _ = z.Write([]byte(text))
@@ -116,6 +116,9 @@ func TestCrossWireDownloadPreviewConfirmAndOfflineData(t *testing.T) {
 		t.Fatal(start.Error)
 	}
 	job := awaitDownload(t, s, start.Data.ID)
+	if len(job.Samples) != 1 || job.Samples[0].Text != "Synthetic downloaded words. Not scripture." {
+		t.Fatalf("inscription preview lost text: %+v", job)
+	}
 	if job.Status != "ready" || job.Report.Format != "sword" || job.Report.Verses != 1 || !strings.Contains(job.Samples[0].Text, "Synthetic downloaded") || job.DownloadedBytes != int64(len(archive)) {
 		t.Fatalf("wrong preview/progress: %+v", job)
 	}
@@ -128,7 +131,7 @@ func TestCrossWireDownloadPreviewConfirmAndOfflineData(t *testing.T) {
 	}
 	server.Close()
 	id := committed.Data.Installed.ID
-	if r := s.GetChapter([]string{id}, "MAT", 1, "offline"); !r.OK || !strings.Contains(r.Data.Rows[0].Cells[0].Text, "Not scripture") {
+	if r := s.GetChapter([]string{id}, "MAT", 1, "offline"); !r.OK || r.Data.Rows[0].Cells[0].Text != "Synthetic downloaded words. Not scripture." {
 		t.Fatal("offline data", r.Error)
 	}
 	files, err := os.ReadDir(filepath.Join(root, "imports"))
