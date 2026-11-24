@@ -261,6 +261,8 @@ export function mockEditionAPI(
           value.report.format = "sword";
           value.report.versification = selected === "TEST_EN" ? "KJV" : "NRSV";
           value.report.metadata.DownloadRepository = "CrossWire (Mock)";
+          value.report.metadata.DownloadURL = `https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/${selected}.zip`;
+          value.report.sourceEdition = "1";
           value.report.diagnostics = [
             "自编下载模拟示例，非真实圣经译本 / Synthetic download sample, not an actual Bible edition",
           ];

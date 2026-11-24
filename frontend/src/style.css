@@ -845,6 +845,21 @@ mark.search-keyword {
 .edition-manager {
   display: grid;
   gap: 12px;
+  min-width: 0;
+}
+.edition-manager[hidden],
+.edition-manager [hidden] {
+  display: none;
+}
+.edition-manager .ant-table-wrapper {
+  min-width: 0;
+  overflow-x: auto;
+}
+.edition-manager .ant-table {
+  min-width: 480px;
+}
+.edition-manager h4 {
+  margin: 0;
 }
 .edition-manager p {
   margin: 0;

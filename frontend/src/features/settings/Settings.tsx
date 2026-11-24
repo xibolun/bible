@@ -9,7 +9,7 @@ import {
   Tabs,
   Spin,
 } from "antd";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { GithubOutlined } from "@ant-design/icons";
 import type { API, Preferences, Translation } from "../../shared/types";
 import { translator, errorText } from "../../shared/locale";
@@ -52,11 +52,12 @@ export function Settings({
 }) {
   const t = translator(preferences.uiLanguage);
   const { message } = App.useApp();
+  const [activeTab, setActiveTab] = useState(initialTab);
   return (
     <Drawer
       open
       title={t("设置", "Settings")}
-      width={460}
+      width={activeTab === "editions" ? 960 : 460}
       onClose={onClose}
       extra={
         <Space>
@@ -78,7 +79,8 @@ export function Settings({
       }
     >
       <Tabs
-        defaultActiveKey={initialTab}
+        activeKey={activeTab}
+        onChange={setActiveTab}
         items={[
           {
             key: "reading",

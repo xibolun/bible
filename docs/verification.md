@@ -131,6 +131,13 @@ explicit additional/final slot offsets to guard against verse shifts. Browser
 bilingual regressions install an explicit CI-only WEBP excerpt fixture rather
 than adding scripture to production assets.
 
+Edition management browser coverage also checks the integrated installed/download
+views, a single settings drawer without catalogue/details modals, preserved
+search/language filters, read-only bundled CUV, provenance-based installed status
+after renaming, shared row actions, inline version recovery, failed-source
+isolation from local management, and 1024×640 layout at 20px global type.
+Changing UI language also retains the cached catalogue without a source request.
+
 Native smoke checks that the bundled catalogue contains only CUV,
 reads it through the Go bridge, round-trips font/language/reference settings
 and verifies CUV in clipboard/card paths. Independent Strong’s lookup

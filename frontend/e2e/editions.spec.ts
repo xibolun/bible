@@ -196,8 +196,13 @@ test("version replacement and disabling or removing a current edition keep readi
     .getByRole("button", { name: "关闭", exact: true })
     .click();
   const region = page.getByRole("region", { name: "译本管理", exact: true });
-  await region.getByRole("button", { name: "详情", exact: true }).click();
-  const detail = page.getByRole("dialog", { name: "导入测试", exact: true });
+  await region
+    .getByRole("row")
+    .filter({ hasText: "导入测试" })
+    .getByRole("button", { name: "详情", exact: true })
+    .click();
+  const detail = region.getByRole("region", { name: "译本详情", exact: true });
+  await expect(page.getByRole("dialog")).toHaveCount(1);
   await detail
     .getByRole("combobox", { name: "恢复译本版次", exact: true })
     .click();
@@ -238,7 +243,7 @@ test("version replacement and disabling or removing a current edition keep readi
     .getByRole("button", { name: "删除", exact: true })
     .click();
   await expect(
-    region.getByRole("button", { name: "阅读", exact: true }),
+    region.getByRole("row").filter({ hasText: "导入测试" }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "完成", exact: true }).click();
   await expect(page.locator(".book-button")).toHaveCount(66);

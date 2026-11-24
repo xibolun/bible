@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type Key } from "react";
 import {
   Alert,
   App,
   Button,
   Checkbox,
-  Descriptions,
   Form,
   Input,
   Modal,
   Progress,
   Select,
+  Segmented,
   Space,
   Spin,
   Switch,
@@ -20,16 +20,8 @@ import type { API, Preferences, Translation } from "../../shared/types";
 import { prototype } from "../../shared/types";
 import { errorText, translator } from "../../shared/locale";
 import type { EditionCommit, EditionInstall, EditionJob } from "./types";
-import { DownloadSource } from "./DownloadSource";
-
-const formatNames: Record<string, string> = {
-  mybible: "MyBible",
-  mysword: "MySword",
-  theword: "theWord",
-  osis: "OSIS",
-  zefania: "Zefania XML",
-  sword: "SWORD",
-};
+import { DownloadCatalogue } from "./DownloadCatalogue";
+import { EditionDetails, formatNames } from "./EditionDetails";
 export function EditionManager({
   api,
   preferences,
@@ -49,11 +41,14 @@ export function EditionManager({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true);
-  const [job, setJob] = useState<EditionJob>(),
-    [details, setDetails] = useState<EditionInstall>(),
-    [restore, setRestore] = useState("");
+  const [job, setJob] = useState<EditionJob>();
+  const [expanded, setExpanded] = useState<readonly Key[]>([]);
   const [form] = Form.useForm<EditionCommit>();
-  const [downloadSource, setDownloadSource] = useState(false);
+  const [view, setView] = useState<"installed" | "download">("installed");
+  const [downloadVisited, setDownloadVisited] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const [queries, setQueries] = useState({ installed: "", download: "" });
+  const [filters, setFilters] = useState({ installed: "", download: "zh" });
   const currentJob = useRef<string | undefined>(undefined);
   const initialized = useRef("");
   const mounted = useRef(true);
@@ -269,18 +264,98 @@ export function EditionManager({
   };
   const working =
     busy ||
+    job?.status === "queued" ||
     job?.status === "downloading" ||
     job?.status === "inspecting" ||
     job?.status === "committing";
+  const actions = (item: EditionInstall) => (
+    <Space wrap size="small">
+      <Switch
+        size="small"
+        aria-label={t(
+          `启用 ${item.translation.name}`,
+          `Enable ${item.translation.name}`,
+        )}
+        checked={item.enabled}
+        disabled={working || item.removing}
+        onChange={(v) => toggle(item, v)}
+      />
+      <Button
+        size="small"
+        type="link"
+        disabled={working || item.removing}
+        onClick={() =>
+          void readEdition(item.translation.id).catch((e) =>
+            setError(errorText(e, preferences.uiLanguage)),
+          )
+        }
+      >
+        {item.enabled ? t("阅读", "Read") : t("启用并阅读", "Enable and read")}
+      </Button>
+      <Button
+        size="small"
+        type="link"
+        disabled={working || item.removing}
+        onClick={() => void choose(item.translation.id)}
+      >
+        {t("替换", "Replace")}
+      </Button>
+      <Button
+        size="small"
+        type="link"
+        danger
+        disabled={working}
+        onClick={() => remove(item)}
+      >
+        {t(
+          item.removing ? "重试删除" : "删除",
+          item.removing ? "Retry removal" : "Remove",
+        )}
+      </Button>
+    </Space>
+  );
+  const renderDetails = (item: EditionInstall) => (
+    <EditionDetails
+      key={`${item.translation.id}/${item.translation.dataVersion}`}
+      item={item}
+      language={preferences.uiLanguage}
+      disabled={working}
+      onRestore={async (id, version) => {
+        if (await perform(() => api.RestoreEditionVersion(id, version)))
+          setExpanded([]);
+      }}
+    />
+  );
+  const matches = (translation: Translation) =>
+    (!filters[view] ||
+      (filters[view] === "en"
+        ? translation.language === "en"
+        : /^zh\b/i.test(translation.language))) &&
+    `${translation.id} ${translation.name} ${translation.abbreviation}`
+      .toLowerCase()
+      .includes(queries[view].trim().toLowerCase());
+  const rows: (EditionInstall | Translation)[] = [
+    ...translations.filter((v) => v.origin !== "user" && matches(v)),
+    ...installs.filter((v) => matches(v.translation)),
+  ];
   return (
     <section
       aria-label={t("译本管理", "Edition manager")}
       className="edition-manager"
     >
       <Space wrap>
-        <Button disabled={working} onClick={() => setDownloadSource(true)}>
-          {t("下载译本", "Download editions")}
-        </Button>
+        <Segmented
+          aria-label={t("译本列表", "Edition list")}
+          value={view}
+          options={[
+            { value: "installed", label: t("已安装", "Installed") },
+            { value: "download", label: t("下载译本", "Download editions") },
+          ]}
+          onChange={(value) => {
+            setView(value as "installed" | "download");
+            if (value === "download") setDownloadVisited(true);
+          }}
+        />
         <Button
           type="primary"
           aria-label={t("导入译本文件", "Import edition file")}
@@ -293,44 +368,40 @@ export function EditionManager({
         <Button
           disabled={working}
           onClick={() =>
-            void reload().catch((e) =>
-              setError(errorText(e, preferences.uiLanguage)),
-            )
+            view === "download"
+              ? setRefresh((n) => n + 1)
+              : void reload().catch((e) =>
+                  setError(errorText(e, preferences.uiLanguage)),
+                )
           }
         >
-          {t("刷新", "Refresh")}
+          {t("刷新列表", "Refresh list")}
         </Button>
       </Space>
-      {downloadSource && (
-        <DownloadSource
-          api={api}
-          language={preferences.uiLanguage}
-          onClose={() => setDownloadSource(false)}
-          onDownload={async (id) => {
-            initialized.current = "";
-            form.resetFields();
-            form.setFieldsValue({ replaceId: "" });
-            const result = await api.DownloadCrossWireEdition(id);
-            accept(result);
-            setDownloadSource(false);
-          }}
-        />
-      )}
-      <p className="muted">
-        {t(
-          "MyBible / MySword / theWord / OSIS / Zefania XML / SWORD ZIP；本地导入，保留原版权说明。",
-          "MyBible / MySword / theWord / OSIS / Zefania XML / SWORD ZIP. Local import; original copyright notices are retained.",
-        )}
-      </p>
-      {prototype && (
-        <Alert
-          title={t(
-            "浏览器模拟：文件流程仅演示测试XML；完整格式解析及持久化以桌面应用为准。",
-            "Browser Mock: file flow demonstrates test XML only. Use the desktop app for complete parsing and persistence.",
+      <Space wrap>
+        <Input.Search
+          aria-label={t("搜索译本", "Search editions")}
+          placeholder={t(
+            "搜索译本名称或简称",
+            "Search edition name or abbreviation",
           )}
-          type="info"
+          value={queries[view]}
+          onChange={(e) => setQueries({ ...queries, [view]: e.target.value })}
+          allowClear
+          style={{ width: 280, maxWidth: "100%" }}
         />
-      )}
+        <Select
+          aria-label={t("译本语言", "Edition language")}
+          value={filters[view]}
+          onChange={(value) => setFilters({ ...filters, [view]: value })}
+          options={[
+            { value: "", label: t("全部语言", "All languages") },
+            { value: "zh", label: t("中文", "Chinese") },
+            { value: "en", label: t("英文", "English") },
+          ]}
+          style={{ width: 150 }}
+        />
+      </Space>
       {error && (
         <Alert
           title={error}
@@ -340,115 +411,142 @@ export function EditionManager({
           onClose={() => setError("")}
         />
       )}
-      <Table<EditionInstall>
-        size="small"
-        loading={loading}
-        rowKey={(item) => item.translation.id}
-        dataSource={installs}
-        pagination={{ pageSize: 5, hideOnSinglePage: true }}
-        locale={{
-          emptyText: t(
-            "尚未导入译本；内置译本仍可使用。",
-            "No imported editions. Bundled editions remain available.",
-          ),
-        }}
-        columns={[
-          {
-            title: t("译本", "Edition"),
-            render: (_, item) => (
-              <div>
-                <strong>
-                  {item.translation.abbreviation} · {item.translation.name}
-                </strong>
-                <div className="muted">
-                  {formatNames[item.translation.sourceFormat || ""] ||
-                    item.translation.sourceFormat}{" "}
-                  · {item.translation.language}
-                </div>
-                {item.removing && (
-                  <Tag color="warning">
-                    {t("删除待重试", "Removal pending")}
-                  </Tag>
-                )}
-              </div>
-            ),
-          },
-          {
-            title: t("启用", "Enabled"),
-            width: 66,
-            render: (_, item) => (
-              <Switch
+      {downloadVisited && (
+        <div hidden={view !== "download"}>
+          <DownloadCatalogue
+            api={api}
+            language={preferences.uiLanguage}
+            query={queries.download}
+            filter={filters.download}
+            refresh={refresh}
+            disabled={working}
+            installs={installs}
+            renderActions={actions}
+            renderDetails={renderDetails}
+            onDownload={async (id) => {
+              setBusy(true);
+              setError("");
+              try {
+                initialized.current = "";
+                form.resetFields();
+                form.setFieldsValue({ replaceId: "" });
+                accept(await api.DownloadCrossWireEdition(id));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        </div>
+      )}
+      <div hidden={view !== "installed"} className="edition-manager">
+        <p className="muted">
+          {t(
+            "MyBible / MySword / theWord / OSIS / Zefania XML / SWORD ZIP；本地导入，保留原版权说明。",
+            "MyBible / MySword / theWord / OSIS / Zefania XML / SWORD ZIP. Local import; original copyright notices are retained.",
+          )}
+        </p>
+        {prototype && (
+          <Alert
+            title={t(
+              "浏览器模拟：文件流程仅演示测试XML；完整格式解析及持久化以桌面应用为准。",
+              "Browser Mock: file flow demonstrates test XML only. Use the desktop app for complete parsing and persistence.",
+            )}
+            type="info"
+          />
+        )}
+        <Table<EditionInstall | Translation>
+          size="small"
+          loading={loading}
+          rowKey={(item) =>
+            "translation" in item ? item.translation.id : item.id
+          }
+          dataSource={rows}
+          pagination={{ pageSize: 5, hideOnSinglePage: true }}
+          locale={{
+            emptyText: t("没有符合条件的译本", "No matching editions"),
+          }}
+          expandable={{
+            columnWidth: 70,
+            expandedRowKeys: expanded,
+            onExpandedRowsChange: setExpanded,
+            expandIcon: ({ expanded, onExpand, record }) => (
+              <Button
                 size="small"
-                aria-label={t(
-                  `启用 ${item.translation.name}`,
-                  `Enable ${item.translation.name}`,
-                )}
-                checked={item.enabled}
-                disabled={working || item.removing}
-                onChange={(v) => toggle(item, v)}
-              />
+                type="link"
+                onClick={(e) => onExpand(record, e)}
+                aria-expanded={expanded}
+              >
+                {expanded ? t("收起", "Collapse") : t("详情", "Details")}
+              </Button>
             ),
-          },
-          {
-            title: t("操作", "Actions"),
-            width: 125,
-            render: (_, item) => (
-              <Space wrap size={0}>
-                <Button
-                  size="small"
-                  type="link"
-                  disabled={working}
-                  onClick={() => {
-                    setDetails(item);
-                    setRestore(item.translation.dataVersion);
-                  }}
-                >
-                  {t("详情", "Details")}
-                </Button>
-                <Button
-                  size="small"
-                  type="link"
-                  disabled={working || !item.enabled}
-                  onClick={() =>
-                    void onRead(item.translation.id).catch((e) =>
-                      setError(errorText(e, preferences.uiLanguage)),
-                    )
-                  }
-                >
-                  {t("阅读", "Read")}
-                </Button>
-                <Button
-                  size="small"
-                  type="link"
-                  disabled={working || item.removing}
-                  onClick={() => void choose(item.translation.id)}
-                >
-                  {t("替换", "Replace")}
-                </Button>
-                <Button
-                  size="small"
-                  type="link"
-                  danger
-                  disabled={working}
-                  onClick={() => remove(item)}
-                >
-                  {t(
-                    item.removing ? "重试删除" : "删除",
-                    item.removing ? "Retry removal" : "Remove",
-                  )}
-                </Button>
-              </Space>
-            ),
-          },
-        ]}
-      />
-      <p className="muted">
-        {t("内置译本：", "Bundled: ")}
-        {translations
-          .filter((v) => v.origin !== "user")
-          .map((v) => v.abbreviation)
-          .join(" / ")}
-      </p>
+            expandedRowRender: (item) =>
+              "translation" in item ? (
+                renderDetails(item)
+              ) : (
+                <pre className="edition-notice">{item.license}</pre>
+              ),
+          }}
+          columns={[
+            {
+              title: t("译本", "Edition"),
+              render: (_, row) => {
+                const item = "translation" in row ? row : undefined;
+                const translation = item
+                  ? item.translation
+                  : (row as Translation);
+                return (
+                  <div>
+                    <strong>
+                      {translation.abbreviation} · {translation.name}
+                    </strong>
+                    <div className="muted">
+                      {item
+                        ? formatNames[translation.sourceFormat || ""] ||
+                          translation.sourceFormat
+                        : t("内置译本", "Bundled edition")}{" "}
+                      · {translation.language}
+                    </div>
+                    {item?.removing && (
+                      <Tag color="warning">
+                        {t("删除待重试", "Removal pending")}
+                      </Tag>
+                    )}
+                  </div>
+                );
+              },
+            },
+            {
+              title: t("操作", "Actions"),
+              width: "36%",
+              render: (_, item) =>
+                "translation" in item ? (
+                  actions(item)
+                ) : (
+                  <Button
+                    size="small"
+                    type="link"
+                    disabled={working}
+                    onClick={() =>
+                      void onRead(item.id).catch((e) =>
+                        setError(errorText(e, preferences.uiLanguage)),
+                      )
+                    }
+                  >
+                    {t("阅读", "Read")}
+                  </Button>
+                ),
+            },
+          ]}
+        />
+        {!installs.length && (
+          <p className="muted">
+            {t(
+              "尚未导入译本；内置译本仍可使用。",
+              "No imported editions. Bundled editions remain available.",
+            )}
+          </p>
+        )}
+      </div>
       <Modal
         open={!!job}
         title={t("本地译本导入", "Local edition import")}
@@ -652,93 +750,6 @@ export function EditionManager({
             <h4>{t("来源与版权说明", "Source and copyright notice")}</h4>
             <p>{job.report.sourceEdition}</p>
             <pre className="edition-notice">{job.report.license}</pre>
-          </>
-        )}
-      </Modal>
-      <Modal
-        open={!!details}
-        title={details?.translation.name}
-        width={720}
-        style={{ maxWidth: "calc(100vw - 32px)", top: 24 }}
-        styles={{
-          body: { maxHeight: "calc(100dvh - 190px)", overflowY: "auto" },
-        }}
-        onCancel={() => setDetails(undefined)}
-        footer={
-          <Button onClick={() => setDetails(undefined)}>
-            {t("关闭", "Close")}
-          </Button>
-        }
-      >
-        {details && (
-          <>
-            <Descriptions
-              column={1}
-              size="small"
-              items={[
-                {
-                  key: "format",
-                  label: t("来源格式", "Source format"),
-                  children: formatNames[details.report.format],
-                },
-                {
-                  key: "coverage",
-                  label: t("内容范围", "Coverage"),
-                  children: `${details.report.books} / ${details.report.chapters} / ${details.report.verses} ${t("卷 / 章 / 记录", "books / chapters / records")}`,
-                },
-                {
-                  key: "size",
-                  label: t("正文占用", "Scripture size"),
-                  children: `${(details.bytes / 1048576).toFixed(2)} MiB`,
-                },
-                {
-                  key: "source",
-                  label: t("来源", "Source"),
-                  children: (
-                    <span className="edition-source">
-                      {details.report.sourceUrl || t("未提供", "Not supplied")}
-                    </span>
-                  ),
-                },
-              ]}
-            />
-            <h4>{t("版权说明", "Copyright notice")}</h4>
-            <pre className="edition-notice">{details.report.license}</pre>
-            <h4>{t("检查报告", "Inspection report")}</h4>
-            <ul>
-              {details.report.diagnostics.map((v, i) => (
-                <li key={i}>{v}</li>
-              ))}
-            </ul>
-            <h4>{t("保留的版次", "Retained versions")}</h4>
-            <Space wrap>
-              <Select
-                aria-label={t("恢复译本版次", "Restore edition version")}
-                style={{ width: 280, maxWidth: "100%" }}
-                value={restore}
-                onChange={setRestore}
-                options={details.versions.map((v) => ({
-                  value: v.fingerprint,
-                  label: `${v.sourceEdition || ""} ${new Date(v.created).toLocaleString()}`,
-                }))}
-              />
-              <Button
-                disabled={
-                  busy ||
-                  details.removing ||
-                  restore === details.translation.dataVersion
-                }
-                onClick={() =>
-                  void perform(() =>
-                    api.RestoreEditionVersion(details.translation.id, restore),
-                  ).then((ok) => {
-                    if (ok) setDetails(undefined);
-                  })
-                }
-              >
-                {t("恢复此版", "Restore version")}
-              </Button>
-            </Space>
           </>
         )}
       </Modal>
