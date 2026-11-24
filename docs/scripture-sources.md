@@ -1,36 +1,49 @@
 # Scripture sources and editions
 
-The application bundles only CUV and WEBP, each covering the 66-book canon.
-KJV and Darby scripture are no longer bundled; other editions use local import.
+The application bundles only Simplified Chinese CUV, covering the 66-book canon.
+WEBP, KJV and Darby scripture are no longer bundled; other editions use local import.
 SWORD is a module format and toolchain, not an English translation. No SWORD
 runtime library or external converter is required by the application.
 
 | Translation | Source and pinned edition | Publisher notice |
 | --- | --- | --- |
 | CUV, simplified Chinese Union Version | CrossWire ChiUns 3.1; source identifies FHL | Public Domain; original module notice retained |
-| WEBP, World English Bible | eBible engwebp snapshot 2026-11-13 | Public Domain; publisher notice retained |
 
 Exact input hashes, conversion descriptions, verse counts and output fingerprints
 are in `data/manifest.json`. Source notices ship in `data/` and `licenses/`.
-CUV/WEBP text and data versions remain unchanged, preserving highlight offsets.
+CUV text and data versions remain unchanged, preserving highlight offsets.
 
 To rebuild from the pinned inputs:
 
 ```sh
 diatheke -b ChiUns -f plain -k 'Genesis 1:1-Revelation 22:21' > ChiUns.txt
 python3 tools/import_data.py \
-  --chinese-archive /path/to/ChiUns.zip --chinese-export /path/to/ChiUns.txt \
-  --english-archive /path/to/engwebp_vpl.zip
+  --chinese-archive /path/to/ChiUns.zip --chinese-export /path/to/ChiUns.txt
 python3 tools/licenses.py
 make verify-data
 ```
 
-The local importer supports a bounded SWORD zText/ZIP/UTF-8/OSIS/KJV profile,
+The local importer supports a bounded SWORD zText/ZIP/UTF-8/OSIS KJV/NRSV profile,
 including the user-supplied Darby 2.0 ZIP. That module has 66 books, 1189
 chapters and 31,099 scripture records. It stays in private user storage and is
 not added to the public dataset. See [edition-import.md](edition-import.md).
 A separate chapter/verse count table supports SWORD and theWord indexing
 without carrying KJV scripture.
+
+## User-selected downloads
+
+The edition manager reads the official CrossWire `mods.d.tar.gz` catalogue over
+HTTPS only after the reader opens Download editions. It lists Chinese and
+English Bible modules, retains source notices and checks the supported native
+profile before download. A selected ZIP is downloaded with bounded progress and
+cancellation, parsed into the same preview draft and installed only on confirmation.
+No remote module scripture is included in application assets or installers.
+
+Bilingual regression tests explicitly install selected public-domain WEBP excerpts
+from `testdata/webp-reader-fixture.json` into the Mock user library. Those 233
+reference verses are CI-only, derived from the previously bundled pinned WEBP
+source; they are not application assets or a second built-in edition. The original
+WEBP publisher notice remains with the test source attribution.
 
 ## Offline original-language dictionary
 

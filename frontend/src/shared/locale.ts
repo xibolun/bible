@@ -33,6 +33,18 @@ const errors: Record<string, string> = {
 };
 
 const editionErrors: Record<string, [string, string]> = {
+  SOURCE_UNAVAILABLE: [
+    "无法连接CrossWire下载源，请检查网络后重试",
+    "CrossWire is unavailable. Check your connection and retry.",
+  ],
+  SOURCE_REFRESH_REQUIRED: [
+    "请先刷新下载列表",
+    "Refresh the download list first.",
+  ],
+  SOURCE_CHANGED: [
+    "下载源版次已变化，请刷新列表后重试",
+    "The source edition changed. Refresh the list and retry.",
+  ],
   EDITION_DATA_UNAVAILABLE: [
     "用户译本数据不可用，请重试或检查译本文件。",
     "The user edition data is unavailable. Retry or check the edition file.",

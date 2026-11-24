@@ -200,3 +200,45 @@ func TestKJVReferenceIndexIndependentOfBundledEditions(t *testing.T) {
 		}
 	}
 }
+
+func TestNRSVIndexPreservesExtraVersesAndFinalOffset(t *testing.T) {
+	files := swordFixture(t, "BOOK")
+	files["mods.d/synthetic.conf"] = bytes.ReplaceAll(files["mods.d/synthetic.conf"], []byte("Versification=KJV"), []byte("Versification=NRSV"))
+	// Explicit NRSV slots, independently calculated from the CrossWire table:
+	// 3 John 1:15, Revelation 12:18 and Revelation 22:21 (last NT slot).
+	index := make([]byte, 8248*10)
+	var raw bytes.Buffer
+	for i, slot := range []int{7792, 8044, 8247} {
+		text := []string{"NRSV first extra sample.", "NRSV second extra sample.", "NRSV final sample."}[i]
+		binary.LittleEndian.PutUint32(index[slot*10+4:], uint32(raw.Len()))
+		binary.LittleEndian.PutUint16(index[slot*10+8:], uint16(len(text)))
+		raw.WriteString(text)
+	}
+	var compressed bytes.Buffer
+	w := zlib.NewWriter(&compressed)
+	_, _ = w.Write(raw.Bytes())
+	_ = w.Close()
+	blocks := make([]byte, 12)
+	binary.LittleEndian.PutUint32(blocks[4:], uint32(compressed.Len()))
+	binary.LittleEndian.PutUint32(blocks[8:], uint32(raw.Len()))
+	files["modules/texts/ztext/synthetic/nt.bzv"] = index
+	files["modules/texts/ztext/synthetic/nt.bzs"] = blocks
+	files["modules/texts/ztext/synthetic/nt.bzz"] = compressed.Bytes()
+	d, err := Parse(context.Background(), swordArchive(t, files), "nrsv.zip", canonForTest(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wanted := map[string]string{"3JN/1/15": "NRSV first extra sample.", "REV/12/18": "NRSV second extra sample.", "REV/22/21": "NRSV final sample."}
+	for _, r := range d.Records {
+		key := fmt.Sprintf("%s/%d/%s", r.Book, r.Chapter, r.Label)
+		if text, ok := wanted[key]; ok {
+			if r.Text != text {
+				t.Fatal("shifted NRSV text", r)
+			}
+			delete(wanted, key)
+		}
+	}
+	if d.Versification != "NRSV" || len(wanted) != 0 {
+		t.Fatal("NRSV references lost", wanted)
+	}
+}

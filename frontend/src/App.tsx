@@ -784,12 +784,7 @@ function Reader({
       smokeActive.current = true;
       let passed = false;
       try {
-        const c = await api!.GetChapter(
-          ["cuv", "webp"],
-          "GEN",
-          1,
-          "native-smoke",
-        );
+        const c = await api!.GetChapter(["cuv"], "GEN", 1, "native-smoke");
         if (c.rows.length < 30) throw new Error("incomplete chapter");
         const found = await api!.SearchScripture("cuv", "起%神", 0, 30);
         if (
@@ -817,8 +812,8 @@ function Reader({
           throw new Error("highlight");
         const catalogue = await api!.ListTranslations();
         if (
-          catalogue.length !== 2 ||
-          catalogue.map((tr) => tr.id).join(",") !== "cuv,webp"
+          catalogue.length !== 1 ||
+          catalogue.map((tr) => tr.id).join(",") !== "cuv"
         )
           throw new Error("bundled editions");
         if (
@@ -826,11 +821,10 @@ function Reader({
             .find((row) => row.label === "1")
             ?.cells.some(
               (cell) =>
-                cell.translationId === "webp" &&
-                cell.text.includes("the heavens and the earth"),
+                cell.translationId === "cuv" && cell.text.includes("起初"),
             )
         )
-          throw new Error("WEBP chapter");
+          throw new Error("CUV chapter");
         const previous = await api!.GetPreferences();
         await api!.SavePreferences({
           ...previous,
@@ -848,21 +842,21 @@ function Reader({
         )
           throw new Error("settings persistence");
         await api!.SavePreferences(previous);
-        await api!.CopySelection(s, "parallelVerse", ["cuv", "webp"], {
+        await api!.CopySelection(s, "parallelVerse", ["cuv"], {
           referencePosition: "before",
           referenceStyle: "verses-short",
           uiLanguage: "en",
         });
-        const content = await api!.GetCard(s, ["cuv", "webp"], true, {
+        const content = await api!.GetCard(s, ["cuv"], true, {
           referencePosition: "after",
           referenceStyle: "short",
           uiLanguage: "zh-CN",
         });
         if (
-          content.lines.length !== 2 ||
-          !content.lines.some((line) => line.version === "WEBP")
+          content.lines.length !== 1 ||
+          !content.lines.some((line) => line.version === "CUV")
         )
-          throw new Error("CUV/WEBP card");
+          throw new Error("CUV card");
         const image = document.createElement("canvas");
         await drawCard(image, content, {
           height: 1080,
@@ -1083,24 +1077,36 @@ function Reader({
               {t("多译本对照", "Compare")}
               <Switch
                 checked={prefs.parallel}
-                disabled={translations.some(
-                  (v) =>
-                    v.id === prefs.translations[0] &&
-                    v.origin === "user" &&
-                    !v.comparable,
-                )}
-                title={
+                disabled={
+                  translations.filter(
+                    (v) => v.origin !== "user" || v.comparable,
+                  ).length < 2 ||
                   translations.some(
                     (v) =>
                       v.id === prefs.translations[0] &&
                       v.origin === "user" &&
                       !v.comparable,
                   )
+                }
+                title={
+                  translations.filter(
+                    (v) => v.origin !== "user" || v.comparable,
+                  ).length < 2
                     ? t(
-                        "此译本编号体系未验证，请单独阅读",
-                        "Unverified verse numbering; read this edition individually",
+                        "导入另一个兼容译本后可开启对照",
+                        "Import another compatible edition to compare",
                       )
-                    : undefined
+                    : translations.some(
+                          (v) =>
+                            v.id === prefs.translations[0] &&
+                            v.origin === "user" &&
+                            !v.comparable,
+                        )
+                      ? t(
+                          "此译本编号体系未验证，请单独阅读",
+                          "Unverified verse numbering; read this edition individually",
+                        )
+                      : undefined
                 }
                 onChange={(v) =>
                   setPrefs((p) => ({

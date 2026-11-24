@@ -8,6 +8,7 @@ import {
   Form,
   Input,
   Modal,
+  Progress,
   Select,
   Space,
   Spin,
@@ -19,6 +20,7 @@ import type { API, Preferences, Translation } from "../../shared/types";
 import { prototype } from "../../shared/types";
 import { errorText, translator } from "../../shared/locale";
 import type { EditionCommit, EditionInstall, EditionJob } from "./types";
+import { DownloadSource } from "./DownloadSource";
 
 const formatNames: Record<string, string> = {
   mybible: "MyBible",
@@ -51,6 +53,7 @@ export function EditionManager({
     [details, setDetails] = useState<EditionInstall>(),
     [restore, setRestore] = useState("");
   const [form] = Form.useForm<EditionCommit>();
+  const [downloadSource, setDownloadSource] = useState(false);
   const currentJob = useRef<string | undefined>(undefined);
   const initialized = useRef("");
   const mounted = useRef(true);
@@ -92,7 +95,12 @@ export function EditionManager({
     [form],
   );
   useEffect(() => {
-    if (!job || !["queued", "inspecting", "committing"].includes(job.status))
+    if (
+      !job ||
+      !["queued", "downloading", "inspecting", "committing"].includes(
+        job.status,
+      )
+    )
       return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
@@ -101,7 +109,11 @@ export function EditionManager({
         const value = await api.GetEditionImportJob(job.id);
         if (!active) return;
         accept(value);
-        if (["queued", "inspecting", "committing"].includes(value.status))
+        if (
+          ["queued", "downloading", "inspecting", "committing"].includes(
+            value.status,
+          )
+        )
           timer = setTimeout(() => void poll(), 250);
       } catch (e) {
         if (active) setError(errorText(e, preferences.uiLanguage));
@@ -256,13 +268,19 @@ export function EditionManager({
     await onRead(id);
   };
   const working =
-    busy || job?.status === "inspecting" || job?.status === "committing";
+    busy ||
+    job?.status === "downloading" ||
+    job?.status === "inspecting" ||
+    job?.status === "committing";
   return (
     <section
       aria-label={t("译本管理", "Edition manager")}
       className="edition-manager"
     >
       <Space wrap>
+        <Button disabled={working} onClick={() => setDownloadSource(true)}>
+          {t("下载译本", "Download editions")}
+        </Button>
         <Button
           type="primary"
           aria-label={t("导入译本文件", "Import edition file")}
@@ -283,6 +301,21 @@ export function EditionManager({
           {t("刷新", "Refresh")}
         </Button>
       </Space>
+      {downloadSource && (
+        <DownloadSource
+          api={api}
+          language={preferences.uiLanguage}
+          onClose={() => setDownloadSource(false)}
+          onDownload={async (id) => {
+            initialized.current = "";
+            form.resetFields();
+            form.setFieldsValue({ replaceId: "" });
+            const result = await api.DownloadCrossWireEdition(id);
+            accept(result);
+            setDownloadSource(false);
+          }}
+        />
+      )}
       <p className="muted">
         {t(
           "MyBible / MySword / theWord / OSIS / Zefania XML / SWORD ZIP；本地导入，保留原版权说明。",
@@ -447,8 +480,16 @@ export function EditionManager({
               onClick={() => void cancel()}
             >
               {t(
-                job?.status === "inspecting" ? "取消检查" : "关闭",
-                job?.status === "inspecting" ? "Cancel inspection" : "Close",
+                job?.status === "downloading"
+                  ? "取消下载"
+                  : job?.status === "inspecting"
+                    ? "取消检查"
+                    : "关闭",
+                job?.status === "downloading"
+                  ? "Cancel download"
+                  : job?.status === "inspecting"
+                    ? "Cancel inspection"
+                    : "Close",
               )}
             </Button>
           )
@@ -456,16 +497,43 @@ export function EditionManager({
       >
         {error && <Alert title={error} type="error" showIcon />}
         {(job?.status === "queued" ||
+          job?.status === "downloading" ||
           job?.status === "inspecting" ||
           job?.status === "committing") && (
           <Spin
             description={t(
-              job.status === "committing" ? "正在本地安装…" : "正在检查文件…",
-              job.status === "committing"
-                ? "Installing locally…"
-                : "Inspecting file…",
+              job.status === "downloading"
+                ? "正在下载译本…"
+                : job.status === "committing"
+                  ? "正在本地安装…"
+                  : "正在检查文件…",
+              job.status === "downloading"
+                ? "Downloading edition…"
+                : job.status === "committing"
+                  ? "Installing locally…"
+                  : "Inspecting file…",
             )}
           />
+        )}
+        {job?.status === "downloading" && (
+          <div>
+            <p>
+              {((job.downloadedBytes || 0) / 1048576).toFixed(2)} MiB
+              {job.totalBytes
+                ? ` / ${(job.totalBytes / 1048576).toFixed(2)} MiB`
+                : ""}
+            </p>
+            {!!job.totalBytes && (
+              <Progress
+                percent={Math.min(
+                  100,
+                  Math.floor(
+                    ((job.downloadedBytes || 0) * 100) / job.totalBytes,
+                  ),
+                )}
+              />
+            )}
+          </div>
         )}
         {job?.problem && (
           <Alert

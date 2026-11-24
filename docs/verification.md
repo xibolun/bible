@@ -67,7 +67,7 @@ fail before build checks/output writes, including under Python `-O`, while all
 six native targets and Windows binary cross-compilation remain allowed.
 SWORD conversion cases preserve verse wording, divine-name capitalization and
 layout boundaries while removing notes/titles. Data checks require complete
-CUV/WEBP catalogues, exact legacy text/version fingerprints and no additional
+a CUV-only catalogue, exact legacy text/version fingerprints and no additional
 bundled scripture. SWORD fixtures verify module/testament/book/chapter index
 slots, linked ranges, bounds, zlib checksums and padding, unsupported profiles,
 unknown OSIS markup and cancellation. Native services inspect and install a
@@ -76,7 +76,7 @@ and retain text/highlights after source deletion and library restart.
 
 The supplied Darby 2.0 file is checked locally; its corpus is not committed or
 included in CI artifacts. Independent KJV word-study checks run without a
-bundled KJV edition. Preference regressions remove obsolete KJV/DBY references
+bundled KJV edition. Preference regressions remove obsolete WEBP/KJV/DBY references
 while preserving reading settings and valid history.
 
 Browser end-to-end tests use a production build of the explicit Mock adapter.
@@ -123,9 +123,17 @@ with the same test directory. Reports record the actual OS/architecture. macOS
 DMGs and ad-hoc signatures are checked by system tools. Windows NSIS source
 compilation is part of packaging. A Windows Server runner is not evidence of
 manual Windows 11 desktop acceptance.
-Native smoke checks that the bundled catalogue contains exactly CUV and WEBP,
-reads both through the Go bridge, round-trips font/language/reference settings
-and verifies both editions in clipboard/card paths. Independent Strong’s lookup
+CrossWire tests use local HTTP servers and synthetic CC0 module/index fixtures
+for Chinese/English filtering, supported/unsupported profiles, notices, explicit
+preview/confirmation, progress, cancellation, source changes, download errors,
+unsafe redirects, checksum/path validation and staging cleanup. NRSV tests use
+explicit additional/final slot offsets to guard against verse shifts. Browser
+bilingual regressions install an explicit CI-only WEBP excerpt fixture rather
+than adding scripture to production assets.
+
+Native smoke checks that the bundled catalogue contains only CUV,
+reads it through the Go bridge, round-trips font/language/reference settings
+and verifies CUV in clipboard/card paths. Independent Strong’s lookup
 and verse associations remain covered. No browser adapter is substituted.
 Smoke reports also require the rendered interface version to match the native
 binary/package version. Source-browser launch and native file dialogs remain

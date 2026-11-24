@@ -44,9 +44,8 @@ class PublisherVPLTests(unittest.TestCase):
 class LegacyCorpusTests(unittest.TestCase):
     def test_every_legacy_verse_and_annotation_version_is_unchanged(self):
         data = json.loads(gzip.decompress((ROOT/'internal/bible/dataset.json.gz').read_bytes()))
-        expected = {'cuv': '351096cecd590944ae953ae5309a49719d05b07502c65551366161bf6f84ce02',
-                    'webp': '71e4c8de7d76bd5d20fbbf785b5297082af9fe0b182d112c2651df0354326fc8'}
-        self.assertEqual({tr['id'] for tr in data['translations']}, {'cuv', 'webp'})
+        expected = {'cuv': '351096cecd590944ae953ae5309a49719d05b07502c65551366161bf6f84ce02'}
+        self.assertEqual({tr['id'] for tr in data['translations']}, {'cuv'})
         self.assertTrue(all(key.split('/')[0] in {'cuv', 'webp'} for key in data['chapters']))
         for identity, digest in expected.items():
             with self.subTest(translation=identity):

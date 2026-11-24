@@ -165,7 +165,7 @@ export const defaults: Preferences = {
   chapter: 1,
   topVerse: "",
   scrollOffset: 0,
-  translations: ["cuv", "webp"],
+  translations: ["cuv"],
   parallel: false,
   fontSize: 18,
   globalFontSize: 13,

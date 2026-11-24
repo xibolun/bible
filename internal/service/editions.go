@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/xibolun/bible/internal/bible"
+	"github.com/xibolun/bible/internal/catalogue"
 	"github.com/xibolun/bible/internal/editions"
 	"github.com/xibolun/bible/internal/importer"
 	"github.com/xibolun/bible/internal/storage"
@@ -28,12 +29,14 @@ type EditionImportProblem struct {
 	Position string `json:"position"`
 }
 type EditionImportJob struct {
-	ID        string                `json:"id"`
-	Status    string                `json:"status"`
-	Report    *importer.Draft       `json:"report,omitempty"`
-	Samples   []importer.Record     `json:"samples"`
-	Problem   *EditionImportProblem `json:"problem,omitempty"`
-	Installed *editions.Installed   `json:"installed,omitempty"`
+	ID              string                `json:"id"`
+	Status          string                `json:"status"`
+	DownloadedBytes int64                 `json:"downloadedBytes,omitempty"`
+	TotalBytes      int64                 `json:"totalBytes,omitempty"`
+	Report          *importer.Draft       `json:"report,omitempty"`
+	Samples         []importer.Record     `json:"samples"`
+	Problem         *EditionImportProblem `json:"problem,omitempty"`
+	Installed       *editions.Installed   `json:"installed,omitempty"`
 }
 type importJob struct {
 	view     EditionImportJob
@@ -51,12 +54,14 @@ type editionManager struct {
 	choosing bool
 	workers  sync.WaitGroup
 	closing  bool
+	source   *catalogue.Client
+	modules  map[string]catalogue.Module
 }
 type editionFileHost interface{ ChooseEditionFile() (string, error) }
 
 func NewWithEditions(data *bible.Dataset, store *storage.Store, desktop Desktop, library *editions.Library, root string) *Service {
 	s := New(data, store, desktop)
-	s.editions = &editionManager{library: library, root: root}
+	s.editions = &editionManager{library: library, root: root, source: catalogue.New(), modules: map[string]catalogue.Module{}}
 	if library != nil {
 		data.Provider = library
 		_ = s.finishEditionRemovals()
@@ -94,7 +99,7 @@ func (s *Service) ChooseEditionImport() Result[EditionChoice] {
 		return failure[EditionChoice]("BRIDGE_UNAVAILABLE")
 	}
 	m.mu.Lock()
-	if m.closing || m.choosing || m.job != nil && (m.job.view.Status == "inspecting" || m.job.view.Status == "committing") {
+	if m.closing || m.choosing || m.job != nil && (m.job.view.Status == "downloading" || m.job.view.Status == "inspecting" || m.job.view.Status == "committing") {
 		m.mu.Unlock()
 		return failure[EditionChoice]("IMPORT_BUSY")
 	}
@@ -405,6 +410,9 @@ func (s *Service) sanitizeEditionReferences(p *Preferences) {
 		ids = []string{s.Data.Translations[0].ID}
 	}
 	p.Translations = ids
+	if len(ids) < 2 {
+		p.Parallel = false
+	}
 	for _, id := range ids {
 		if t, _ := s.Data.Translation(id); t.Origin == "user" && !t.Comparable {
 			p.Parallel = false
@@ -474,7 +482,7 @@ func CleanupEditionInputs(root string) error {
 		if !info.Mode().IsRegular() || time.Since(info.ModTime()) < time.Hour {
 			continue
 		}
-		if strings.HasPrefix(file.Name(), "input-") || strings.HasPrefix(file.Name(), "unpacked-") {
+		if strings.HasPrefix(file.Name(), "input-") || strings.HasPrefix(file.Name(), "unpacked-") || strings.HasPrefix(file.Name(), "download-") {
 			if e = os.Remove(filepath.Join(root, file.Name())); e != nil {
 				return e
 			}

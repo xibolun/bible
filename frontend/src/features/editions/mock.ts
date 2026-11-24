@@ -19,6 +19,8 @@ const saved: Stored = JSON.parse(
 let job: EditionJob | undefined;
 let draft: EditionRecord[] = [];
 let source = "";
+let remote: "TEST_ZH" | "TEST_EN" | undefined;
+let downloadPolls = 0;
 const persist = () => localStorage.setItem(key, JSON.stringify(saved));
 export function restoreMockEditions(data: Dataset) {
   data.translations = data.translations.filter((v) => v.origin !== "user");
@@ -54,6 +56,63 @@ export function mockEditionAPI(
   purge: (id: string) => void,
 ): EditionAPI {
   return {
+    async ListCrossWireEditions() {
+      if (new URLSearchParams(location.search).get("mockError") === "source")
+        throw new Error("SOURCE_UNAVAILABLE");
+      return [
+        {
+          id: "TEST_ZH",
+          name: "中文示例（模拟）",
+          language: "zh-Hans",
+          version: "1",
+          license: "CC0 synthetic sample",
+          about: "自编测试示例，非圣经译本正文",
+          size: 100,
+          supported: true,
+          reason: "",
+        },
+        {
+          id: "TEST_EN",
+          name: "English sample (Mock)",
+          language: "en",
+          version: "1",
+          license: "CC0 synthetic sample",
+          about: "Self-authored test sample, not a Bible edition",
+          size: 100,
+          supported: true,
+          reason: "",
+        },
+        {
+          id: "TEST_UNSUPPORTED",
+          name: "不兼容示例（模拟）",
+          language: "zh-Hant",
+          version: "1",
+          license: "CC0 synthetic sample",
+          about: "Unsupported profile test",
+          size: 100,
+          supported: false,
+          reason: "REFERENCE_UNSUPPORTED",
+        },
+      ];
+    },
+    async DownloadCrossWireEdition(id) {
+      if (id !== "TEST_ZH" && id !== "TEST_EN")
+        throw new Error("FORMAT_UNSUPPORTED");
+      if (new URLSearchParams(location.search).get("mockError") === "download")
+        throw new Error("SOURCE_UNAVAILABLE");
+      remote = id;
+      downloadPolls = 0;
+      draft = [];
+      source = `<XMLBIBLE biblename="${id === "TEST_ZH" ? "中文示例（模拟）" : "English sample (Mock)"}"><INFORMATION><identifier>${id}</identifier><language>${id === "TEST_ZH" ? "zh-Hans" : "en"}</language><rights>CC0 synthetic sample, not a Bible edition</rights></INFORMATION><BIBLEBOOK bnumber="43"><CHAPTER cnumber="3"><VERS vnumber="16">${id === "TEST_ZH" ? "下载示例：晨光照耀。" : "Download sample: morning light. Not scripture."}</VERS></CHAPTER></BIBLEBOOK></XMLBIBLE>`;
+      job = {
+        id: crypto.randomUUID(),
+        status: "downloading",
+        samples: [],
+        downloadedBytes: 0,
+        totalBytes: 100,
+      };
+      return structuredClone(job);
+    },
     async ChooseEditionImport() {
       return new Promise((resolve, reject) => {
         const input = document.createElement("input");
@@ -190,6 +249,23 @@ export function mockEditionAPI(
       return structuredClone(value);
     },
     async GetEditionImportJob(id) {
+      const value = requireJob(id);
+      if (value.status === "downloading") {
+        if (++downloadPolls === 1) {
+          value.downloadedBytes = 50;
+          return structuredClone(value);
+        }
+        const selected = remote;
+        await this.InspectEditionImport(id);
+        if (value.report) {
+          value.report.format = "sword";
+          value.report.versification = selected === "TEST_EN" ? "KJV" : "NRSV";
+          value.report.metadata.DownloadRepository = "CrossWire (Mock)";
+          value.report.diagnostics = [
+            "自编下载模拟示例，非真实圣经译本 / Synthetic download sample, not an actual Bible edition",
+          ];
+        }
+      }
       return structuredClone(requireJob(id));
     },
     async CancelEditionImport(id) {
@@ -237,8 +313,8 @@ export function mockEditionAPI(
             origin: "user",
             sourceFormat: report.format,
             sourceEdition: report.sourceEdition,
-            versification: "unknown",
-            comparable: false,
+            versification: report.versification,
+            comparable: report.versification === "KJV",
           },
           enabled: true,
           removing: false,

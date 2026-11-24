@@ -57,6 +57,9 @@ func failure[T any](code string) Result[T] {
 			"IMPORT_IO":                   "无法读取或保存导入数据，请检查磁盘空间与权限后重试",
 			"DRAFT_EXPIRED":               "预览已失效，请重新选择文件",
 			"IMPORT_BUSY":                 "正在处理另一个导入操作，请稍后重试",
+			"SOURCE_UNAVAILABLE":          "无法连接CrossWire下载源，请检查网络后重试",
+			"SOURCE_REFRESH_REQUIRED":     "请先刷新下载列表后选择译本",
+			"SOURCE_CHANGED":              "下载源版次已变化，请刷新列表后重试",
 		}[code]
 	}
 	if msg == "" {
@@ -98,7 +101,7 @@ type Preferences struct {
 }
 
 func Defaults() Preferences {
-	return Preferences{ProjectionStyle: DefaultProjectionStyle(), SearchHistory: []SearchHistoryEntry{}, ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, GlobalFontSize: 13, ChapterNumerals: "arabic", ReferenceBrackets: "none", ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
+	return Preferences{ProjectionStyle: DefaultProjectionStyle(), SearchHistory: []SearchHistoryEntry{}, ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv"}, FontSize: 18, GlobalFontSize: 13, ChapterNumerals: "arabic", ReferenceBrackets: "none", ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
 }
 
 type Desktop interface {

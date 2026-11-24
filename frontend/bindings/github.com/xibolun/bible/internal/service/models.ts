@@ -42,6 +42,8 @@ export interface EditionChoice {
 export interface EditionImportJob {
     "id": string;
     "status": string;
+    "downloadedBytes"?: number;
+    "totalBytes"?: number;
     "report"?: importer$0.Draft | null;
     "samples": importer$0.Record[] | null;
     "problem"?: EditionImportProblem | null;

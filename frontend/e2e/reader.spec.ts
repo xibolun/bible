@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 import formatExamples from "../../testdata/passage-formats.json" with { type: "json" };
 import { referenceStyles } from "../src/shared/formatting";
 
@@ -31,9 +31,9 @@ test("offline reader, persistence, bilingual copy and exact-size PNG", async ({
   ).toBeVisible();
   await expect(page.locator(".book-button")).toHaveCount(66);
   await page.getByRole("switch", { name: "多译本对照" }).click();
-  await expect(page.locator('[data-translation="webp"]').first()).toContainText(
-    "In the beginning",
-  );
+  await expect(
+    page.locator('[data-translation="user:e2e-webp"]').first(),
+  ).toContainText("In the beginning");
   await page.screenshot({
     path: test.info().outputPath("reader.png"),
     animations: "disabled",
@@ -92,10 +92,12 @@ test("invalid mixed-translation selection and explicit service error", async ({
 }) => {
   await page.goto("/");
   await page.getByRole("switch", { name: "多译本对照" }).click();
-  await page.waitForSelector('[data-translation="webp"]');
+  await page.waitForSelector('[data-translation="user:e2e-webp"]');
   await page.evaluate(() => {
     const a = document.querySelector('[data-translation="cuv"]')!.firstChild!,
-      b = document.querySelector('[data-translation="webp"]')!.firstChild!;
+      b = document.querySelector(
+        '[data-translation="user:e2e-webp"]',
+      )!.firstChild!;
     const r = document.createRange();
     r.setStart(a, 0);
     r.setEnd(b, 3);
@@ -121,10 +123,10 @@ test("CUV/WEBP stacked versions, selected-version copy, highlights and cards", a
 }) => {
   await page.goto("/");
   await page.getByRole("switch", { name: "多译本对照" }).click();
-  await selectVersion(page, "主译本", "WEBP · English");
-  await expect(page.locator('[data-translation="webp"]').first()).toContainText(
-    "the heavens and the earth",
-  );
+  await selectVersion(page, "主译本", "WEBP · en");
+  await expect(
+    page.locator('[data-translation="user:e2e-webp"]').first(),
+  ).toContainText("the heavens and the earth");
   await expect(page.locator('[data-translation="cuv"]').first()).toContainText(
     "起初",
   );
@@ -184,7 +186,7 @@ test("CUV/WEBP stacked versions, selected-version copy, highlights and cards", a
     page.getByRole("button", { name: "设置", exact: true }),
   ).toBeInViewport();
   await page.screenshot({
-    path: test.info().outputPath("webp-reader-1024.png"),
+    path: test.info().outputPath("user:e2e-webp-reader-1024.png"),
     animations: "disabled",
   });
   await page
@@ -192,7 +194,7 @@ test("CUV/WEBP stacked versions, selected-version copy, highlights and cards", a
     .click();
   await page.getByRole("button", { name: "绿色高亮", exact: true }).click();
   await expect(
-    page.locator('[data-translation="webp"]').first().locator("mark"),
+    page.locator('[data-translation="user:e2e-webp"]').first().locator("mark"),
   ).toContainText("In the beginning");
   await page.getByRole("toolbar").locator(".ant-dropdown-trigger").click();
   await page.getByText("复制当前对照", { exact: true }).click();
@@ -210,14 +212,16 @@ test("CUV/WEBP stacked versions, selected-version copy, highlights and cards", a
   const pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出 PNG" }).click();
   const download = await pending;
-  await download.saveAs(test.info().outputPath("webp-comparison-card.png"));
+  await download.saveAs(
+    test.info().outputPath("user:e2e-webp-comparison-card.png"),
+  );
   await page
     .getByRole("button", { name: "关闭卡片编辑器", exact: true })
     .click();
 
   await page.reload();
   await expect(
-    page.locator('[data-translation="webp"]').first().locator("mark"),
+    page.locator('[data-translation="user:e2e-webp"]').first().locator("mark"),
   ).toContainText("In the beginning");
   await expect(page.locator('[data-verse="1"][data-translation]')).toHaveCount(
     2,
@@ -257,7 +261,7 @@ test("legacy settings, bilingual interface and reference placement in keyboard c
         JSON.stringify({
           bookId: "GEN",
           chapter: 1,
-          translations: ["cuv", "webp"],
+          translations: ["cuv", "user:e2e-webp"],
           parallel: false,
           fontSize: 20,
           schemaVersion: 1,

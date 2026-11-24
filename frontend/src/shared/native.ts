@@ -1,7 +1,11 @@
 import * as bridge from "../../bindings/github.com/xibolun/bible/internal/service/service";
 import { Browser, Events } from "@wailsio/runtime";
 import type { ProjectionState } from "../features/projection/model";
-import type { EditionInstall, EditionJob } from "../features/editions/types";
+import type {
+  DownloadEdition,
+  EditionInstall,
+  EditionJob,
+} from "../features/editions/types";
 import { sourceRepository } from "./build";
 import type {
   API,
@@ -36,6 +40,10 @@ async function invoke<T>(request: PromiseLike<Result>): Promise<T> {
   return r.data as T;
 }
 export const native: API = {
+  ListCrossWireEditions: () =>
+    invoke<DownloadEdition[]>(bridge.ListCrossWireEditions()),
+  DownloadCrossWireEdition: (id) =>
+    invoke<EditionJob>(bridge.DownloadCrossWireEdition(id)),
   ChooseEditionImport: () => invoke(bridge.ChooseEditionImport()),
   InspectEditionImport: (token) =>
     invoke<EditionJob>(bridge.InspectEditionImport(token)),

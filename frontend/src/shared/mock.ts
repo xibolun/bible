@@ -190,6 +190,7 @@ export const mock: API = {
     preferences.translations = preferences.translations.filter(available);
     if (!preferences.translations.length)
       preferences.translations = [catalogue[0].id];
+    if (preferences.translations.length < 2) preferences.parallel = false;
     preferences.searchHistory = preferences.searchHistory.filter((entry) =>
       available(entry.translationId),
     );

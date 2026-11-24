@@ -17,9 +17,21 @@ import (
 var kjvCountsJSON []byte
 
 func kjvReferences(canon *bible.Dataset, testament string, introductions bool) ([]Record, error) {
+	return swordReferences(canon, testament, introductions, "KJV")
+}
+
+func swordReferences(canon *bible.Dataset, testament string, introductions bool, versification string) ([]Record, error) {
 	var counts map[string][]int
 	if err := json.Unmarshal(kjvCountsJSON, &counts); err != nil || len(canon.Books) != 66 {
 		return nil, fail("SCHEMA_UNSUPPORTED", "KJV reference table")
+	}
+	// CrossWire SystemNRSV differs only at 3 John 1 and Revelation 12.
+	// https://github.com/crosswire/jsword/blob/master/src/main/java/org/crosswire/jsword/versification/system/SystemNRSV.java
+	if versification == "NRSV" {
+		counts["3JN"][0] = 15
+		counts["REV"][11] = 18
+	} else if versification != "KJV" {
+		return nil, fail("REFERENCE_UNSUPPORTED", "SWORD versification")
 	}
 	refs := []Record{}
 	if introductions {

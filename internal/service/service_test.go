@@ -85,15 +85,15 @@ func TestRemovedBuiltInEditionsRepairPreferences(t *testing.T) {
 	}
 	s.Data = data
 	p := Defaults()
-	p.Translations = []string{"dby", "kjv", "webp"}
+	p.Translations = []string{"dby", "kjv", "webp", "cuv"}
 	p.Parallel = true
 	p.BookID, p.Chapter, p.FontSize = "JHN", 3, 24
-	p.SearchHistory = []SearchHistoryEntry{{TranslationID: "kjv", Pattern: "words"}, {TranslationID: "webp", Pattern: "God"}}
+	p.SearchHistory = []SearchHistoryEntry{{TranslationID: "kjv", Pattern: "words"}, {TranslationID: "cuv", Pattern: "神"}}
 	if err := s.Store.SavePreferences(p); err != nil {
 		t.Fatal(err)
 	}
 	read := s.GetPreferences()
-	if !read.OK || len(read.Data.Translations) != 1 || read.Data.Translations[0] != "webp" || read.Data.BookID != "JHN" || read.Data.Chapter != 3 || read.Data.FontSize != 24 || len(read.Data.SearchHistory) != 1 {
+	if !read.OK || len(read.Data.Translations) != 1 || read.Data.Translations[0] != "cuv" || read.Data.BookID != "JHN" || read.Data.Chapter != 3 || read.Data.FontSize != 24 || len(read.Data.SearchHistory) != 1 {
 		t.Fatalf("legacy preferences not repaired: %+v", read)
 	}
 	p.Translations = []string{"dby", "kjv"}

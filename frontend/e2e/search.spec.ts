@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 async function submit(page: Page, pattern: string) {
   const input = page.getByRole("searchbox", { name: "搜索条件", exact: true });
@@ -116,9 +116,9 @@ test("search keeps editing shortcuts, validates patterns and switches translatio
   await page
     .getByRole("button", { name: "前往创世记1:1", exact: true })
     .click();
-  await expect(page.locator('[data-translation="webp"]').first()).toContainText(
-    "In the beginning, God",
-  );
+  await expect(
+    page.locator('[data-translation="user:e2e-webp"]').first(),
+  ).toContainText("In the beginning, God");
 });
 
 test("consecutive hits retain results, highlight the destination and persist reusable history", async ({

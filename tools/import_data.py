@@ -156,13 +156,11 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--chinese-archive', type=Path, required=True)
     p.add_argument('--chinese-export', type=Path, required=True)
-    p.add_argument('--english-archive', type=Path, required=True)
     args = p.parse_args()
     pinned = [(args.chinese_archive,'37fcef08bd3b5f42f5d7b8e0a9326075f9f41e6aa39906711b092f105ae4857e'),
-              (args.chinese_export,'6d6b67c46231adba2e516ad8277e08b2f08c2f86a54c96e0e6ddc477dd974dcf'),
-              (args.english_archive,'7ebe6b7dc416ce63691d1a3889a06f841ccb7f414ada69be82da891f4b9be44f')]
+              (args.chinese_export,'6d6b67c46231adba2e516ad8277e08b2f08c2f86a54c96e0e6ddc477dd974dcf')]
     if any(digest(path)!=expected for path,expected in pinned):
-        raise ValueError('Use the pinned CUV and WEBP inputs to preserve existing annotation data versions')
+        raise ValueError('Use the pinned CUV inputs to preserve existing annotation data versions')
     catalog = books()
     names = {b['englishName']: b['id'] for b in catalog}
     chapters = {}
@@ -189,15 +187,11 @@ def main():
             elif line.strip() and line.strip() != f'({module})':
                 raise ValueError(f'unrecognized {module} SWORD export line: {line[:80]}')
     sword_export(args.chinese_export,'ChiUns','cuv')
-    for book, ch, verse, text in publisher_vpl(args.english_archive, 'engwebp_vpl.txt', skip_books=('PS2',)):
-        add('webp', book, ch, verse, text)
     translations = [
         dict(id='cuv', language='zh-Hans', name='和合本（简体）', abbreviation='CUV',
              dataVersion='ChiUns-3.1-'+digest(args.chinese_archive)[:12],
              sourceUrl='https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=ChiUns', license='Public Domain'),
-        dict(id='webp', language='en', name='World English Bible', abbreviation='WEBP',
-             dataVersion='engwebp-2026-11-13-'+digest(args.english_archive)[:12],
-             sourceUrl='https://ebible.org/bible/details.php?id=engwebp', license='Public Domain')]
+    ]
     for t in translations:
         for b in catalog:
             for chapter in range(1, b['chapters']+1):
@@ -212,8 +206,7 @@ def main():
         dict(id='cuv', url='https://www.crosswire.org/ftpmirror/pub/sword/packages/rawzip/ChiUns.zip',
              sha256=digest(args.chinese_archive), version='3.1',
              exportSha256=digest(args.chinese_export), conversion='diatheke 4.8 / SWORD 1.9.0 plain, optional filters disabled'),
-        dict(id='webp', url='https://ebible.org/Scriptures/engwebp_vpl.zip',
-             sha256=digest(args.english_archive), version='2026-11-13', conversion='publisher VPL plain text')]
+    ]
     manifest=dict(retrieved='2026-11-20', sources=sources, datasetSha256=digest(output),
                   plainSha256=hashlib.sha256(raw).hexdigest(),
                   books=len(catalog), chapters=len(chapters),
@@ -222,8 +215,6 @@ def main():
     (target/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
     with zipfile.ZipFile(args.chinese_archive) as z:
         (target/'ChiUns-source.conf').write_bytes(z.read('mods.d/chiuns.conf'))
-    with zipfile.ZipFile(args.english_archive) as z:
-        (target/'WEBP-source.html').write_bytes(z.read('engwebp_about.htm'))
     print(json.dumps(manifest, indent=2))
 
 

@@ -101,7 +101,7 @@ func TestSwordImportInstallsAndRestartsWithoutBundledKJV(t *testing.T) {
 		t.Fatal(commit.Error)
 	}
 	id := commit.Data.Installed.ID
-	chapter := s.GetChapter([]string{id, "cuv", "webp"}, "MAT", 1, "sword")
+	chapter := s.GetChapter([]string{id, "cuv"}, "MAT", 1, "sword")
 	if !chapter.OK {
 		t.Fatal("SWORD comparison lost linked text", chapter.Error)
 	}

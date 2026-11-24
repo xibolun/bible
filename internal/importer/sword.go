@@ -27,92 +27,12 @@ func parseSwordZIP(ctx context.Context, files map[string]*zip.File, conf *zip.Fi
 	if err != nil {
 		return nil, err
 	}
-	d := &Draft{Format: "sword", Profile: "SWORD zText/ZIP/OSIS/UTF-8/KJV profile 1", Metadata: map[string]string{}, Versification: "KJV"}
-	scanner := bufio.NewScanner(bytes.NewReader(config))
-	continuation := ""
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if !utf8.ValidString(line) || strings.ContainsRune(line, 0) {
-			return nil, fail("ENCODING_UNSUPPORTED", "SWORD configuration")
-		}
-		if continuation != "" {
-			line = continuation + line
-			continuation = ""
-		}
-		if strings.HasSuffix(line, "\\") {
-			continuation = strings.TrimSuffix(line, "\\")
-			continue
-		}
-		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
-			continue
-		}
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			if d.Abbreviation != "" || len(d.Metadata) > 0 || !swordModuleName.MatchString(line[1:len(line)-1]) {
-				return nil, fail("FORMAT_AMBIGUOUS", "SWORD module sections")
-			}
-			d.Abbreviation = line[1 : len(line)-1]
-			continue
-		}
-		key, value, ok := strings.Cut(line, "=")
-		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
-		if !ok || d.Abbreviation == "" || key == "" {
-			return nil, fail("INVALID_CONTENT", "SWORD configuration")
-		}
-		if _, exists := d.Metadata[key]; exists {
-			if key != "GlobalOptionFilter" && key != "Feature" {
-				return nil, fail("INVALID_CONTENT", "duplicate SWORD configuration key")
-			}
-			value = d.Metadata[key] + "\n" + value
-		}
-		d.Metadata[key] = value
-		if len(d.Metadata) > 128 {
-			return nil, fail("IMPORT_LIMIT", "SWORD metadata")
-		}
+	d, err := InspectSWORDConfig(config)
+	if err != nil {
+		return nil, err
 	}
-	if scanner.Err() != nil || continuation != "" || d.Abbreviation == "" {
-		return nil, fail("INVALID_CONTENT", "SWORD configuration")
-	}
-	m := d.Metadata
-	if _, encrypted := m["CipherKey"]; encrypted {
-		return nil, fail("ENCRYPTED_MODULE", "SWORD")
-	}
-	if m["ModDrv"] != "zText" || m["CompressType"] != "ZIP" || m["SourceType"] != "OSIS" || m["Encoding"] != "UTF-8" {
-		return nil, fail("FORMAT_UNSUPPORTED", "SWORD requires zText/ZIP/OSIS/UTF-8")
-	}
-	if m["Versification"] != "" && m["Versification"] != "KJV" {
-		return nil, fail("REFERENCE_UNSUPPORTED", "SWORD versification")
-	}
-	blockType := map[string]string{"BOOK": "b", "CHAPTER": "c", "VERSE": "v"}[m["BlockType"]]
-	if blockType == "" {
-		return nil, fail("FORMAT_UNSUPPORTED", "SWORD block type")
-	}
-	for key := range m {
-		if strings.Contains(strings.ToLower(key), "filter") && key != "GlobalOptionFilter" || key == "OSISqToTick" && m[key] != "false" {
-			return nil, fail("FORMAT_UNSUPPORTED", "SWORD text transformation "+key)
-		}
-	}
-	for _, filter := range strings.Split(m["GlobalOptionFilter"], "\n") {
-		switch filter {
-		case "", "OSISHeadings", "OSISFootnotes", "OSISScripref", "OSISLemma", "OSISStrongs", "OSISMorph", "OSISRedLetterWords":
-		default:
-			return nil, fail("FORMAT_UNSUPPORTED", "SWORD option filter")
-		}
-	}
-	dataPath := strings.TrimSuffix(strings.TrimPrefix(m["DataPath"], "./"), "/")
-	if path.Clean(dataPath) != dataPath || !strings.HasPrefix(dataPath, "modules/texts/ztext/") || strings.Contains(dataPath, "\\") || strings.Contains(dataPath, ":") {
-		return nil, fail("INVALID_CONTENT", "SWORD DataPath")
-	}
-	d.Name, d.Language, d.SourceEdition, d.SourceURL = m["Description"], m["Lang"], m["Version"], m["TextSource"]
-	if d.Name == "" {
-		d.Name = d.Abbreviation
-	}
-	if d.Language == "" {
-		d.Language = "und"
-	}
-	d.License = strings.TrimSpace(m["DistributionLicense"] + "\n" + strings.ReplaceAll(m["About"], `\par`, "\n") + "\n" + m["Copyright"] + "\n" + m["DistributionNotes"])
-	if d.License == "" {
-		d.License = "No license information supplied / 文件未提供版权说明"
-	}
+	blockType := map[string]string{"BOOK": "b", "CHAPTER": "c", "VERSE": "v"}[d.Metadata["BlockType"]]
+	dataPath := strings.TrimSuffix(strings.TrimPrefix(d.Metadata["DataPath"], "./"), "/")
 	total := 0
 	textBytes := 0
 	for _, testament := range []string{"ot", "nt"} {
@@ -124,7 +44,7 @@ func parseSwordZIP(ctx context.Context, files map[string]*zip.File, conf *zip.Fi
 		if indexFile == nil || blockFile == nil || textFile == nil {
 			return nil, fail("INVALID_CONTENT", "incomplete SWORD testament")
 		}
-		refs, err := kjvReferences(canon, "."+testament, true)
+		refs, err := swordReferences(canon, "."+testament, true, d.Versification)
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +53,7 @@ func parseSwordZIP(ctx context.Context, files map[string]*zip.File, conf *zip.Fi
 			return nil, err
 		}
 		if len(index) != len(refs)*10 {
-			return nil, fail("REFERENCE_UNSUPPORTED", "SWORD KJV index length")
+			return nil, fail("REFERENCE_UNSUPPORTED", "SWORD reference index length")
 		}
 		blockIndex, err := swordFile(ctx, blockFile, 2<<20)
 		if err != nil {
@@ -226,6 +146,100 @@ func parseSwordZIP(ctx context.Context, files map[string]*zip.File, conf *zip.Fi
 		}
 	}
 	note(d, "SWORD卷首、章首介绍未作为经文导入 / SWORD module, testament, book and chapter introductions are excluded")
+	return d, nil
+}
+
+// InspectSWORDConfig validates the exact native import profile before offering a remote module.
+func InspectSWORDConfig(config []byte) (*Draft, error) {
+	d := &Draft{Format: "sword", Profile: "SWORD zText/ZIP/OSIS/UTF-8 KJV/NRSV profile 1", Metadata: map[string]string{}, Versification: "KJV"}
+	scanner := bufio.NewScanner(bytes.NewReader(config))
+	continuation := ""
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !utf8.ValidString(line) || strings.ContainsRune(line, 0) {
+			return nil, fail("ENCODING_UNSUPPORTED", "SWORD configuration")
+		}
+		if continuation != "" {
+			line = continuation + line
+			continuation = ""
+		}
+		if strings.HasSuffix(line, "\\") {
+			continuation = strings.TrimSuffix(line, "\\")
+			continue
+		}
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			if d.Abbreviation != "" || len(d.Metadata) > 0 || !swordModuleName.MatchString(line[1:len(line)-1]) {
+				return nil, fail("FORMAT_AMBIGUOUS", "SWORD module sections")
+			}
+			d.Abbreviation = line[1 : len(line)-1]
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
+		if !ok || d.Abbreviation == "" || key == "" {
+			return nil, fail("INVALID_CONTENT", "SWORD configuration")
+		}
+		if _, exists := d.Metadata[key]; exists {
+			if key != "GlobalOptionFilter" && key != "Feature" {
+				return nil, fail("INVALID_CONTENT", "duplicate SWORD configuration key")
+			}
+			value = d.Metadata[key] + "\n" + value
+		}
+		d.Metadata[key] = value
+		if len(d.Metadata) > 128 {
+			return nil, fail("IMPORT_LIMIT", "SWORD metadata")
+		}
+	}
+	if scanner.Err() != nil || continuation != "" || d.Abbreviation == "" {
+		return nil, fail("INVALID_CONTENT", "SWORD configuration")
+	}
+	m := d.Metadata
+	if _, encrypted := m["CipherKey"]; encrypted {
+		return nil, fail("ENCRYPTED_MODULE", "SWORD")
+	}
+	if m["ModDrv"] != "zText" || m["CompressType"] != "ZIP" || m["SourceType"] != "OSIS" || m["Encoding"] != "UTF-8" {
+		return nil, fail("FORMAT_UNSUPPORTED", "SWORD requires zText/ZIP/OSIS/UTF-8")
+	}
+	if m["Versification"] != "" && m["Versification"] != "KJV" && m["Versification"] != "NRSV" {
+		return nil, fail("REFERENCE_UNSUPPORTED", "SWORD versification")
+	}
+	if m["BlockType"] != "BOOK" && m["BlockType"] != "CHAPTER" && m["BlockType"] != "VERSE" {
+		return nil, fail("FORMAT_UNSUPPORTED", "SWORD block type")
+	}
+	for key := range m {
+		if strings.Contains(strings.ToLower(key), "filter") && key != "GlobalOptionFilter" || key == "OSISqToTick" && m[key] != "false" {
+			return nil, fail("FORMAT_UNSUPPORTED", "SWORD text transformation "+key)
+		}
+	}
+	for _, filter := range strings.Split(m["GlobalOptionFilter"], "\n") {
+		switch filter {
+		case "", "OSISHeadings", "OSISFootnotes", "OSISScripref", "OSISLemma", "OSISStrongs", "OSISMorph", "OSISRedLetterWords":
+		default:
+			return nil, fail("FORMAT_UNSUPPORTED", "SWORD option filter")
+		}
+	}
+	dataPath := strings.TrimSuffix(strings.TrimPrefix(m["DataPath"], "./"), "/")
+	if path.Clean(dataPath) != dataPath || !strings.HasPrefix(dataPath, "modules/texts/ztext/") || strings.Contains(dataPath, "\\") || strings.Contains(dataPath, ":") {
+		return nil, fail("INVALID_CONTENT", "SWORD DataPath")
+	}
+	d.Name, d.Language, d.SourceEdition, d.SourceURL = m["Description"], m["Lang"], m["Version"], m["TextSource"]
+	if d.Name == "" {
+		d.Name = d.Abbreviation
+	}
+	if d.Language == "" {
+		d.Language = "und"
+	}
+	d.License = strings.TrimSpace(m["DistributionLicense"] + "\n" + strings.ReplaceAll(m["About"], `\par`, "\n") + "\n" + m["Copyright"] + "\n" + m["DistributionNotes"])
+	if d.License == "" {
+		d.License = "No license information supplied / 文件未提供版权说明"
+	}
+	if m["Versification"] == "NRSV" {
+		d.Versification = "NRSV"
+		note(d, "NRSV源编号；不提供KJV自动对照 / NRSV source references; automatic KJV alignment is unavailable")
+	}
 	return d, nil
 }
 

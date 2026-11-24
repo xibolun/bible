@@ -46,7 +46,12 @@ func TestProjectionReferenceExamples(t *testing.T) {
 	}
 	for _, sample := range cases.Valid {
 		t.Run(sample.Input, func(t *testing.T) {
-			p, err := data.ResolveReference(sample.Input, sample.Translation)
+			p, err := data.ResolveReference(sample.Input, func() string {
+				if sample.Translation == "webp" {
+					return "cuv"
+				}
+				return sample.Translation
+			}())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -61,8 +66,8 @@ func TestProjectionReferenceExamples(t *testing.T) {
 			t.Errorf("accepted %q", input)
 		}
 	}
-	delete(data.Chapters, "webp/GEN/1")
-	if _, err := data.ResolveReference("GEN1", "webp"); err == nil {
+	delete(data.Chapters, "cuv/GEN/1")
+	if _, err := data.ResolveReference("GEN1", "cuv"); err == nil {
 		t.Fatal("missing chapter accepted")
 	}
 	data.Chapters["cuv/GEN/3"] = []Verse{{Label: "15", Text: "first"}, {Label: "17", Text: "last"}}

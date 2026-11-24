@@ -10,6 +10,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as bible$0 from "../bible/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as catalogue$0 from "../catalogue/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as editions$0 from "../editions/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -43,6 +46,10 @@ export function CopySelection(sel: $models.Selection, mode: string, ids: string[
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.CopySelection", sel, mode, ids, options);
 }
 
+export function DownloadCrossWireEdition(id: string): $CancellablePromise<$models.Result<$models.EditionImportJob>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.DownloadCrossWireEdition", id);
+}
+
 export function GetCard(sel: $models.Selection, ids: string[] | null, full: boolean, options: $models.CopyOptions): $CancellablePromise<$models.Result<$models.CardContent>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetCard", sel, ids, full, options);
 }
@@ -73,6 +80,10 @@ export function InspectEditionImport(token: string): $CancellablePromise<$models
 
 export function ListBooks(ids: string[] | null): $CancellablePromise<$models.Result<bible$0.Book[] | null>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ListBooks", ids);
+}
+
+export function ListCrossWireEditions(): $CancellablePromise<$models.Result<catalogue$0.Module[] | null>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ListCrossWireEditions");
 }
 
 export function ListEditionInstalls(): $CancellablePromise<$models.Result<editions$0.Install[] | null>> {

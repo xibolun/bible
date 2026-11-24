@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 const verse = (page: Page, label: string, translation = "cuv") =>
   page.locator(
@@ -34,7 +34,7 @@ test("verse-row clicks select full verses and Shift extends without replacing dr
   await page.keyboard.press("Control+c");
   await expect.poll(() => clipboard(page)).toContain("创世记1:1–3·CUV");
   await page.getByRole("switch", { name: "多译本对照", exact: true }).click();
-  await verse(page, "2", "webp").click();
+  await verse(page, "2", "user:e2e-webp").click();
   await expect(page.locator(".verse-cell.is-selected")).toHaveCount(1);
   await page.keyboard.press("Control+c");
   await expect.poll(() => clipboard(page)).toContain("·WEBP");

@@ -41,6 +41,7 @@ export interface EditionJob {
   id: string;
   status:
     | "queued"
+    | "downloading"
     | "inspecting"
     | "ready"
     | "committing"
@@ -51,8 +52,23 @@ export interface EditionJob {
   samples: EditionRecord[];
   problem?: { code: string; position: string };
   installed?: { id: string; duplicate: boolean };
+  downloadedBytes?: number;
+  totalBytes?: number;
+}
+export interface DownloadEdition {
+  id: string;
+  name: string;
+  language: string;
+  version: string;
+  license: string;
+  about: string;
+  size: number;
+  supported: boolean;
+  reason: string;
 }
 export interface EditionAPI {
+  ListCrossWireEditions(): Promise<DownloadEdition[]>;
+  DownloadCrossWireEdition(id: string): Promise<EditionJob>;
   ChooseEditionImport(): Promise<{
     token: string;
     name: string;
