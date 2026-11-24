@@ -33,11 +33,11 @@ are Linux, macOS and Windows on amd64 and arm64.
 
 ```sh
 make package                                      # Current native OS/architecture
-make package GOOS=linux GOARCH=amd64 VERSION=v0.1.0
-make package GOOS=darwin GOARCH=arm64 VERSION=v0.1.0
-make package GOOS=windows GOARCH=amd64 VERSION=v0.1.0
+make package GOOS=linux GOARCH=amd64 VERSION=v0.3.0
+make package GOOS=darwin GOARCH=arm64 VERSION=v0.3.0
+make package GOOS=windows GOARCH=amd64 VERSION=v0.3.0
 make smoke                                        # Matching native machine only
-make dist VERSION=v0.1.0                          # Require all six target packages
+make dist VERSION=v0.3.0                          # Require all six target packages
 ```
 
 Build and package each target on its matching OS. Linux CGO builds also require
@@ -50,7 +50,7 @@ GitHub CLI as `xibolun` and explicitly collect the CI artifacts:
 
 ```sh
 make check
-make release-artifacts REF=main VERSION=v0.1.0
+make release-artifacts REF=main VERSION=v0.3.0
 ```
 
 The artifact command defaults to `main`; `REF` can select an issue branch or
@@ -71,7 +71,7 @@ aggregation run only for releases or explicit manual requests.
 
 On Linux, run `bin/linux-amd64/Bible` after a build (use `linux-arm64` on ARM),
 or extract the tar.gz bundle and run its `Bible` executable. Install the deb with
-`sudo apt install ./dist/v0.1.0/bible-v0.1.0-linux-amd64.deb` for a system desktop
+`sudo apt install ./dist/v0.3.0/bible-v0.3.0-linux-amd64.deb` for a system desktop
 entry and the `bible` command. Packages retain annotations on removal.
 
 Linux binaries link to system GTK4/WebKitGTK libraries. Runtime packages on

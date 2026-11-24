@@ -4,7 +4,7 @@ import packageInfo from "./package.json" with { type: "json" };
 export default defineConfig({
   define: {
     __BIBLE_VERSION__: JSON.stringify(
-      process.env.BIBLE_APP_VERSION || packageInfo.version,
+      process.env.BIBLE_APP_VERSION || `v${packageInfo.version}`,
     ),
   },
   plugins: [react()],
