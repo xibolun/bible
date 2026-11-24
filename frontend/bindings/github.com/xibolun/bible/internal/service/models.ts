@@ -4,6 +4,12 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as bible$0 from "../bible/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as editions$0 from "../editions/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as importer$0 from "../importer/models.js";
 
 export interface CardContent {
     "lines": CardLine[] | null;
@@ -25,6 +31,28 @@ export interface CopyOptions {
     "referenceStyle": string;
     "referencePosition": string;
     "uiLanguage": string;
+}
+
+export interface EditionChoice {
+    "token": string;
+    "name": string;
+    "cancelled": boolean;
+}
+
+export interface EditionImportJob {
+    "id": string;
+    "status": string;
+    "downloadedBytes"?: number;
+    "totalBytes"?: number;
+    "report"?: importer$0.Draft | null;
+    "samples": importer$0.Record[] | null;
+    "problem"?: EditionImportProblem | null;
+    "installed"?: editions$0.Installed | null;
+}
+
+export interface EditionImportProblem {
+    "code": string;
+    "position": string;
 }
 
 export interface Preferences {

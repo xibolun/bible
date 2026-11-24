@@ -6,7 +6,7 @@
 
 ## 1. 项目状态与许可状态
 
-[data/manifest.json](../data/manifest.json) 记录和合本 CUV、英文 WEBP、KJV 与达秘 DBY 的固定来源。NIV 在 [Issue #6](https://github.com/xibolun/bible/issues/6) 等待授权及数据，吕振中在 [Issue #24](https://github.com/xibolun/bible/issues/24) 等待分发范围确认；用户2026-11-20再次确认暂无这两种译本的授权，先接入可分发译本。未接入条目仅为候选来源。
+[data/manifest.json](../data/manifest.json) 记录内置和合本简体字 CUV 的固定来源；KJV Strong’s 原文注解保留独立来源声明，其他译本通过本地导入提供。NIV 在 [Issue #6](https://github.com/xibolun/bible/issues/6) 等待授权及数据，吕振中在 [Issue #24](https://github.com/xibolun/bible/issues/24) 等待分发范围确认；用户2026-11-20再次确认暂无这两种译本的授权，先接入可分发译本。未接入条目仅为候选来源。
 
 | 状态           | 含义与处理                                                                                       |
 | -------------- | ------------------------------------------------------------------------------------------------ |
@@ -35,10 +35,10 @@
 
 | 译本／版本                                                | 内容来源与格式                                                                | 已核实的许可情况与分发条件                                                                                                                               | 本项目状态／申请入口                                                                 |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| World English Bible，当前项目使用 WEBP／`engwebp`         | [eBible 版本页][webp]；逐节文本 VPL 等；项目固定快照为 2026-11-13             | **Public Domain**；保持准确版本名。修改后的正文不应继续冒用未修改的 World English Bible 名称                                                             | 已在 main 捆绑；来源及哈希见 manifest                                                |
-| King James Version（1769），CrossWire KJV 3.1，2023-07-19 | [CrossWire 模块页][kjv]及其链接的源项目；SWORD／OSIS                          | 模块标注 **DistributionLicense=GPL**，同时载有 CrossWire 允许该项目文本用于任何用途的说明及 Crown 基础文本权利声明；应完整保留，不能简化为“全球公有领域” | 已在 main 捆绑；模块问题可询 `modules@crosswire.org`；目标地区的基础文本权利另行核对 |
+| World English Bible，当前项目使用 WEBP／`engwebp`         | [eBible 版本页][webp]；逐节文本 VPL 等；项目固定快照为 2026-11-13             | **Public Domain**；保持准确版本名。修改后的正文不应继续冒用未修改的 World English Bible 名称                                                             | 不再内置；可通过支持的文件格式自行导入，原来源声明保留                                                |
+| King James Version（1769），CrossWire KJV 3.1，2023-07-19 | [CrossWire 模块页][kjv]及其链接的源项目；SWORD／OSIS                          | 模块标注 **DistributionLicense=GPL**，同时载有 CrossWire 允许该项目文本用于任何用途的说明及 Crown 基础文本权利声明；应完整保留，不能简化为“全球公有领域” | 正文不再内置；独立 Strong’s 资料仍保留来源声明；模块问题可询 `modules@crosswire.org`；目标地区的基础文本权利另行核对 |
 | New International Version，NIV                            | [Biblica 授权页][biblica]列出官方阅读及授权平台；版次和离线数据交付方式须确认 | **待专项授权**；少量引用政策不覆盖全文。普通全文许可只授予注册法人机构，不授予个人                                                                       | 用户已确认暂无授权；Issue #6 等待许可及数据，未捆绑正文                              |
-| Darby Translation，英文 DBY，eBible engDBY                | [eBible 版本与下载页](https://ebible.org/find/details.php?id=engDBY)，VPL；正文日期2019-11-15 | 发布方及归档内明确标注 **Public Domain**；保留原始声明与来源 | 已接入英文版，31,099节；用户要求的中文参考译文须单独制作、校对及标识，当前未捆绑 |
+| Darby Translation，英文 DBY，eBible engDBY                | [eBible 版本与下载页](https://ebible.org/find/details.php?id=engDBY)，VPL；正文日期2019-11-15 | 发布方及归档内明确标注 **Public Domain**；保留原始声明与来源 | 正文不再内置；可使用已支持格式的本地英文文件导入。用户已拒绝机器中文译文 |
 
 SWORD 是模块格式和工具生态，并不是某一种英文译本；模块可以下载，不代表其中所有正文、标注和附加资源采用相同许可。NIV 的公开模块可用性也应结合 [CrossWire FAQ][crosswire-faq] 核实。
 

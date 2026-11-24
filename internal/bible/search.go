@@ -99,6 +99,7 @@ func likeMatch(text string, pattern []likeToken) bool {
 	return j == len(pattern)
 }
 func (d *Dataset) Search(translation, pattern string, offset, limit int) (SearchPage, error) {
+	d = d.Snapshot()
 	if _, ok := d.Translation(translation); !ok {
 		return SearchPage{}, fmt.Errorf("INVALID_TRANSLATION")
 	}
@@ -110,6 +111,19 @@ func (d *Dataset) Search(translation, pattern string, offset, limit int) (Search
 		return SearchPage{}, err
 	}
 	page := SearchPage{Results: []SearchHit{}}
+	if t, _ := d.Translation(translation); t.Origin == "user" {
+		err := d.Provider.Walk(translation, func(bookID string, chapter int, verse Verse) {
+			if !likeMatch(verse.Text, compiled) {
+				return
+			}
+			book, _ := d.Book(bookID)
+			if page.Total >= offset && len(page.Results) < limit {
+				page.Results = append(page.Results, SearchHit{translation, bookID, book.Name, book.EnglishName, chapter, verse.Label, verse.Text})
+			}
+			page.Total++
+		})
+		return page, err
+	}
 	for _, book := range d.Books {
 		for chapter := 1; chapter <= book.Chapters; chapter++ {
 			for _, verse := range d.Chapters[ChapterKey(translation, book.ID, chapter)] {

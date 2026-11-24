@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Drawer, InputNumber, Select, Space } from "antd";
 import type { API, Book, Translation } from "../../shared/types";
 import { ReferenceOptions } from "../../shared/ReferenceOptions";
@@ -42,7 +42,31 @@ export function ProjectionControls({
 }) {
   const t = translator(language);
   const [translation, setTranslation] = useState(initialTranslation);
+  useEffect(() => {
+    setTranslation(initialTranslation);
+  }, [initialTranslation]);
+  const [projectionBooks, setProjectionBooks] = useState(books),
+    [bookLoading, setBookLoading] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    setBookLoading(true);
+    void api
+      .ListBooks([translation])
+      .then((value) => {
+        if (live) setProjectionBooks(value);
+      })
+      .catch((e) => {
+        if (live) setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        if (live) setBookLoading(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [api, open, translation, translations]);
   const [publishing, setPublishing] = useState(false);
   const [drafts, setDrafts] = useState<
     Array<{ id: number; reference: string }>
@@ -140,14 +164,14 @@ export function ProjectionControls({
       </p>
       <PassagePicker
         api={api}
-        books={books}
+        books={projectionBooks}
         translation={translation}
         language={language}
         onAdd={add}
         onProject={async (value) => {
           await project(value);
         }}
-        disabled={drafts.length >= 12}
+        disabled={drafts.length >= 12 || bookLoading}
         active={open && entryReady}
         focusRequest={focusRequest}
         initialReference={initialReference}

@@ -1,5 +1,36 @@
 # Verification boundaries
 
+Local edition import tests use self-authored CC0 synthetic text, with distinct
+MyBible/MySword SQLite schemas, theWord line-position profiles, OSIS container
+and milestone structures, Zefania XML, a one-resource ZIP and native SWORD zText ZIP modules. They verify source
+labels, missing/blank positions, joined/split records, Unicode and line breaks,
+metadata, cancellation, unknown tags, malicious ZIP/XML/schema input and limits.
+Library/service tests cover atomic rollback, duplicate installs, replacement,
+version restoration, tombstone identity, future schema preservation, per-request
+snapshots and interrupted cross-database annotation purge recovery after restart.
+Real Go services exercise imported reading, LIKE search, highlighting, clipboard,
+card and projection data. Browser tests use only the explicitly labeled Zefania
+Mock, including minimum-window/large-font preview, multiline text, offline
+read/search/copy/card/projection and disabled-duplicate recovery. These are not
+claims that every platform module or every versification is supported.
+
+GZIP regressions cover a real compressed resource, HTTP-decoded SQLite retaining
+a `.gz` filename, bounded output, CRC/truncation, multiple members, trailing data,
+nested archives and staging cleanup. MySword ASV-style wrapper rules use exact
+text-preserving recognition, never source regex execution; synthetic Hebrew and
+combining-character samples verify that text survives. The compressed native
+service fixture proceeds through inspection, install, reading/search/copy/cards,
+projection and version/annotation recovery. A local check of the official ASV
+2.3.7 download and its HTTP-decoded database produces the same 66-book / 1189-
+chapter / 31,102-record content fingerprint. That corpus stays outside source and
+CI artifacts; regression fixtures remain self-authored synthetic text.
+
+Linux local native QA additionally uses an isolated profile and GTK portal to
+select a real file, preview and install it, delete the source, restart and read
+the persisted partial edition, then remove it and verify fallback. This verifies
+that host's chooser/bridge/storage path, not macOS/Windows dialogs, installers or
+all Linux portals. See `edition-import.md` for supported profiles and limits.
+
 Search shares native/Mock fixtures for ordered wildcards, Unicode underscores,
 literal escapes, ASCII case behavior and SQL-looking text treated as data. Go
 checks exercise real bundled text, pagination, empty results and invalid inputs.
@@ -36,19 +67,20 @@ fail before build checks/output writes, including under Python `-O`, while all
 six native targets and Windows binary cross-compilation remain allowed.
 SWORD conversion cases preserve verse wording, divine-name capitalization and
 layout boundaries while removing notes/titles. Data checks require complete
-CUV/WEBP/KJV/DBY catalogs; KJV source samples and selected-pair copy/card service
-cases guard against silently using WEBP or including an unselected translation.
+a CUV-only catalogue, exact legacy text/version fingerprints and no additional
+bundled scripture. SWORD fixtures verify module/testament/book/chapter index
+slots, linked ranges, bounds, zlib checksums and padding, unsupported profiles,
+unknown OSIS markup and cancellation. Native services inspect and install a
+synthetic SWORD ZIP, compare its linked source range, search/copy/card/project,
+and retain text/highlights after source deletion and library restart.
 
-DBY checks verify all 66 books/1189 chapters, exact source samples and the
-Acts 8:37 omission without shifting verse 38. Importer regressions reject
-malformed/duplicate records; complete corpus fingerprints preserve every legacy
-verse and data version. The native service test exercises genuine DBY chapter,
-LIKE search, highlighting, clipboard, card, preferences and projection data.
-Browser cases exercise DBY offline reading, comparison, copying, PNG export,
-highlight persistence, source-specific search and separate-window projection.
+The supplied Darby 2.0 file is checked locally; its corpus is not committed or
+included in CI artifacts. Independent KJV word-study checks run without a
+bundled KJV edition. Preference regressions remove obsolete WEBP/KJV/DBY references
+while preserving reading settings and valid history.
 
 Browser end-to-end tests use a production build of the explicit Mock adapter.
-They exercise book/chapter navigation, Chinese/English and KJV/WEBP comparison, offline
+They exercise book/chapter navigation, Chinese/English CUV/WEBP comparison, offline
 operations after loading bundled assets, highlight persistence across reload,
 clipboard content, exact PNG dimensions, stable reader navigation, mixed-translation
 selection rejection, visible data errors and direct export retry after a save
@@ -61,11 +93,13 @@ each book suggestion click and scope suggestions to the book combobox's controll
 list. A regression repeats the same English/Pinyin queries with 90 ms delayed
 animation frames and 6x Chromium CPU throttling; the normal minimum-window,
 large-font layout and publication checks remain in place.
+Quick-entry dropdowns open and close immediately: a delayed leave animation
+could detach a reopened suggestion between mouse down and mouse up, losing the
+selection. The pressure case also runs repeatedly with traces during this fix.
 
-The KJV flow checks all-three vertical ordering, source verse numbers without repeated edition labels,
-compact line height, KJV highlight persistence after reload, three-version
-clipboard/card output, and removal of an unselected version from comparison
-copying. Minimum 1024×640 cases cover wrapping all 150 Psalm chapters, real text
+The CUV/WEBP flow checks vertical ordering, source verse numbers without repeated
+edition labels, compact line height, highlight persistence across reload and
+two-version clipboard/card output. Minimum 1024×640 cases cover wrapping all 150 Psalm chapters, real text
 dragging, Shift-range selection, keyboard copy, endpoint toolbar placement,
 window-edge avoidance, scroll anchoring and dismissal. Settings cases migrate
 legacy preferences, switch Chinese/English UI, persist font size/reference
@@ -89,9 +123,40 @@ with the same test directory. Reports record the actual OS/architecture. macOS
 DMGs and ad-hoc signatures are checked by system tools. Windows NSIS source
 compilation is part of packaging. A Windows Server runner is not evidence of
 manual Windows 11 desktop acceptance.
-Native smoke also reads the real SWORD KJV text through the Go bridge, round-trips
-the new font/language/reference settings, and uses CUV+KJV+WEBP for clipboard/card
-paths, verifying all three returned editions. No browser adapter is substituted.
+CrossWire tests use local HTTP servers and synthetic CC0 module/index fixtures
+for Chinese/English filtering, supported/unsupported profiles, notices, explicit
+preview/confirmation, progress, cancellation, source changes, download errors,
+unsafe redirects, checksum/path validation and staging cleanup. NRSV tests use
+explicit additional/final slot offsets to guard against verse shifts. Browser
+bilingual regressions install an explicit CI-only WEBP excerpt fixture rather
+than adding scripture to production assets.
+
+Edition management browser coverage checks one flat Chinese/English catalogue,
+no language filter or view switch, independent Enabled and Actions cells,
+inline download progress/cancel/retry, automatic installation without a modal,
+read-only CUV, renamed-module provenance, newer-version updates with stable ID
+and disabled state, version-only updates, retained-version recovery, no duplicate
+or downgrade prompts, failed-source isolation, and 1024×640 layout at 20px type.
+Hook tests cover double-clicks, cancellation, late responses after closing and
+failed-install retries. Library tests cover preserved enable state and version
+metadata even when the updated text matches a retained fingerprint.
+Changing UI language also retains the cached catalogue without a source request.
+Catalogue component tests count source calls: none on opening, local refresh or
+reopening; More editions fetches once and opted-in refresh can fetch again.
+Browser coverage checks the footer entry, source retry and a single inline
+linear download indicator without an alternate spinner style.
+
+SWORD inscription regressions use self-authored CC0 text to check nested words,
+supplied text, combining characters, divine names, excluded notes, line breaks
+and cross-verse fragments. Archive tests cover all three supported block types;
+service tests cover download, exact preview, explicit confirmation and exact
+offline reading. Unknown descendants and namespaces remain rejected. Live KJV
+validation uses ignored private files rather than adding its corpus to fixtures.
+
+Native smoke checks that the bundled catalogue contains only CUV,
+reads it through the Go bridge, round-trips font/language/reference settings
+and verifies CUV in clipboard/card paths. Independent Strong’s lookup
+and verse associations remain covered. No browser adapter is substituted.
 Smoke reports also require the rendered interface version to match the native
 binary/package version. Source-browser launch and native file dialogs remain
 manual desktop integration checks.

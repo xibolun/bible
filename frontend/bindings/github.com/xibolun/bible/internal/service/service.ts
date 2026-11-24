@@ -10,6 +10,12 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as bible$0 from "../bible/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as catalogue$0 from "../catalogue/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as editions$0 from "../editions/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as storage$0 from "../storage/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -20,6 +26,18 @@ export function ApplyHighlight(request: string, sel: $models.Selection, color: s
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ApplyHighlight", request, sel, color);
 }
 
+export function CancelEditionImport(id: string): $CancellablePromise<$models.Result<$models.EditionImportJob>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.CancelEditionImport", id);
+}
+
+export function ChooseEditionImport(): $CancellablePromise<$models.Result<$models.EditionChoice>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ChooseEditionImport");
+}
+
+export function CommitEditionImport(id: string, options: editions$0.Commit): $CancellablePromise<$models.Result<$models.EditionImportJob>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.CommitEditionImport", id, options);
+}
+
 export function ControlProjection(action: string): $CancellablePromise<$models.Result<$models.ProjectionState>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ControlProjection", action);
 }
@@ -28,12 +46,20 @@ export function CopySelection(sel: $models.Selection, mode: string, ids: string[
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.CopySelection", sel, mode, ids, options);
 }
 
+export function DownloadCrossWireEdition(id: string): $CancellablePromise<$models.Result<$models.EditionImportJob>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.DownloadCrossWireEdition", id);
+}
+
 export function GetCard(sel: $models.Selection, ids: string[] | null, full: boolean, options: $models.CopyOptions): $CancellablePromise<$models.Result<$models.CardContent>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetCard", sel, ids, full, options);
 }
 
 export function GetChapter(ids: string[] | null, book: string, chapter: number, request: string): $CancellablePromise<$models.Result<bible$0.Chapter>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetChapter", ids, book, chapter, request);
+}
+
+export function GetEditionImportJob(id: string): $CancellablePromise<$models.Result<$models.EditionImportJob>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetEditionImportJob", id);
 }
 
 export function GetPreferences(): $CancellablePromise<$models.Result<$models.Preferences>> {
@@ -48,8 +74,20 @@ export function GetVerseWords(book: string, chapter: number, verse: string): $Ca
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.GetVerseWords", book, chapter, verse);
 }
 
+export function InspectEditionImport(token: string): $CancellablePromise<$models.Result<$models.EditionImportJob>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.InspectEditionImport", token);
+}
+
 export function ListBooks(ids: string[] | null): $CancellablePromise<$models.Result<bible$0.Book[] | null>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ListBooks", ids);
+}
+
+export function ListCrossWireEditions(): $CancellablePromise<$models.Result<catalogue$0.Module[] | null>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ListCrossWireEditions");
+}
+
+export function ListEditionInstalls(): $CancellablePromise<$models.Result<editions$0.Install[] | null>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ListEditionInstalls");
 }
 
 export function ListHighlights(ids: string[] | null, book: string, chapter: number): $CancellablePromise<$models.Result<storage$0.Highlight[] | null>> {
@@ -72,8 +110,16 @@ export function Quit(): $CancellablePromise<$models.Result<boolean>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.Quit");
 }
 
+export function RemoveEdition(id: string, purgeHighlights: boolean): $CancellablePromise<$models.Result<boolean>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.RemoveEdition", id, purgeHighlights);
+}
+
 export function ReportSmoke(passed: boolean, frontendVersion: string): $CancellablePromise<$models.Result<boolean>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.ReportSmoke", passed, frontendVersion);
+}
+
+export function RestoreEditionVersion(id: string, version: string): $CancellablePromise<$models.Result<boolean>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.RestoreEditionVersion", id, version);
 }
 
 export function SaveCard(encoded: string, width: number, height: number, name: string, sel: $models.Selection): $CancellablePromise<$models.Result<$models.Saved>> {
@@ -86,6 +132,10 @@ export function SavePreferences(p: $models.Preferences): $CancellablePromise<$mo
 
 export function SearchScripture(translation: string, pattern: string, offset: number, limit: number): $CancellablePromise<$models.Result<bible$0.SearchPage>> {
     return $Call.ByName("github.com/xibolun/bible/internal/service.Service.SearchScripture", translation, pattern, offset, limit);
+}
+
+export function SetEditionEnabled(id: string, enabled: boolean): $CancellablePromise<$models.Result<boolean>> {
+    return $Call.ByName("github.com/xibolun/bible/internal/service.Service.SetEditionEnabled", id, enabled);
 }
 
 /**

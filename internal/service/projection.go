@@ -71,6 +71,8 @@ func (s *Service) emitProjection(state ProjectionState) Result[ProjectionState] 
 
 // Empty reference changes styling without replacing the last confirmed passage.
 func (s *Service) SetProjection(reference, translation string, style ProjectionStyle) Result[ProjectionState] {
+	s.editionOps.RLock()
+	defer s.editionOps.RUnlock()
 	style = style.normalizedTheme()
 	if !style.valid() {
 		return failure[ProjectionState]("INVALID_SETTINGS")

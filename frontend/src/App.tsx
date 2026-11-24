@@ -38,7 +38,7 @@ import { Settings } from "./features/settings/Settings";
 import { WordStudy } from "./features/word-study/WordStudy";
 import { ScriptureSearch } from "./features/search/ScriptureSearch";
 import { ProjectionControls } from "./features/projection/ProjectionControls";
-import { adjacentChapter } from "./shared/navigation";
+import { adjacentChapter, chapterNumbers } from "./shared/navigation";
 import { keywordRanges, rememberSearch } from "./shared/search";
 import { commandShortcut, saveAndQuit } from "./shared/shortcuts";
 import { palettes, type ReadingTheme } from "./shared/themes";
@@ -128,7 +128,17 @@ function Reader({
     pattern: string;
   }>();
   const [searchFocus, setSearchFocus] = useState(0);
+  const [settingsTab, setSettingsTab] = useState("reading");
   const [projectionFocus, setProjectionFocus] = useState(0);
+  const openSettings = useCallback(() => {
+    if (card) return;
+    setSelection(null);
+    setSearching(false);
+    setProjecting(false);
+    setStudyVerse(null);
+    setSettingsTab("reading");
+    setSettings(true);
+  }, [card]);
   const openProjection = useCallback(() => {
     setSettings(false);
     setStudyVerse(null);
@@ -249,11 +259,13 @@ function Reader({
     setError("");
     try {
       const a = await getAPI();
-      const [ts, bs, p] = await Promise.all([
+      const [ts, p] = await Promise.all([
         a.ListTranslations(),
-        a.ListBooks(["cuv", "webp"]),
         a.GetPreferences(),
       ]);
+      const bs = await a.ListBooks(
+        p.parallel ? p.translations : p.translations.slice(0, 1),
+      );
       setAPI(a);
       setTranslations(ts);
       setBooks(bs);
@@ -267,6 +279,109 @@ function Reader({
   useEffect(() => {
     void load();
   }, [load]);
+  const refreshCatalogue = useCallback(
+    async (readID?: string) => {
+      if (!api) return;
+      const ts = await api.ListTranslations();
+      const previous = currentPrefs.current;
+      let selected = previous.translations.filter((id) =>
+        ts.some((v) => v.id === id),
+      );
+      if (readID) {
+        if (!ts.some((v) => v.id === readID))
+          throw new Error("INVALID_TRANSLATION");
+        selected = [readID];
+      }
+      if (!selected.length) selected = [ts[0].id];
+      const parallel =
+        !readID &&
+        previous.parallel &&
+        selected.every((id) => {
+          const v = ts.find((t) => t.id === id);
+          return v?.origin !== "user" || v.comparable;
+        });
+      const bs = await api.ListBooks(
+        parallel ? selected : selected.slice(0, 1),
+      );
+      const book = bs.find((b) => b.id === previous.bookId) || bs[0];
+      if (!book) throw new Error("DATA_UNAVAILABLE");
+      const sameBook = book.id === previous.bookId;
+      const ch =
+        sameBook && chapterNumbers(book).includes(previous.chapter)
+          ? previous.chapter
+          : chapterNumbers(book)[0];
+      const next = {
+        ...previous,
+        translations: selected,
+        searchHistory: previous.searchHistory.filter((entry) =>
+          ts.some((v) => v.id === entry.translationId),
+        ),
+        parallel,
+        bookId: book.id,
+        chapter: ch,
+        ...(!sameBook || ch !== previous.chapter
+          ? { topVerse: "", scrollOffset: 0 }
+          : {}),
+      };
+      await api.SavePreferences(next);
+      setTranslations(ts);
+      setBooks(bs);
+      setPrefs(next);
+      setSelection(null);
+      setRetry((n) => n + 1);
+    },
+    [api],
+  );
+  const changePrimary = async (id: string) => {
+    if (!api) return;
+    try {
+      const selected = [
+        id,
+        ...prefs.translations
+          .slice(1)
+          .map((other) => (other === id ? prefs.translations[0] : other)),
+      ];
+      const parallel =
+        prefs.parallel &&
+        selected.every((id) => {
+          const v = translations.find((t) => t.id === id);
+          return v?.origin !== "user" || v.comparable;
+        });
+      const bs = await api.ListBooks(parallel ? selected : [id]);
+      const book = bs.find((b) => b.id === prefs.bookId) || bs[0];
+      if (!book) throw new Error("DATA_UNAVAILABLE");
+      const ch = chapterNumbers(book).includes(prefs.chapter)
+        ? prefs.chapter
+        : chapterNumbers(book)[0];
+      setBooks(bs);
+      setPrefs((p) => ({
+        ...p,
+        translations: selected,
+        parallel,
+        bookId: book.id,
+        chapter: ch,
+        topVerse: "",
+        scrollOffset: 0,
+      }));
+    } catch (e) {
+      setError(errorText(e, currentPrefs.current.uiLanguage));
+    }
+  };
+  useEffect(() => {
+    if (!api || starting) return;
+    let active = true;
+    void api
+      .ListBooks(idsKey.split(","))
+      .then((bs) => {
+        if (active) setBooks(bs);
+      })
+      .catch((e) => {
+        if (active) setError(errorText(e, currentPrefs.current.uiLanguage));
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, starting, idsKey, retry]);
   useEffect(() => {
     if (!api || starting) return;
     const n = ++request.current;
@@ -336,17 +451,23 @@ function Reader({
       .querySelector<HTMLElement>('.book-button[aria-current="page"]')
       ?.scrollIntoView({ block: "nearest" });
   }, [prefs.bookId, prefs.chapter, prefs.globalFontSize, searching]);
-  const navigate = useCallback((bookId: string, ch: number) => {
-    setSearchTarget(undefined);
-    setStudyVerse(null);
-    setPrefs((p) => ({
-      ...p,
-      bookId,
-      chapter: ch,
-      topVerse: "",
-      scrollOffset: 0,
-    }));
-  }, []);
+  const navigate = useCallback(
+    (bookId: string, ch: number) => {
+      const book = books.find((b) => b.id === bookId);
+      if (book && !chapterNumbers(book).includes(ch))
+        ch = chapterNumbers(book)[0];
+      setSearchTarget(undefined);
+      setStudyVerse(null);
+      setPrefs((p) => ({
+        ...p,
+        bookId,
+        chapter: ch,
+        topVerse: "",
+        scrollOffset: 0,
+      }));
+    },
+    [books],
+  );
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") setSelection(null);
@@ -566,6 +687,10 @@ function Reader({
     const key = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
       const command = commandShortcut(event);
+      if (command === "settings" && !card) {
+        event.preventDefault();
+        openSettings();
+      }
       if (command === "search" && !card) {
         event.preventDefault();
         openSearch();
@@ -597,14 +722,16 @@ function Reader({
       if (!card) openSearch();
     };
     window.addEventListener("keydown", key);
+    window.addEventListener("bible:settings", openSettings);
     window.addEventListener("bible:quit", nativeQuit);
     window.addEventListener("bible:search", nativeSearch);
     return () => {
       window.removeEventListener("keydown", key);
+      window.removeEventListener("bible:settings", openSettings);
       window.removeEventListener("bible:quit", nativeQuit);
       window.removeEventListener("bible:search", nativeSearch);
     };
-  }, [openSearch, quit, copy, selection, card]);
+  }, [openSettings, openSearch, quit, copy, selection, card]);
   async function paint(color: string) {
     if (!api || !selection) return;
     setPainting(true);
@@ -657,12 +784,7 @@ function Reader({
       smokeActive.current = true;
       let passed = false;
       try {
-        const c = await api!.GetChapter(
-          ["cuv", "webp"],
-          "GEN",
-          1,
-          "native-smoke",
-        );
+        const c = await api!.GetChapter(["cuv"], "GEN", 1, "native-smoke");
         if (c.rows.length < 30) throw new Error("incomplete chapter");
         const found = await api!.SearchScripture("cuv", "起%神", 0, 30);
         if (
@@ -688,22 +810,21 @@ function Reader({
         const hs = await api!.ListHighlights(["cuv"], "GEN", 1);
         if (!hs.some((h) => h.verseKey === "1" && h.color === "green"))
           throw new Error("highlight");
-        const kjvChapter = await api!.GetChapter(
-          ["cuv", "kjv", "webp"],
-          "GEN",
-          1,
-          "native-kjv-smoke",
-        );
+        const catalogue = await api!.ListTranslations();
         if (
-          !kjvChapter.rows
+          catalogue.length !== 1 ||
+          catalogue.map((tr) => tr.id).join(",") !== "cuv"
+        )
+          throw new Error("bundled editions");
+        if (
+          !c.rows
             .find((row) => row.label === "1")
             ?.cells.some(
               (cell) =>
-                cell.translationId === "kjv" &&
-                cell.text.includes("the heaven and the earth"),
+                cell.translationId === "cuv" && cell.text.includes("起初"),
             )
         )
-          throw new Error("KJV chapter");
+          throw new Error("CUV chapter");
         const previous = await api!.GetPreferences();
         await api!.SavePreferences({
           ...previous,
@@ -721,21 +842,21 @@ function Reader({
         )
           throw new Error("settings persistence");
         await api!.SavePreferences(previous);
-        await api!.CopySelection(s, "parallelVerse", ["cuv", "kjv", "webp"], {
+        await api!.CopySelection(s, "parallelVerse", ["cuv"], {
           referencePosition: "before",
           referenceStyle: "verses-short",
           uiLanguage: "en",
         });
-        const content = await api!.GetCard(s, ["cuv", "kjv", "webp"], true, {
+        const content = await api!.GetCard(s, ["cuv"], true, {
           referencePosition: "after",
           referenceStyle: "short",
           uiLanguage: "zh-CN",
         });
         if (
-          content.lines.length !== 3 ||
-          !content.lines.some((line) => line.version === "KJV")
+          content.lines.length !== 1 ||
+          !content.lines.some((line) => line.version === "CUV")
         )
-          throw new Error("KJV card");
+          throw new Error("CUV card");
         const image = document.createElement("canvas");
         await drawCard(image, content, {
           height: 1080,
@@ -906,22 +1027,25 @@ function Reader({
             <Select
               aria-label={t("主译本", "Primary translation")}
               value={prefs.translations[0]}
-              onChange={(id) =>
-                setPrefs((p) => ({
-                  ...p,
-                  translations: [
-                    id,
-                    ...p.translations
-                      .slice(1)
-                      .map((other) =>
-                        other === id ? p.translations[0] : other,
-                      ),
-                  ],
-                }))
-              }
+              onChange={(id) => void changePrimary(id)}
+              popupRender={(menu) => (
+                <>
+                  {menu}
+                  <Button
+                    type="text"
+                    block
+                    onClick={() => {
+                      setSettingsTab("editions");
+                      setSettings(true);
+                    }}
+                  >
+                    {t("管理译本", "Manage editions")}
+                  </Button>
+                </>
+              )}
               options={translations.map((t) => ({
                 value: t.id,
-                label: `${t.abbreviation} · ${t.language.startsWith("zh") ? "简体中文" : "English"}`,
+                label: `${t.abbreviation} · ${t.origin === "user" ? t.language : t.language.startsWith("zh") ? "简体中文" : "English"}`,
               }))}
               style={{ width: 160 }}
             />
@@ -942,8 +1066,9 @@ function Reader({
                   .filter((t) => t.id !== prefs.translations[0])
                   .map((t) => ({
                     value: t.id,
+                    disabled: t.origin === "user" && !t.comparable,
                     abbreviation: t.abbreviation,
-                    label: `${t.abbreviation} · ${t.language.startsWith("zh") ? "简体中文" : "English"}`,
+                    label: `${t.abbreviation} · ${t.origin === "user" ? t.language : t.language.startsWith("zh") ? "简体中文" : "English"}`,
                   }))}
                 style={{ minWidth: 180, maxWidth: 260 }}
               />
@@ -952,6 +1077,37 @@ function Reader({
               {t("多译本对照", "Compare")}
               <Switch
                 checked={prefs.parallel}
+                disabled={
+                  translations.filter(
+                    (v) => v.origin !== "user" || v.comparable,
+                  ).length < 2 ||
+                  translations.some(
+                    (v) =>
+                      v.id === prefs.translations[0] &&
+                      v.origin === "user" &&
+                      !v.comparable,
+                  )
+                }
+                title={
+                  translations.filter(
+                    (v) => v.origin !== "user" || v.comparable,
+                  ).length < 2
+                    ? t(
+                        "导入另一个兼容译本后可开启对照",
+                        "Import another compatible edition to compare",
+                      )
+                    : translations.some(
+                          (v) =>
+                            v.id === prefs.translations[0] &&
+                            v.origin === "user" &&
+                            !v.comparable,
+                        )
+                      ? t(
+                          "此译本编号体系未验证，请单独阅读",
+                          "Unverified verse numbering; read this edition individually",
+                        )
+                      : undefined
+                }
                 onChange={(v) =>
                   setPrefs((p) => ({
                     ...p,
@@ -962,7 +1118,9 @@ function Reader({
                             ...p.translations,
                             translations.find(
                               (translation) =>
-                                translation.id !== p.translations[0],
+                                translation.id !== p.translations[0] &&
+                                (translation.origin !== "user" ||
+                                  translation.comparable),
                             )!.id,
                           ]
                         : p.translations,
@@ -970,57 +1128,47 @@ function Reader({
                 }
               />
             </label>
-            <Button
-              onClick={() => {
-                setSelection(null);
-                setSettings(true);
-              }}
-            >
-              {t("设置", "Settings")}
-            </Button>
+            <Button onClick={openSettings}>{t("设置", "Settings")}</Button>
           </div>
         </header>
         <nav className="chapter-nav" aria-label={t("章节导航", "Chapters")}>
           <div className="chapter-strip">
-            {Array.from(
-              {
-                length: books.find((b) => b.id === prefs.bookId)?.chapters ?? 0,
-              },
-              (_, i) => i + 1,
-            ).map((n) => (
-              <button
-                className="chapter-button"
-                aria-label={t(`第${n}章`, `Chapter ${n}`)}
-                data-chapter={n}
-                aria-current={n === prefs.chapter ? "page" : undefined}
-                key={n}
-                onClick={() => navigate(prefs.bookId, n)}
-                onKeyDown={(e) => {
-                  if (busy) return;
-                  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-                    const next = adjacentChapter(
-                      books,
-                      prefs.bookId,
-                      n,
-                      e.key === "ArrowRight" ? 1 : -1,
-                    );
-                    if (next) {
-                      e.preventDefault();
-                      navigate(next.bookId, next.chapter);
-                      requestAnimationFrame(() =>
-                        document
-                          .querySelector<HTMLButtonElement>(
-                            `.chapter-button[data-chapter="${next.chapter}"]`,
-                          )
-                          ?.focus(),
+            {chapterNumbers(books.find((b) => b.id === prefs.bookId)).map(
+              (n) => (
+                <button
+                  className="chapter-button"
+                  aria-label={t(`第${n}章`, `Chapter ${n}`)}
+                  data-chapter={n}
+                  aria-current={n === prefs.chapter ? "page" : undefined}
+                  key={n}
+                  onClick={() => navigate(prefs.bookId, n)}
+                  onKeyDown={(e) => {
+                    if (busy) return;
+                    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                      const next = adjacentChapter(
+                        books,
+                        prefs.bookId,
+                        n,
+                        e.key === "ArrowRight" ? 1 : -1,
                       );
+                      if (next) {
+                        e.preventDefault();
+                        navigate(next.bookId, next.chapter);
+                        requestAnimationFrame(() =>
+                          document
+                            .querySelector<HTMLButtonElement>(
+                              `.chapter-button[data-chapter="${next.chapter}"]`,
+                            )
+                            ?.focus(),
+                        );
+                      }
                     }
-                  }
-                }}
-              >
-                {n}
-              </button>
-            ))}
+                  }}
+                >
+                  {n}
+                </button>
+              ),
+            )}
           </div>
         </nav>
         {prototype && (
@@ -1173,6 +1321,18 @@ function Reader({
                         ) : (
                           <span
                             data-verse-text
+                            data-origin={
+                              translations.find(
+                                (t) => t.id === cell.translationId,
+                              )?.origin
+                            }
+                            dir={
+                              translations.find(
+                                (t) => t.id === cell.translationId,
+                              )?.origin === "user"
+                                ? "auto"
+                                : undefined
+                            }
                             data-translation={cell.translationId}
                             data-verse={row.label}
                           >
@@ -1364,6 +1524,14 @@ function Reader({
               chapter: hit.chapter,
               topVerse: hit.verseKey,
               scrollOffset: 0,
+              parallel:
+                p.parallel &&
+                translations.every(
+                  (v) =>
+                    v.id !== hit.translationId ||
+                    v.origin !== "user" ||
+                    v.comparable,
+                ),
               translations: [
                 hit.translationId,
                 ...p.translations
@@ -1394,6 +1562,12 @@ function Reader({
       />
       {settings && (
         <Settings
+          initialTab={settingsTab}
+          onCatalogue={() => refreshCatalogue()}
+          onRead={async (id) => {
+            await refreshCatalogue(id);
+            setSettings(false);
+          }}
           api={api}
           preview={
             chapter && {

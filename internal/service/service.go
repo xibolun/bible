@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/rivo/uniseg"
@@ -38,6 +39,28 @@ func failure[T any](code string) Result[T] {
 	msg := map[string]string{"INVALID_REFERENCE": "书卷或章节不存在", "INVALID_TRANSLATION": "请选择不同且已安装的译本", "DATA_UNAVAILABLE": "内置经文不可用，请重新安装完整应用", "INVALID_SELECTION": "请选择同章同译本的连续经文", "STALE_DATA": "经文版本已变化，请重新选择", "STORAGE_ERROR": "无法读取或保存本地数据，请检查磁盘权限后重试", "CLIPBOARD_ERROR": "复制失败，请保留选区后重试", "INVALID_IMAGE": "卡片图像或尺寸无效", "EXPORT_ERROR": "保存失败，请检查目标文件夹和磁盘空间", "INVALID_SETTINGS": "显示设置或阅读位置无效", "CARD_LIMIT": "卡片最多20节、4000个字符", "BRIDGE_UNAVAILABLE": "桌面服务未连接，请重启应用"}[code]
 	if code == "INVALID_SEARCH" {
 		msg = "请输入 1–128 个字符的搜索条件，检查转义符和分页范围"
+	}
+	if msg == "" {
+		msg = map[string]string{
+			"EDITION_DATA_UNAVAILABLE":    "用户译本数据不可用，请重试或检查译本文件",
+			"VERSIFICATION_UNSUPPORTED":   "此译本的节编号体系尚未验证，请单独阅读，不进行自动逐节对照",
+			"EDITION_LIBRARY_UNAVAILABLE": "用户译本库不可用，内置阅读仍可使用；请检查磁盘或应用版本后重试",
+			"FORMAT_UNSUPPORTED":          "此文件格式或标记尚不支持，请选择已支持的译本文件",
+			"FORMAT_AMBIGUOUS":            "压缩包中有多个译本，请解压后选择其中一个",
+			"ENCRYPTED_MODULE":            "不支持此加密资源，请使用获准使用的未加密导出文件",
+			"ENCODING_UNSUPPORTED":        "无法可靠读取文件编码，请使用UTF-8或受支持的XML编码",
+			"SCHEMA_UNSUPPORTED":          "此文件结构不属于已支持的译本模块",
+			"REFERENCE_UNSUPPORTED":       "书卷或节编号无法可靠解析，文件未安装",
+			"INVALID_CONTENT":             "文件内容损坏、重复或不完整，文件未安装",
+			"IMPORT_LIMIT":                "文件大小、记录数量或处理时间超出导入限制",
+			"IMPORT_CANCELLED":            "已取消导入，未安装任何内容",
+			"IMPORT_IO":                   "无法读取或保存导入数据，请检查磁盘空间与权限后重试",
+			"DRAFT_EXPIRED":               "预览已失效，请重新选择文件",
+			"IMPORT_BUSY":                 "正在处理另一个导入操作，请稍后重试",
+			"SOURCE_UNAVAILABLE":          "无法连接CrossWire下载源，请检查网络后重试",
+			"SOURCE_REFRESH_REQUIRED":     "请先刷新下载列表后选择译本",
+			"SOURCE_CHANGED":              "下载源版次已变化，请刷新列表后重试",
+		}[code]
 	}
 	if msg == "" {
 		msg = map[string]string{"INVALID_WORD": "请输入 Strong’s 编号，例如 H430 或 G3056", "WORD_NOT_FOUND": "内置词典没有此 Strong’s 词条"}[code]
@@ -78,7 +101,7 @@ type Preferences struct {
 }
 
 func Defaults() Preferences {
-	return Preferences{ProjectionStyle: DefaultProjectionStyle(), SearchHistory: []SearchHistoryEntry{}, ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv", "webp"}, FontSize: 18, GlobalFontSize: 13, ChapterNumerals: "arabic", ReferenceBrackets: "none", ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
+	return Preferences{ProjectionStyle: DefaultProjectionStyle(), SearchHistory: []SearchHistoryEntry{}, ReadingTheme: "light", BookID: "GEN", Chapter: 1, Translations: []string{"cuv"}, FontSize: 18, GlobalFontSize: 13, ChapterNumerals: "arabic", ReferenceBrackets: "none", ReferencePosition: "after", ReferenceStyle: "full-version", UILanguage: "zh-CN", WindowWidth: 1280, WindowHeight: 800, SchemaVersion: 1}
 }
 
 type Desktop interface {
@@ -92,13 +115,17 @@ type Service struct {
 	Store      *storage.Store
 	Desktop    Desktop
 	projection projectionStore
+	editions   *editionManager
+	editionOps sync.RWMutex
 }
 
 func New(data *bible.Dataset, store *storage.Store, desktop Desktop) *Service {
 	return &Service{Data: data, Store: store, Desktop: desktop, projection: projectionStore{state: ProjectionState{Style: DefaultProjectionStyle()}}}
 }
 
-func (s *Service) ListTranslations() Result[[]bible.Translation] { return success(s.Data.Translations) }
+func (s *Service) ListTranslations() Result[[]bible.Translation] {
+	return success(s.Data.AllTranslations())
+}
 func (s *Service) Quit() Result[bool] {
 	if s.Desktop == nil || s.Desktop.Quit() != nil {
 		return failure[bool]("BRIDGE_UNAVAILABLE")
@@ -106,6 +133,8 @@ func (s *Service) Quit() Result[bool] {
 	return success(true)
 }
 func (s *Service) SearchScripture(translation, pattern string, offset, limit int) Result[bible.SearchPage] {
+	s.editionOps.RLock()
+	defer s.editionOps.RUnlock()
 	page, err := s.Data.Search(translation, pattern, offset, limit)
 	if err != nil {
 		return failure[bible.SearchPage](err.Error())
@@ -127,12 +156,17 @@ func (s *Service) GetVerseWords(book string, chapter int, verse string) Result[b
 	return success(study)
 }
 func (s *Service) ListBooks(ids []string) Result[[]bible.Book] {
-	if _, err := s.Data.Align(ids, "GEN", 1); err != nil {
+	s.editionOps.RLock()
+	defer s.editionOps.RUnlock()
+	books, err := s.Data.AvailableBooks(ids)
+	if err != nil {
 		return failure[[]bible.Book](err.Error())
 	}
-	return success(s.Data.Books)
+	return success(books)
 }
 func (s *Service) GetChapter(ids []string, book string, chapter int, request string) Result[bible.Chapter] {
+	s.editionOps.RLock()
+	defer s.editionOps.RUnlock()
 	c, err := s.Data.Align(ids, book, chapter)
 	if err != nil {
 		return failure[bible.Chapter](err.Error())
@@ -146,6 +180,7 @@ func (s *Service) GetPreferences() Result[Preferences] {
 		return failure[Preferences]("STORAGE_ERROR")
 	}
 	p.ProjectionStyle = p.ProjectionStyle.normalizedTheme()
+	s.sanitizeEditionReferences(&p)
 	if !s.validPreferences(p) {
 		return failure[Preferences]("INVALID_SETTINGS")
 	}
@@ -172,7 +207,11 @@ func (s *Service) validPreferences(p Preferences) bool {
 	if !slices.Contains([]string{"light", "paper", "sage", "night"}, p.ReadingTheme) {
 		return false
 	}
-	_, err := s.Data.Align(p.Translations, p.BookID, p.Chapter)
+	ids := p.Translations
+	if !p.Parallel && len(ids) > 0 {
+		ids = ids[:1]
+	}
+	_, err := s.Data.Align(ids, p.BookID, p.Chapter)
 	return err == nil && slices.Contains(referenceStyles, p.ReferenceStyle) && slices.Contains([]string{"before", "after"}, p.ReferencePosition) && slices.Contains([]string{"zh-CN", "en"}, p.UILanguage) && p.FontSize >= 14 && p.FontSize <= 32 && p.WindowWidth >= 1024 && p.WindowWidth <= 16384 && p.WindowHeight >= 640 && p.WindowHeight <= 16384 && p.ScrollOffset >= 0 && p.ScrollOffset < 100000 && p.SchemaVersion == 1
 }
 func (s *Service) SavePreferences(p Preferences) Result[bool] {
@@ -198,7 +237,8 @@ func (s *Service) ListHighlights(ids []string, book string, chapter int) Result[
 	}
 	out := []storage.Highlight{}
 	for _, h := range hs {
-		if slices.Contains(ids, h.TranslationID) {
+		t, _ := s.Data.Translation(h.TranslationID)
+		if slices.Contains(ids, h.TranslationID) && (t.Origin != "user" || h.DataVersion == t.DataVersion) {
 			out = append(out, h)
 		}
 	}
@@ -229,20 +269,26 @@ func boundaries(text string) map[int]bool {
 	return b
 }
 func (s *Service) validate(sel Selection) ([]storage.Highlight, error) {
-	t, ok := s.Data.Translation(sel.TranslationID)
+	return validateSelection(s.Data.Snapshot(), sel)
+}
+func validateSelection(data *bible.Dataset, sel Selection) ([]storage.Highlight, error) {
+	t, ok := data.Translation(sel.TranslationID)
 	if !ok {
 		return nil, errors.New("INVALID_TRANSLATION")
 	}
 	if sel.DataVersion != t.DataVersion {
 		return nil, errors.New("STALE_DATA")
 	}
-	if _, e := s.Data.Align([]string{sel.TranslationID}, sel.BookID, sel.Chapter); e != nil {
+	if _, e := data.Align([]string{sel.TranslationID}, sel.BookID, sel.Chapter); e != nil {
 		return nil, e
 	}
 	if len(sel.Spans) == 0 || len(sel.Spans) > 200 {
 		return nil, errors.New("INVALID_SELECTION")
 	}
-	verses := s.Data.Chapters[bible.ChapterKey(sel.TranslationID, sel.BookID, sel.Chapter)]
+	verses, e := data.ChapterVerses(sel.TranslationID, sel.BookID, sel.Chapter)
+	if e != nil {
+		return nil, e
+	}
 	out := []storage.Highlight{}
 	previous := -1
 	for i, p := range sel.Spans {
@@ -269,6 +315,8 @@ func (s *Service) validate(sel Selection) ([]storage.Highlight, error) {
 }
 
 func (s *Service) ApplyHighlight(request string, sel Selection, color string) Result[[]storage.Highlight] {
+	s.editionOps.RLock()
+	defer s.editionOps.RUnlock()
 	if len(request) < 8 || len(request) > 100 || !slices.Contains([]string{"", "yellow", "green", "blue", "pink", "purple"}, color) {
 		return failure[[]storage.Highlight]("INVALID_SELECTION")
 	}
@@ -291,11 +339,14 @@ type CopyOptions struct {
 }
 
 func (s *Service) CopySelection(sel Selection, mode string, ids []string, options CopyOptions) Result[bool] {
+	s.editionOps.RLock()
+	defer s.editionOps.RUnlock()
+	data := s.Data.Snapshot()
 	options, err := options.normalized()
 	if err != nil {
 		return failure[bool](err.Error())
 	}
-	if _, err = s.validate(sel); err != nil {
+	if _, err = validateSelection(data, sel); err != nil {
 		return failure[bool](err.Error())
 	}
 	full := false
@@ -306,7 +357,7 @@ func (s *Service) CopySelection(sel Selection, mode string, ids []string, option
 		if len(ids) < 2 || !slices.Contains(ids, sel.TranslationID) {
 			return failure[bool]("INVALID_SELECTION")
 		}
-		if _, err = s.Data.Align(ids, sel.BookID, sel.Chapter); err != nil {
+		if _, err = data.Align(ids, sel.BookID, sel.Chapter); err != nil {
 			return failure[bool](err.Error())
 		}
 		full = true
@@ -315,7 +366,7 @@ func (s *Service) CopySelection(sel Selection, mode string, ids []string, option
 	}
 	blocks := make([]string, 0, len(ids))
 	for _, id := range ids {
-		blocks = append(blocks, passageText(s.passage(sel, id, full, options)))
+		blocks = append(blocks, passageText(passage(data, sel, id, full, options)))
 	}
 	if s.Desktop == nil || s.Desktop.Copy(strings.Join(blocks, "\n\n")) != nil {
 		return failure[bool]("CLIPBOARD_ERROR")
@@ -337,17 +388,20 @@ type CardContent struct {
 }
 
 func (s *Service) GetCard(sel Selection, ids []string, full bool, options CopyOptions) Result[CardContent] {
+	s.editionOps.RLock()
+	defer s.editionOps.RUnlock()
+	data := s.Data.Snapshot()
 	options, err := options.normalized()
 	if err != nil {
 		return failure[CardContent](err.Error())
 	}
-	if _, err = s.validate(sel); err != nil {
+	if _, err = validateSelection(data, sel); err != nil {
 		return failure[CardContent](err.Error())
 	}
 	if len(sel.Spans) > 20 {
 		return failure[CardContent]("CARD_LIMIT")
 	}
-	if _, err = s.Data.Align(ids, sel.BookID, sel.Chapter); err != nil {
+	if _, err = data.Align(ids, sel.BookID, sel.Chapter); err != nil {
 		return failure[CardContent](err.Error())
 	}
 	if !full && (len(ids) != 1 || ids[0] != sel.TranslationID) {
@@ -355,7 +409,7 @@ func (s *Service) GetCard(sel Selection, ids []string, full bool, options CopyOp
 	}
 	out := CardContent{Lines: []CardLine{}, FileName: fmt.Sprintf("bible-%s-%d-%s", sel.BookID, sel.Chapter, sel.Spans[0].VerseKey)}
 	for _, id := range ids {
-		line := s.passage(sel, id, full, options)
+		line := passage(data, sel, id, full, options)
 		out.Lines = append(out.Lines, line)
 		out.Codepoints += utf8.RuneCountInString(line.Text) + utf8.RuneCountInString(line.Reference)
 	}

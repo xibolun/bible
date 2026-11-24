@@ -10,6 +10,8 @@ import { Alert, AutoComplete, Button, Input, Space } from "antd";
 import { PlusOutlined, SendOutlined } from "@ant-design/icons";
 import type { InputRef } from "antd";
 import type { API, Book, Chapter } from "../../shared/types";
+import { chapterNumbers } from "../../shared/navigation";
+import { verseNumbers } from "../../shared/verse-labels";
 import { errorText, translator, type Language } from "../../shared/locale";
 import { matchesBookSearch } from "../../shared/book-search";
 import { projectionSearchText } from "./model";
@@ -93,7 +95,7 @@ export function PassagePicker({
   const pending = useRef("");
   const composing = useRef(false);
   const previousFocus = useRef({ active: false, request: focusRequest });
-  const startTouched = useRef(!!initialReference),
+  const startTouched = useRef(/:[0-9]/.test(initialReference)),
     previousTranslation = useRef(translation);
   const source = useRef<
     | {
@@ -181,8 +183,8 @@ export function PassagePicker({
         if (!startTouched.current) {
           setValues((v) => ({
             ...v,
-            start: available[0] || "",
-            end: available[0] || "",
+            start: String(verseNumbers(available)[0] || ""),
+            end: String(verseNumbers(available)[0] || ""),
           }));
           requestAnimationFrame(() => {
             const input = startInput.current?.input;
@@ -273,9 +275,15 @@ export function PassagePicker({
       revision.current++;
       startTouched.current = false;
       setBookID(book.id);
-      setChapter(1);
+      const firstChapter = chapterNumbers(book)[0];
+      setChapter(firstChapter);
       setRange(false);
-      setValues({ book: name(book), chapter: "1", start: "1", end: "1" });
+      setValues({
+        book: name(book),
+        chapter: String(firstChapter),
+        start: "1",
+        end: "1",
+      });
     } else setValues((v) => ({ ...v, book: name(book) }));
     setPopup(undefined);
     return book;
@@ -283,7 +291,7 @@ export function PassagePicker({
   const commitChapter = (value: string) => {
     const book = entryBook(books, read("book")),
       ch = entryNumber(value);
-    if (!book || !ch || ch > book.chapters)
+    if (!book || !ch || !chapterNumbers(book).includes(ch))
       throw new Error("INVALID_REFERENCE");
     if (ch !== chapter || book.id !== bookID) {
       revision.current++;
@@ -313,7 +321,7 @@ export function PassagePicker({
     try {
       const book = entryBook(books, read("book")),
         ch = entryNumber(read("chapter"));
-      if (!book || !ch || ch > book.chapters)
+      if (!book || !ch || !chapterNumbers(book).includes(ch))
         throw new Error("INVALID_REFERENCE");
       const start = read("start"),
         end = range && field !== "start" ? read("end") : undefined;
@@ -489,6 +497,24 @@ export function PassagePicker({
       failure(e);
     }
   };
+  useEffect(() => {
+    const book = books.find((b) => b.id === bookID) || books[0];
+    if (!book) return;
+    if (book.id !== bookID || !chapterNumbers(book).includes(chapter)) {
+      const firstChapter = chapterNumbers(book)[0];
+      revision.current++;
+      startTouched.current = false;
+      setBookID(book.id);
+      setChapter(firstChapter);
+      setRange(false);
+      setValues({
+        book: language === "en" ? book.englishName : book.name,
+        chapter: String(firstChapter),
+        start: "1",
+        end: "1",
+      });
+    }
+  }, [books, bookID, chapter, language]);
   const currentBook = entryBook(books, values.book);
   const ready = !busy && !loadError && loaded === key;
   const suggestedLabels =
@@ -504,11 +530,9 @@ export function PassagePicker({
         .map((book) => ({ value: name(book), label: name(book) }));
     const all =
       field === "chapter"
-        ? Array.from({ length: currentBook?.chapters || 0 }, (_, i) =>
-            String(i + 1),
-          )
+        ? chapterNumbers(currentBook).map(String)
         : field === "start"
-          ? suggestedLabels
+          ? verseNumbers(suggestedLabels).map(String)
           : rangeEndLabels(
               suggestedLabels,
               String(entryNumber(values.start) || ""),
@@ -544,6 +568,9 @@ export function PassagePicker({
         ).map((field) => (
           <AutoComplete<string>
             key={field}
+            // Reopening during a delayed leave animation can detach an option
+            // between mouse down/up. Quick entry needs immediate popup changes.
+            transitionName=""
             className={
               field === "book"
                 ? "projection-book-select"

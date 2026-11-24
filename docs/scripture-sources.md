@@ -1,56 +1,52 @@
 # Scripture sources and editions
 
-The application bundles four complete 66-book translations. SWORD is a module
-format and toolchain; it is not an English Bible translation. The initial WEBP
-snapshot came directly from its publisher because a plain-text export and its
-public-domain notice were available. Chinese CUV and the added KJV use SWORD
-modules; the application does not link or require a SWORD runtime library.
+The application bundles only Simplified Chinese CUV, covering the 66-book canon.
+WEBP, KJV and Darby scripture are no longer bundled; other editions use local import.
+SWORD is a module format and toolchain, not an English translation. No SWORD
+runtime library or external converter is required by the application.
 
-| Translation                           | Source and pinned edition                          | Publisher notice                                                                                    |
-| ------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| CUV, simplified Chinese Union Version | CrossWire ChiUns 3.1; module source identifies FHL | Public Domain                                                                                       |
-| WEBP, World English Bible             | eBible engwebp snapshot 2026-11-13                 | Public Domain; retain the translation name for unchanged text                                       |
-| KJV, King James Version (1769)        | CrossWire KJV 3.1, 2023-07-19                      | DistributionLicense=GPL; exact CrossWire permission and Crown-of-England base-text notice preserved |
-| DBY, English Darby Translation         | eBible engDBY, source text dated 2019-11-15, retrieved 2026-11-20 | Public Domain; original publisher notice and exact scripture wording retained |
+| Translation | Source and pinned edition | Publisher notice |
+| --- | --- | --- |
+| CUV, simplified Chinese Union Version | CrossWire ChiUns 3.1; source identifies FHL | Public Domain; original module notice retained |
 
-Source links: [ChiUns](https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=ChiUns),
-[WEBP](https://ebible.org/bible/details.php?id=engwebp),
-[KJV](https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=KJV),
-[DBY](https://ebible.org/find/details.php?id=engDBY).
-Checksums and transformation metadata are in `data/manifest.json`. Original
-publisher notices are in `data/` and `licenses/scripture-*`; the KJV module's
-metadata is not relabeled as global public domain. These data notices do not
-choose or change the original application's license.
+Exact input hashes, conversion descriptions, verse counts and output fingerprints
+are in `data/manifest.json`. Source notices ship in `data/` and `licenses/`.
+CUV text and data versions remain unchanged, preserving highlight offsets.
 
-## Rebuilding the data
-
-Use the exact archives in the manifest, SWORD 1.9.0 utilities and the recorded
-export formats. Install the two SWORD modules into a separate development
-module directory and set `SWORD_PATH` to that directory. Do not put modules or
-machine-local tool binaries in the repository.
+To rebuild from the pinned inputs:
 
 ```sh
 diatheke -b ChiUns -f plain -k 'Genesis 1:1-Revelation 22:21' > ChiUns.txt
-mod2vpl KJV 1 > KJV-raw.vpl
 python3 tools/import_data.py \
-  --chinese-archive /path/to/ChiUns.zip --chinese-export /path/to/ChiUns.txt \
-  --english-archive /path/to/engwebp_vpl.zip \
-  --kjv-archive /path/to/KJV.zip --kjv-export /path/to/KJV-raw.vpl \
-  --darby-archive /path/to/engDBY_vpl.zip
+  --chinese-archive /path/to/ChiUns.zip --chinese-export /path/to/ChiUns.txt
 python3 tools/licenses.py
 make verify-data
 ```
 
-KJV is parsed from per-verse raw OSIS records. The importer removes note/title
-content and attributes, retains verse words and divine-name capitalization,
-and normalizes layout whitespace. This avoids diatheke's bulk plain-renderer
-behavior that can repeat a Psalm heading across later verses. Verse-zero and
-book/testament introductions are excluded. KJV contains 31,102 numbered verses.
+The local importer supports a bounded SWORD zText/ZIP/UTF-8/OSIS KJV/NRSV profile,
+including the user-supplied Darby 2.0 ZIP. That module has 66 books, 1189
+chapters and 31,099 scripture records. It stays in private user storage and is
+not added to the public dataset. See [edition-import.md](edition-import.md).
+A separate chapter/verse count table supports SWORD and theWord indexing
+without carrying KJV scripture.
 
-The existing CUV/WEBP data and versions remain unchanged. Their inputs are
-checked against the previous source/export hashes. KJV's `dataVersion` includes
-both the archive fingerprint and normalized verse-content fingerprint, so a
-future conversion change cannot silently reuse an annotation's text version.
+## User-selected downloads
+
+The edition manager reads the official CrossWire `mods.d.tar.gz` catalogue over
+HTTPS only after the reader clicks More editions below the local list. Opening
+Editions or refreshing the local list does not request it. It lists Chinese and English modules
+together with installed editions, retains source notices and checks the supported
+native profile before download. Clicking Download or Update authorizes that
+selected ZIP's validated local installation. Progress, cancellation and retry
+stay in its row; installation completes automatically. Local file imports retain
+their separate preview and confirmation flow.
+No remote module scripture is included in application assets or installers.
+
+Bilingual regression tests explicitly install selected public-domain WEBP excerpts
+from `testdata/webp-reader-fixture.json` into the Mock user library. Those 233
+reference verses are CI-only, derived from the previously bundled pinned WEBP
+source; they are not application assets or a second built-in edition. The original
+WEBP publisher notice remains with the test source attribution.
 
 ## Offline original-language dictionary
 
@@ -78,7 +74,8 @@ No remote dictionary service is needed at runtime.
 
 Input hashes and output counts/checksums are in `data/word-study-manifest.json`
 and `data/chinese-dictionary-manifest.json`. The importer rejects unpinned
-archives; KJV text is checked against every existing verse before deriving links.
+archives; a complete normalized KJV source fingerprint is checked before deriving links.
+KJV's source notice remains for these independent word-study resources.
 To rebuild, use these manifest inputs outside the repository:
 
 ```sh
@@ -103,11 +100,9 @@ must be confirmed before implementation. Guidance is provided by
 
 ## Darby and pending Chinese editions
 
-DBY is the English translation. Its 66 books / 1189 chapters contain 31,099
-source verses; empty publisher records remain gaps. Supplied-word brackets and
-punctuation are retained. A separate normalized corpus fingerprint protects
-annotation offsets, while full fingerprints verify that every legacy CUV,
-WEBP and KJV verse and data version remains unchanged.
+Darby is available through local import rather than the built-in catalogue. Source
+notices, supplied-word brackets, punctuation and omitted verse positions are
+preserved by the applicable import profile. No Chinese Darby text is bundled.
 
 The user confirmed that NIV and Lu Zhenzhong distribution permission is not
 currently available. Lu Zhenzhong is tracked in Issue #24; FHL's regional

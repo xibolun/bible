@@ -15,22 +15,28 @@ import (
 var bundled embed.FS
 
 type Translation struct {
-	ID           string `json:"id"`
-	Language     string `json:"language"`
-	Name         string `json:"name"`
-	Abbreviation string `json:"abbreviation"`
-	DataVersion  string `json:"dataVersion"`
-	SourceURL    string `json:"sourceUrl"`
-	License      string `json:"license"`
+	ID            string `json:"id"`
+	Language      string `json:"language"`
+	Name          string `json:"name"`
+	Abbreviation  string `json:"abbreviation"`
+	DataVersion   string `json:"dataVersion"`
+	SourceURL     string `json:"sourceUrl"`
+	License       string `json:"license"`
+	Origin        string `json:"origin,omitempty"`
+	SourceFormat  string `json:"sourceFormat,omitempty"`
+	SourceEdition string `json:"sourceEdition,omitempty"`
+	Versification string `json:"versification,omitempty"`
+	Comparable    bool   `json:"comparable,omitempty"`
 }
 
 type Book struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Abbreviation string `json:"abbreviation"`
-	EnglishName  string `json:"englishName"`
-	Testament    string `json:"testament"`
-	Chapters     int    `json:"chapters"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Abbreviation   string `json:"abbreviation"`
+	EnglishName    string `json:"englishName"`
+	Testament      string `json:"testament"`
+	Chapters       int    `json:"chapters"`
+	ChapterNumbers []int  `json:"chapterNumbers,omitempty"`
 }
 
 type Verse struct {
@@ -42,6 +48,7 @@ type Dataset struct {
 	Books        []Book             `json:"books"`
 	Translations []Translation      `json:"translations"`
 	Chapters     map[string][]Verse `json:"chapters"`
+	Provider     EditionProvider    `json:"-"`
 }
 
 type Cell struct {
@@ -78,14 +85,14 @@ func Load() (*Dataset, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(d.Books) != 66 || len(d.Translations) < 2 {
+	if len(d.Books) != 66 || len(d.Translations) < 1 {
 		return nil, fmt.Errorf("invalid bundled canon")
 	}
 	return d, nil
 }
 
 func (d *Dataset) Translation(id string) (Translation, bool) {
-	for _, t := range d.Translations {
+	for _, t := range d.AllTranslations() {
 		if t.ID == id {
 			return t, true
 		}
@@ -107,7 +114,11 @@ func ChapterKey(translation, book string, chapter int) string {
 }
 
 func (d *Dataset) Verse(translation, book string, chapter int, label string) (Verse, bool) {
-	for _, v := range d.Chapters[ChapterKey(translation, book, chapter)] {
+	verses, err := d.ChapterVerses(translation, book, chapter)
+	if err != nil {
+		return Verse{}, false
+	}
+	for _, v := range verses {
 		if v.Label == label {
 			return v, true
 		}
@@ -117,34 +128,53 @@ func (d *Dataset) Verse(translation, book string, chapter int, label string) (Ve
 
 // Align keeps source verse labels. Missing verses remain holes, never positional matches.
 func (d *Dataset) Align(ids []string, book string, chapter int) (Chapter, error) {
+	d = d.Snapshot()
 	b, ok := d.Book(book)
-	if !ok || chapter < 1 || chapter > b.Chapters {
+	if !ok || chapter < 1 || chapter > 999 {
 		return Chapter{}, fmt.Errorf("INVALID_REFERENCE")
 	}
-	if len(ids) < 1 || len(ids) > len(d.Translations) {
+	if len(ids) < 1 || len(ids) > len(d.AllTranslations()) {
 		return Chapter{}, fmt.Errorf("INVALID_TRANSLATION")
 	}
 	labels := []string{}
 	all := map[string]bool{}
 	seen := map[string]bool{}
+	contents := map[string]map[string]Verse{}
 	for _, id := range ids {
 		if seen[id] {
 			return Chapter{}, fmt.Errorf("INVALID_TRANSLATION")
 		}
 		seen[id] = true
-		if _, ok := d.Translation(id); !ok {
+		t, ok := d.Translation(id)
+		if !ok {
 			return Chapter{}, fmt.Errorf("INVALID_TRANSLATION")
 		}
-		verses, found := d.Chapters[ChapterKey(id, book, chapter)]
-		if !found {
-			return Chapter{}, fmt.Errorf("DATA_UNAVAILABLE")
+		if len(ids) > 1 && t.Origin == "user" && !t.Comparable {
+			return Chapter{}, fmt.Errorf("VERSIFICATION_UNSUPPORTED")
 		}
+		verses, err := d.ChapterVerses(id, book, chapter)
+		if err != nil {
+			return Chapter{}, err
+		}
+		contents[id] = map[string]Verse{}
 		for _, v := range verses {
+			contents[id][v.Label] = v
 			if !all[v.Label] {
 				labels = append(labels, v.Label)
 				all[v.Label] = true
 			}
 		}
+	}
+	if len(labels) == 0 {
+		for _, id := range ids {
+			if t, _ := d.Translation(id); t.Origin == "user" {
+				return Chapter{}, fmt.Errorf("INVALID_REFERENCE")
+			}
+		}
+		if chapter > b.Chapters {
+			return Chapter{}, fmt.Errorf("INVALID_REFERENCE")
+		}
+		return Chapter{}, fmt.Errorf("DATA_UNAVAILABLE")
 	}
 	slices.SortFunc(labels, func(a, b string) int {
 		number := func(s string) int {
@@ -171,8 +201,8 @@ func (d *Dataset) Align(ids []string, book string, chapter int) (Chapter, error)
 	for _, label := range labels {
 		row := Row{Label: label, Cells: []Cell{}}
 		for _, id := range ids {
-			v, ok := d.Verse(id, book, chapter, label)
-			row.Cells = append(row.Cells, Cell{TranslationID: id, VerseKey: label, Text: v.Text, Missing: !ok})
+			v, ok := contents[id][label]
+			row.Cells = append(row.Cells, Cell{TranslationID: id, VerseKey: label, Text: v.Text, Missing: !ok || v.Text == ""})
 		}
 		out.Rows = append(out.Rows, row)
 	}

@@ -346,6 +346,9 @@ mark.search-keyword {
   flex: 1;
   min-width: 0;
 }
+[data-verse-text][data-origin="user"] {
+  white-space: pre-wrap;
+}
 .verse-cell.is-selected {
   background: #f1f6f9;
 }
@@ -837,4 +840,64 @@ mark.search-keyword {
   border-radius: 3px;
   font-family: Georgia, serif;
   font-size: calc(21px * var(--font-scale, 1));
+}
+
+.edition-manager {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.edition-manager[hidden],
+.edition-manager [hidden] {
+  display: none;
+}
+.edition-manager .ant-table-wrapper {
+  min-width: 0;
+  overflow-x: auto;
+}
+.edition-manager .ant-table {
+  min-width: 480px;
+}
+.edition-manager h4 {
+  margin: 0;
+}
+.edition-download {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 220px;
+  max-width: 100%;
+}
+.edition-download .ant-progress {
+  flex-basis: 100%;
+}
+.edition-download-error {
+  color: var(--ant-color-error, #b42318);
+  overflow-wrap: anywhere;
+}
+.edition-manager p {
+  margin: 0;
+}
+.edition-manager .ant-table-cell {
+  overflow-wrap: anywhere;
+}
+.edition-notice,
+.edition-samples {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+.edition-notice {
+  max-height: 14rem;
+  overflow: auto;
+  background: var(--reading-page);
+  padding: 10px;
+}
+.edition-samples p {
+  border-left: 2px solid var(--blue);
+  padding-left: 12px;
+}
+.edition-source {
+  overflow-wrap: anywhere;
 }

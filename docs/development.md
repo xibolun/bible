@@ -121,10 +121,10 @@ back to Mock success when the Go bridge is unavailable.
 
 ## Data, fonts and user files
 
-Four complete translations (CUV, WEBP, SWORD KJV 3.1 and English Darby DBY) and a CJK font are bundled. Source versions, hashes
+One complete translation (Simplified Chinese CUV) and a CJK font are bundled. Other editions use local import. Source versions, hashes
 and conversion details are in `data/manifest.json` and `data/font.json`.
 `tools/import_data.py` rebuilds text from the pinned publisher archives and a
-CUV plain export and KJV raw per-verse OSIS export; it rejects unknown lines and duplicate references. Run
+CUV plain export; it rejects unknown lines and duplicate references. KJV Strong’s study data is generated separately. Run
 `make verify-data` after regeneration. `tools/create_icons.py` regenerates all
 owned PNG/ICO/ICNS icons and Windows installer artwork from `frontend/public/bible.svg`
 (optional asset-only tooling: CairoSVG 2.8.2 and Pillow 12.x). The font subset was
@@ -145,7 +145,7 @@ edition labels and per-verse prefixes follow the selected preset.
 Comparison copying and cards use only the visible selected translations.
 Legacy preferences receive defaults for the added fields without resetting
 reading positions or annotations. Interface language is independent of scripture.
-Existing CUV/WEBP text versions and highlights are retained. See
+Existing CUV text versions and highlights are retained. See
 [scripture sources and rebuilding](scripture-sources.md) for exact module
 versions, permissions, transformation rules and rebuild commands. NIV remains
 pending authorized data in [Issue #6](https://github.com/xibolun/bible/issues/6),

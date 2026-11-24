@@ -5,7 +5,8 @@ export const translator = (language: Language) => (zh: string, en: string) =>
   language === "en" ? en : zh;
 
 const errors: Record<string, string> = {
-  PROJECTION_LIMIT: "Projection supports up to 12 passages and 600 verses. Reduce the list and retry.",
+  PROJECTION_LIMIT:
+    "Projection supports up to 12 passages and 600 verses. Reduce the list and retry.",
   INVALID_SEARCH:
     "Enter a 1–128 character search pattern and check escapes and pagination.",
   INVALID_WORD: "Enter a Strong’s number such as H430 or G3056.",
@@ -31,9 +32,86 @@ const errors: Record<string, string> = {
     "The desktop service is unavailable. Restart the application.",
 };
 
+const editionErrors: Record<string, [string, string]> = {
+  SOURCE_UNAVAILABLE: [
+    "无法连接CrossWire下载源，请检查网络后重试",
+    "CrossWire is unavailable. Check your connection and retry.",
+  ],
+  SOURCE_REFRESH_REQUIRED: [
+    "请先刷新下载列表",
+    "Refresh the download list first.",
+  ],
+  SOURCE_CHANGED: [
+    "下载源版次已变化，请刷新列表后重试",
+    "The source edition changed. Refresh the list and retry.",
+  ],
+  EDITION_DATA_UNAVAILABLE: [
+    "用户译本数据不可用，请重试或检查译本文件。",
+    "The user edition data is unavailable. Retry or check the edition file.",
+  ],
+  VERSIFICATION_UNSUPPORTED: [
+    "此译本的节编号体系尚未验证，请单独阅读。",
+    "This edition's verse numbering is unverified. Read it individually.",
+  ],
+  EDITION_LIBRARY_UNAVAILABLE: [
+    "用户译本库不可用，内置阅读仍可使用；请检查磁盘或应用版本。",
+    "The user edition library is unavailable. Bundled reading remains available. Check disk access and the application version.",
+  ],
+  FORMAT_UNSUPPORTED: [
+    "此文件格式或标记尚不支持，请使用已支持的译本文件。",
+    "This format or markup is not supported. Choose a supported edition file.",
+  ],
+  FORMAT_AMBIGUOUS: [
+    "压缩包中有多个译本，请解压后选择其中一个。",
+    "The archive contains multiple editions. Extract it and choose one.",
+  ],
+  ENCRYPTED_MODULE: [
+    "不支持此加密资源，请使用获准使用的未加密导出文件。",
+    "Protected modules are not supported. Use a permitted, unencrypted export.",
+  ],
+  ENCODING_UNSUPPORTED: [
+    "文件编码无法可靠读取，请使用UTF-8或受支持的XML编码。",
+    "The encoding cannot be read reliably. Use UTF-8 or a supported XML encoding.",
+  ],
+  SCHEMA_UNSUPPORTED: [
+    "文件结构不是已支持的译本模块。",
+    "The file schema is not a supported Bible module.",
+  ],
+  REFERENCE_UNSUPPORTED: [
+    "书卷或节编号无法可靠解析，文件未安装。",
+    "A book or verse identifier cannot be interpreted reliably. The edition was not installed.",
+  ],
+  INVALID_CONTENT: [
+    "文件内容损坏、重复或不完整，文件未安装。",
+    "The file is damaged, duplicated or incomplete. The edition was not installed.",
+  ],
+  IMPORT_LIMIT: [
+    "文件大小、记录数量或处理时间超出导入限制。",
+    "The import exceeded a file size, record count or processing time limit.",
+  ],
+  IMPORT_CANCELLED: [
+    "已取消导入，未安装任何内容。",
+    "Import cancelled. No text was installed.",
+  ],
+  IMPORT_IO: [
+    "无法读取或保存导入数据，请检查磁盘空间和权限后重试。",
+    "Import data could not be read or saved. Check disk space and permissions, then retry.",
+  ],
+  DRAFT_EXPIRED: [
+    "预览已失效，请重新选择文件。",
+    "The preview expired. Choose the file again.",
+  ],
+  IMPORT_BUSY: [
+    "正在处理另一个导入操作，请稍后重试。",
+    "Another import operation is in progress. Please retry when it finishes.",
+  ],
+};
+
 export function errorText(error: unknown, language: Language) {
   const value = error as { code?: string; message?: string };
   const code = value?.code ?? value?.message ?? "";
+  if (editionErrors[code])
+    return editionErrors[code][language === "en" ? 1 : 0];
   if (language !== "en" && code === "INVALID_SEARCH")
     return "请输入 1–128 个字符的搜索条件，检查转义符和分页范围。";
   if (language !== "en" && code === "INVALID_WORD")

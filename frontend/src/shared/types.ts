@@ -1,4 +1,5 @@
 import type { ReadingTheme } from "./themes";
+import type { EditionAPI } from "../features/editions/types";
 import {
   defaultProjectionStyle,
   type ProjectionStyle,
@@ -13,6 +14,11 @@ export interface Translation {
   dataVersion: string;
   sourceUrl: string;
   license: string;
+  origin?: string;
+  sourceFormat?: string;
+  sourceEdition?: string;
+  versification?: string;
+  comparable?: boolean;
 }
 export interface Book {
   id: string;
@@ -21,6 +27,7 @@ export interface Book {
   englishName: string;
   testament: string;
   chapters: number;
+  chapterNumbers?: number[];
 }
 export interface Verse {
   label: string;
@@ -158,7 +165,7 @@ export const defaults: Preferences = {
   chapter: 1,
   topVerse: "",
   scrollOffset: 0,
-  translations: ["cuv", "webp"],
+  translations: ["cuv"],
   parallel: false,
   fontSize: 18,
   globalFontSize: 13,
@@ -181,7 +188,7 @@ export const colors: Record<string, { name: string; value: string }> = {
   pink: { name: "粉色", value: "#ffd5e0" },
   purple: { name: "紫色", value: "#e8d9ff" },
 };
-export interface API {
+export interface API extends EditionAPI {
   GetProjection(): Promise<ProjectionState>;
   SetProjection(
     reference: string,
