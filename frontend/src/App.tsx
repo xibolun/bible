@@ -130,6 +130,15 @@ function Reader({
   const [searchFocus, setSearchFocus] = useState(0);
   const [settingsTab, setSettingsTab] = useState("reading");
   const [projectionFocus, setProjectionFocus] = useState(0);
+  const openSettings = useCallback(() => {
+    if (card) return;
+    setSelection(null);
+    setSearching(false);
+    setProjecting(false);
+    setStudyVerse(null);
+    setSettingsTab("reading");
+    setSettings(true);
+  }, [card]);
   const openProjection = useCallback(() => {
     setSettings(false);
     setStudyVerse(null);
@@ -678,6 +687,10 @@ function Reader({
     const key = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
       const command = commandShortcut(event);
+      if (command === "settings" && !card) {
+        event.preventDefault();
+        openSettings();
+      }
       if (command === "search" && !card) {
         event.preventDefault();
         openSearch();
@@ -709,14 +722,16 @@ function Reader({
       if (!card) openSearch();
     };
     window.addEventListener("keydown", key);
+    window.addEventListener("bible:settings", openSettings);
     window.addEventListener("bible:quit", nativeQuit);
     window.addEventListener("bible:search", nativeSearch);
     return () => {
       window.removeEventListener("keydown", key);
+      window.removeEventListener("bible:settings", openSettings);
       window.removeEventListener("bible:quit", nativeQuit);
       window.removeEventListener("bible:search", nativeSearch);
     };
-  }, [openSearch, quit, copy, selection, card]);
+  }, [openSettings, openSearch, quit, copy, selection, card]);
   async function paint(color: string) {
     if (!api || !selection) return;
     setPainting(true);
@@ -1107,15 +1122,7 @@ function Reader({
                 }
               />
             </label>
-            <Button
-              onClick={() => {
-                setSelection(null);
-                setSettingsTab("reading");
-                setSettings(true);
-              }}
-            >
-              {t("设置", "Settings")}
-            </Button>
+            <Button onClick={openSettings}>{t("设置", "Settings")}</Button>
           </div>
         </header>
         <nav className="chapter-nav" aria-label={t("章节导航", "Chapters")}>

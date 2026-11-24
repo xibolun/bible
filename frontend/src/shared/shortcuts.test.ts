@@ -13,6 +13,7 @@ const event = (key: string, values = {}) => ({
 });
 it("recognizes Ctrl and Command shortcuts without consuming input paste", () => {
   for (const modifier of [{}, { ctrlKey: false, metaKey: true }]) {
+    expect(commandShortcut(event(",", modifier))).toBe("settings");
     expect(commandShortcut(event("f", modifier))).toBe("search");
     expect(commandShortcut(event("C", modifier))).toBe("copy");
     expect(commandShortcut(event("q", modifier))).toBe("quit");
@@ -25,8 +26,10 @@ it("recognizes Ctrl and Command shortcuts without consuming input paste", () => 
     { shiftKey: true },
     { repeat: true },
     { isComposing: true },
-  ])
+  ]) {
     expect(commandShortcut(event("f", modifier))).toBeUndefined();
+    expect(commandShortcut(event(",", modifier))).toBeUndefined();
+  }
 });
 it("saves the latest settings before quitting and preserves the app on save failure", async () => {
   const calls: string[] = [];

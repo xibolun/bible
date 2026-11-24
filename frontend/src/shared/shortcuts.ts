@@ -22,6 +22,8 @@ export function commandShortcut(
   )
     return;
   switch (event.key.toLowerCase()) {
+    case ",":
+      return "settings";
     case "f":
       return "search";
     case "c":

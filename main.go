@@ -261,6 +261,11 @@ func main() {
 					webview.ExecJS("window.dispatchEvent(new Event('bible:search'))")
 				}
 			},
+			"CmdOrCtrl+,": func(window application.Window) {
+				if webview, ok := window.(*application.WebviewWindow); ok {
+					webview.ExecJS("window.dispatchEvent(new Event('bible:settings'))")
+				}
+			},
 			"CmdOrCtrl+q": func(window application.Window) {
 				if webview, ok := window.(*application.WebviewWindow); ok {
 					webview.ExecJS("window.dispatchEvent(new Event('bible:quit'))")
@@ -275,9 +280,15 @@ func main() {
 		appMenu.AddRole(application.About)
 		appMenu.AddSeparator()
 		quitLabel := "退出圣经"
+		settingsLabel := "设置…"
 		if p.UILanguage == "en" {
 			quitLabel = "Quit Bible"
+			settingsLabel = "Settings…"
 		}
+		appMenu.Add(settingsLabel).SetAccelerator("CmdOrCtrl+,").OnClick(func(_ *application.Context) {
+			win.ExecJS("window.dispatchEvent(new Event('bible:settings'))")
+		})
+		appMenu.AddSeparator()
 		appMenu.Add(quitLabel).SetAccelerator("CmdOrCtrl+q").OnClick(func(_ *application.Context) {
 			win.ExecJS("window.dispatchEvent(new Event('bible:quit'))")
 		})

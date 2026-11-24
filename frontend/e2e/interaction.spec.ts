@@ -203,6 +203,46 @@ test("global typography scales UI and scripture, preserves PNG sizing and remain
     .toBeCloseTo((beforeVerse * 20) / 13, 1);
 });
 
+test("settings shortcuts open from reading and inputs and preserve the active settings tab", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator("h1").click();
+  await page.keyboard.press("Meta+,");
+  const settings = page.getByRole("dialog", { name: "设置", exact: true });
+  await expect(settings).toBeVisible();
+  const editions = settings.getByRole("tab", { name: "译本管理", exact: true });
+  await editions.click();
+  await page.keyboard.press("Meta+,");
+  await expect(editions).toHaveAttribute("aria-selected", "true");
+  await expect(settings).toHaveCount(1);
+  await settings.getByRole("button", { name: "完成", exact: true }).click();
+
+  await page.keyboard.press("Control+f");
+  const search = page.getByRole("searchbox", { name: "搜索条件", exact: true });
+  await expect(search).toBeFocused();
+  await search.fill("起%神");
+  await page.keyboard.press("Meta+,");
+  await expect(settings).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "经文搜索", exact: true }),
+  ).toHaveCount(0);
+  const fontSize = settings.getByRole("spinbutton", {
+    name: "全局字号",
+    exact: true,
+  });
+  await fontSize.fill("17");
+  await page.keyboard.press("Control+,");
+  await expect(fontSize).toHaveValue("17");
+  await settings.getByRole("button", { name: "完成", exact: true }).click();
+
+  await page.keyboard.press("Control+,");
+  await expect(settings).toBeVisible();
+  await settings.getByRole("button", { name: "完成", exact: true }).click();
+  await page.evaluate(() => window.dispatchEvent(new Event("bible:settings")));
+  await expect(settings).toBeVisible();
+});
+
 test("standard search, input copy/paste and quit commands preserve their contexts", async ({
   page,
 }) => {
