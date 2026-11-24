@@ -186,7 +186,7 @@ test("CUV/WEBP stacked versions, selected-version copy, highlights and cards", a
     page.getByRole("button", { name: "设置", exact: true }),
   ).toBeInViewport();
   await page.screenshot({
-    path: test.info().outputPath("user:e2e-webp-reader-1024.png"),
+    path: test.info().outputPath("user-e2e-webp-reader-1024.png"),
     animations: "disabled",
   });
   await page
@@ -213,7 +213,7 @@ test("CUV/WEBP stacked versions, selected-version copy, highlights and cards", a
   await page.getByRole("button", { name: "导出 PNG" }).click();
   const download = await pending;
   await download.saveAs(
-    test.info().outputPath("user:e2e-webp-comparison-card.png"),
+    test.info().outputPath("user-e2e-webp-comparison-card.png"),
   );
   await page
     .getByRole("button", { name: "关闭卡片编辑器", exact: true })
@@ -286,7 +286,7 @@ test("legacy settings, bilingual interface and reference placement in keyboard c
   await panel.getByRole("tab", { name: "About", exact: true }).click();
   await expect(
     panel.getByText(
-      `Application version ${process.env.BIBLE_APP_VERSION || "0.1.0"}`,
+      `Application version ${process.env.BIBLE_APP_VERSION || "v0.3.0"}`,
     ),
   ).toBeVisible();
   await expect(

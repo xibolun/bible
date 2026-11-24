@@ -8,32 +8,27 @@ Only scripture text is included; optional Strong/morphology/footnote resources
 are not included. Source configuration is in licenses/scripture-ChiUns-source.conf;
 pinned data hashes are also recorded in the package build manifest.
 
-English scripture: King James Version (1769), CrossWire/SWORD KJV module 3.1.
+Independent word-study associations: King James Version (1769),
+CrossWire/SWORD KJV module 3.1. The KJV Bible body is not bundled.
 Source: https://www.crosswire.org/sword/modules/ModInfo.jsp?modName=KJV
 Upstream source: https://gitlab.com/crosswire-bible-society/kjv
 The module declares DistributionLicense=GPL. Its source notice grants use of
 CrossWire's work for any purpose and identifies the Crown of England's rights
 to the base text. The complete upstream notice is preserved in
 licenses/scripture-KJV-source.conf; do not describe it as globally Public Domain.
-Scripture wording and divine-name capitalization remain unchanged. Separate
-word-study data retains the KJV Strong's word-group associations; morphology,
-footnotes and unnumbered titles are excluded from the displayed scripture.
+Word-study data retains the KJV Strong's word-group associations with source
+wording and divine-name capitalization unchanged; morphology, footnotes and
+unnumbered titles are excluded.
 Normalized source text and the reproducible import tool are available from
 https://github.com/xibolun/bible. This text-module notice does not select or
 change the license of the application's original code.
 
-English scripture: World English Bible, Protestant edition (WEBP / engwebp).
+Test fixture only: World English Bible, Protestant edition (WEBP / engwebp).
+Public-domain excerpts are used in CI; WEBP scripture is not bundled in the app.
 Source: https://ebible.org/bible/details.php?id=engwebp
 Publisher designation: Public Domain. Preserve the translation name only for
 unaltered scripture text. The source publisher's notice is in
 licenses/scripture-WEBP-source.html.
-
-English scripture: Darby Translation (DBY / engDBY), text dated 2019-11-15.
-Source: https://ebible.org/find/details.php?id=engDBY
-Publisher designation: Public Domain. The unchanged publisher notice is in
-licenses/scripture-DBY-source.html. Source wording, punctuation, bracketed
-supplied words and verse labels are preserved. This is the English translation;
-it is not a Chinese retranslation or an official Chinese Darby edition.
 
 Chinese dictionary: FHL Information Center / CBOL contributors, Old and New
 Testament original-language dictionaries. GNU Free Documentation License 1.1

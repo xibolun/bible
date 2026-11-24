@@ -3,7 +3,7 @@ PYTHON ?= python
 else
 PYTHON ?= python3
 endif
-VERSION ?= v0.1.0
+VERSION ?= v0.3.0
 REF ?= main
 TARGET_ARGS = $(if $(GOOS),--os $(GOOS)) $(if $(GOARCH),--arch $(GOARCH))
 .PHONY: help doctor check build package dist dev clean bindings verify-data verify-branding release-artifacts smoke

@@ -5,11 +5,11 @@ tasks:
   build:
     desc: Compile the native desktop binary
     cmds:
-      - '{{.PYTHON}} tools/project.py compile --os {{.TARGET_OS | default OS}} --arch {{.TARGET_ARCH | default ARCH}} --version {{.VERSION | default "v0.1.0"}} {{if eq .DEV "true"}}--dev{{end}}'
+      - '{{.PYTHON}} tools/project.py compile --os {{.TARGET_OS | default OS}} --arch {{.TARGET_ARCH | default ARCH}} --version {{.VERSION | default "v0.3.0"}} {{if eq .DEV "true"}}--dev{{end}}'
   package:
     desc: Compile and package for the native target
     cmds:
-      - '{{.PYTHON}} tools/project.py package-native --os {{.TARGET_OS | default OS}} --arch {{.TARGET_ARCH | default ARCH}} --version {{.VERSION | default "v0.1.0"}}'
+      - '{{.PYTHON}} tools/project.py package-native --os {{.TARGET_OS | default OS}} --arch {{.TARGET_ARCH | default ARCH}} --version {{.VERSION | default "v0.3.0"}}'
   frontend:dev:
     desc: Run frontend hot reload
     dir: frontend
