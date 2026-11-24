@@ -123,6 +123,9 @@ func plainTags(input, kind string) (string, error) {
 			}
 			continue
 		}
+		if kind == "mysword" && (name == "HEB" || name == "heb") {
+			continue
+		}
 		if kind == "mybible" {
 			switch name {
 			case "S", "m", "n", "f", "h":

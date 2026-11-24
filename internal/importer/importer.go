@@ -76,6 +76,10 @@ func Describe(err error) (string, string) {
 // Parse works only on an application's private input snapshot. ZIP entries are
 // never extracted using their names, and source schemas are never executed.
 func Parse(ctx context.Context, filename, originalName string, canon *bible.Dataset) (*Draft, error) {
+	return parse(ctx, filename, originalName, canon, true)
+}
+
+func parse(ctx context.Context, filename, originalName string, canon *bible.Dataset, allowArchive bool) (*Draft, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -102,7 +106,32 @@ func Parse(ctx context.Context, filename, originalName string, canon *bible.Data
 	var magic [16]byte
 	n, _ := f.Read(magic[:])
 	_, _ = f.Seek(0, 0)
-	if n >= 4 && string(magic[:2]) == "PK" {
+	isZIP := n >= 4 && string(magic[:2]) == "PK"
+	isGZIP := n >= 2 && magic[0] == 0x1f && magic[1] == 0x8b
+	if (isZIP || isGZIP) && !allowArchive {
+		return nil, fail("FORMAT_UNSUPPORTED", "nested archive")
+	}
+	if isGZIP {
+		snapshot, name, err := unpackGZIP(ctx, f, filepath.Dir(filename), MaxFile)
+		if err != nil {
+			return nil, err
+		}
+		defer os.Remove(snapshot)
+		if name == "" {
+			name = originalName
+			if ext := filepath.Ext(name); strings.EqualFold(ext, ".gz") {
+				name = strings.TrimSuffix(name, ext)
+			}
+		}
+		// The header name is only a format hint, never an extraction path.
+		name = filepath.Base(strings.ReplaceAll(name, "\\", "/"))
+		d, err := parse(ctx, snapshot, name, canon, false)
+		if err == nil {
+			d.SourceHash = sourceHash
+		}
+		return d, err
+	}
+	if isZIP {
 		z, err := zip.NewReader(f, info.Size())
 		if err != nil {
 			return nil, fail("INVALID_CONTENT", "ZIP")
@@ -131,8 +160,8 @@ func Parse(ctx context.Context, filename, originalName string, canon *bible.Data
 				continue
 			}
 			ext := strings.ToLower(filepath.Ext(name))
-			if ext == ".zip" {
-				return nil, fail("FORMAT_UNSUPPORTED", "nested ZIP")
+			if ext == ".zip" || ext == ".gz" {
+				return nil, fail("FORMAT_UNSUPPORTED", "nested archive")
 			}
 			if strings.HasSuffix(strings.ToLower(name), ".bbl.mybible") || ext == ".sqlite3" || ext == ".xml" || ext == ".osis" || ext == ".ont" || ext == ".ot" || ext == ".nt" {
 				if candidate != nil {
@@ -165,7 +194,7 @@ func Parse(ctx context.Context, filename, originalName string, canon *bible.Data
 		if size > MaxFile {
 			return nil, fail("IMPORT_LIMIT", "ZIP resource")
 		}
-		d, err := Parse(ctx, out.Name(), candidate.Name, canon)
+		d, err := parse(ctx, out.Name(), candidate.Name, canon, false)
 		if err == nil {
 			d.SourceHash = sourceHash
 		}

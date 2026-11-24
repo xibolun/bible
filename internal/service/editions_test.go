@@ -1,6 +1,8 @@
 package service
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -22,8 +24,28 @@ type editionDesktop struct {
 func (d *editionDesktop) ChooseEditionFile() (string, error) { return d.filename, nil }
 func importFixture(t *testing.T, s *Service, desk *editionDesktop, body, replace string) string {
 	t.Helper()
-	file := filepath.Join(t.TempDir(), "fixture.xml")
-	if e := os.WriteFile(file, []byte(`<XMLBIBLE biblename="Synthetic"><INFORMATION><rights>CC0 self-authored test fixture</rights></INFORMATION><BIBLEBOOK bnumber="43"><CHAPTER cnumber="3"><VERS vnumber="3" e="4">`+body+`</VERS></CHAPTER></BIBLEBOOK></XMLBIBLE>`), 0600); e != nil {
+	return importFixtureWithCompression(t, s, desk, body, replace, false)
+}
+
+func importFixtureWithCompression(t *testing.T, s *Service, desk *editionDesktop, body, replace string, compressed bool) string {
+	t.Helper()
+	name := "fixture.xml"
+	content := []byte(`<XMLBIBLE biblename="Synthetic"><INFORMATION><rights>CC0 self-authored test fixture</rights></INFORMATION><BIBLEBOOK bnumber="43"><CHAPTER cnumber="3"><VERS vnumber="3" e="4">` + body + `</VERS></CHAPTER></BIBLEBOOK></XMLBIBLE>`)
+	if compressed {
+		var buffer bytes.Buffer
+		w := gzip.NewWriter(&buffer)
+		w.Name = name
+		if _, err := w.Write(content); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		name += ".gz"
+		content = buffer.Bytes()
+	}
+	file := filepath.Join(t.TempDir(), name)
+	if e := os.WriteFile(file, content, 0600); e != nil {
 		t.Fatal(e)
 	}
 	desk.filename = file
@@ -86,7 +108,7 @@ func TestImportedEditionUsesAllNativeServicesAndPreservesAnnotations(t *testing.
 	desk := &editionDesktop{}
 	s := NewWithEditions(data, store, desk, lib, filepath.Join(root, "imports"))
 	defer CloseEditionInputs(s)
-	id := importFixture(t, s, desk, "晨光照耀。[补词]<BR/>第二行。", "")
+	id := importFixtureWithCompression(t, s, desk, "晨光照耀。[补词]<BR/>第二行。", "", true)
 	ts := s.ListTranslations()
 	if !ts.OK || len(*ts.Data) != 5 {
 		t.Fatal("catalogue not refreshed")

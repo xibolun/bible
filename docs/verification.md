@@ -14,6 +14,17 @@ Mock, including minimum-window/large-font preview, multiline text, offline
 read/search/copy/card/projection and disabled-duplicate recovery. These are not
 claims that every platform module or every versification is supported.
 
+GZIP regressions cover a real compressed resource, HTTP-decoded SQLite retaining
+a `.gz` filename, bounded output, CRC/truncation, multiple members, trailing data,
+nested archives and staging cleanup. MySword ASV-style wrapper rules use exact
+text-preserving recognition, never source regex execution; synthetic Hebrew and
+combining-character samples verify that text survives. The compressed native
+service fixture proceeds through inspection, install, reading/search/copy/cards,
+projection and version/annotation recovery. A local check of the official ASV
+2.3.7 download and its HTTP-decoded database produces the same 66-book / 1189-
+chapter / 31,102-record content fingerprint. That corpus stays outside source and
+CI artifacts; regression fixtures remain self-authored synthetic text.
+
 Linux local native QA additionally uses an isolated profile and GTK portal to
 select a real file, preview and install it, delete the source, restart and read
 the persisted partial edition, then remove it and verify fallback. This verifies

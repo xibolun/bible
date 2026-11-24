@@ -41,7 +41,7 @@ func (d *desktop) ChooseEditionFile() (string, error) {
 	if d.app == nil {
 		return "", fmt.Errorf("desktop unavailable")
 	}
-	return d.app.Dialog.OpenFile().SetTitle("导入本地圣经译本 · Import Bible edition").CanChooseFiles(true).CanChooseDirectories(false).AddFilter("Bible editions", "*.SQLite3;*.sqlite3;*.bbl.mybible;*.ont;*.ot;*.nt;*.xml;*.osis;*.zip").AllowsOtherFileTypes(true).AttachToWindow(d.window).PromptForSingleSelection()
+	return d.app.Dialog.OpenFile().SetTitle("导入本地圣经译本 · Import Bible edition").CanChooseFiles(true).CanChooseDirectories(false).AddFilter("Bible editions", "*.SQLite3;*.sqlite3;*.bbl.mybible;*.ont;*.ot;*.nt;*.xml;*.osis;*.zip;*.gz").AllowsOtherFileTypes(true).AttachToWindow(d.window).PromptForSingleSelection()
 }
 
 func (d *desktop) ProjectionChanged(state service.ProjectionState) {

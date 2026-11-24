@@ -204,8 +204,11 @@ func parseSQLite(ctx context.Context, filename string, d *Draft, canon *bible.Da
 		if count != 1 {
 			return fail("SCHEMA_UNSUPPORTED", "MySword Details row count")
 		}
-		if d.Metadata["verserules"] != "" {
+		if !supportedMySwordRules(d.Metadata["verserules"]) {
 			return fail("FORMAT_UNSUPPORTED", "MySword custom VerseRules")
+		}
+		if d.Metadata["verserules"] != "" {
+			note(d, "已识别font/HEB样式包装；保留正文，不执行文件中的正则表达式 / Recognized font/HEB wrappers; text retained without executing source regular expressions")
 		}
 		d.Name = d.Metadata["description"]
 		if d.Name == "" {
@@ -244,7 +247,7 @@ func parseSQLite(ctx context.Context, filename string, d *Draft, canon *bible.Da
 		if len(text) > 1<<20 {
 			return fail("IMPORT_LIMIT", "source verse")
 		}
-		kind := "gbf"
+		kind := "mysword"
 		if d.Format == "mybible" {
 			kind = "mybible"
 		}
@@ -262,4 +265,18 @@ func parseSQLite(ctx context.Context, filename string, d *Draft, canon *bible.Da
 		return e
 	}
 	return nil
+}
+
+// These exact ASV 2.3.7 rules only unwrap styling. The tokenizer implements
+// their text-preserving behavior; arbitrary replacement rules are not executed.
+func supportedMySwordRules(rules string) bool {
+	rules = strings.NewReplacer(`\r\n`, "\n", `\n`, "\n", `\t`, "\t", "\r\n", "\n").Replace(rules)
+	for _, line := range strings.Split(rules, "\n") {
+		switch strings.TrimSpace(line) {
+		case "", "<font color=(.*?)>(.*?)</font>\t$2", "<HEB>(.*?)<heb>\t$1":
+		default:
+			return false
+		}
+	}
+	return true
 }
