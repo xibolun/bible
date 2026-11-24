@@ -136,7 +136,7 @@ func (s *Service) ChooseEditionImport() Result[EditionChoice] {
 	_, cancel := context.WithCancel(context.Background())
 	id := rand.Text()
 	job := &importJob{view: EditionImportJob{ID: id, Status: "queued", Samples: []importer.Record{}}, expires: time.Now().Add(30 * time.Minute), filename: out.Name(), name: filepath.Base(filename), cancel: cancel}
-	if err = m.library.SaveJob(id, "queued", job.view); err != nil {
+	if err = saveImportJob(m, job); err != nil {
 		cancel()
 		_ = os.Remove(out.Name())
 		return failure[EditionChoice]("IMPORT_IO")
@@ -164,6 +164,15 @@ func publicJob(job *importJob) EditionImportJob {
 	}
 	return v
 }
+
+// Samples are only for the live preview. Persist progress and provenance without
+// creating another scripture copy that could survive an edition's removal.
+func saveImportJob(m *editionManager, job *importJob) error {
+	v := publicJob(job)
+	v.Samples = nil
+	return m.library.SaveJob(v.ID, v.Status, v)
+}
+
 func (s *Service) InspectEditionImport(token string) Result[EditionImportJob] {
 	m := s.editions
 	if m == nil || m.library == nil {
@@ -185,7 +194,7 @@ func (s *Service) InspectEditionImport(token string) Result[EditionImportJob] {
 	j.cancel()
 	j.cancel = cancel
 	j.view.Status = "inspecting"
-	if err := m.library.SaveJob(j.view.ID, j.view.Status, j.view); err != nil {
+	if err := saveImportJob(m, j); err != nil {
 		cancel()
 		j.view.Status = "failed"
 		return failure[EditionImportJob]("IMPORT_IO")
@@ -220,7 +229,7 @@ func (s *Service) InspectEditionImport(token string) Result[EditionImportJob] {
 				}
 			}
 		}
-		if err = m.library.SaveJob(j.view.ID, j.view.Status, publicJob(j)); err != nil {
+		if err = saveImportJob(m, j); err != nil {
 			j.draft = nil
 			j.view.Status = "failed"
 			j.view.Problem = &EditionImportProblem{"IMPORT_IO", ""}
@@ -274,7 +283,7 @@ func (s *Service) CancelEditionImport(id string) Result[EditionImportJob] {
 		_ = os.Remove(j.filename)
 		j.filename = ""
 	}
-	if err := m.library.SaveJob(id, j.view.Status, publicJob(j)); err != nil {
+	if err := saveImportJob(m, j); err != nil {
 		return failure[EditionImportJob]("IMPORT_IO")
 	}
 	return success(publicJob(j))
@@ -300,7 +309,7 @@ func (s *Service) CommitEditionImport(id string, options editions.Commit) Result
 		return failure[EditionImportJob]("IMPORT_BUSY")
 	}
 	j.view.Status = "committing"
-	if err := m.library.SaveJob(id, "committing", publicJob(j)); err != nil {
+	if err := saveImportJob(m, j); err != nil {
 		j.view.Status = "ready"
 		m.mu.Unlock()
 		return failure[EditionImportJob]("IMPORT_IO")
@@ -314,7 +323,7 @@ func (s *Service) CommitEditionImport(id string, options editions.Commit) Result
 	defer m.mu.Unlock()
 	if err != nil {
 		j.view.Status = "ready"
-		_ = m.library.SaveJob(id, "ready", publicJob(j))
+		_ = saveImportJob(m, j)
 		return importFailure[EditionImportJob](err)
 	}
 	j.view.Status = "done"
@@ -322,7 +331,7 @@ func (s *Service) CommitEditionImport(id string, options editions.Commit) Result
 	j.draft = nil
 	j.view.Report = nil
 	// Commit is the source of truth even if writing the job summary later fails.
-	_ = m.library.SaveJob(id, "done", publicJob(j))
+	_ = saveImportJob(m, j)
 	return success(publicJob(j))
 }
 func (s *Service) SetEditionEnabled(id string, enabled bool) Result[bool] {

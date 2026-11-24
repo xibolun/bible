@@ -172,6 +172,13 @@ func TestImportedEditionUsesAllNativeServicesAndPreservesAnnotations(t *testing.
 	if len(marks) != 0 {
 		t.Fatal("requested purge retained annotations")
 	}
+	contents, err := os.ReadFile(filepath.Join(root, "editions.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(contents), "晨光照耀") {
+		t.Fatal("removed scripture remained in the import job preview cache")
+	}
 }
 func TestInterruptedEditionPurgeResumesAfterRestart(t *testing.T) {
 	root := t.TempDir()
